@@ -10,7 +10,7 @@
  *  1. La tabla cross-funnel del documento, con sus umbrales literales.
  *  2. El evaluador genérico que aplica un benchmark a un valor resuelto.
  *
- * Referencia: docs/FUNNELS_ARCHITECTURE.md §3.5 y §9.1
+ * Referencia: docs/specs/FUNNELS_ARCHITECTURE.md §3.5 y §9.1
  */
 
 import type {

@@ -1,7 +1,7 @@
 # Plan de onboarding guiado — Limitless / Limitless
 
 > Documento de diseño. Estado: **propuesta, sin implementar**.
-> Leer junto con `CLAUDE.md`, `PENDIENTES.md` y `docs/FUNNELS_ARCHITECTURE.md`.
+> Leer junto con `CLAUDE.md`, `PENDIENTES.md` y `docs/specs/FUNNELS_ARCHITECTURE.md`.
 
 ---
 
@@ -110,7 +110,7 @@ Datos verificados contra el registry de npm (2026-08-31), no de memoria:
 
 ### Recomendación: dos piezas, no cuatro
 
-**El flujo —wizard y checklist— se construye acá, sin librería.** No por gusto: **el estado tiene que salir de la base de datos**, y ninguna librería de onboarding puede saber si *esta* organización ya tiene una oferta cargada. Un motor de flujo del lado del cliente resolvería el problema equivocado, y encima habría que alimentarlo con los mismos datos que ya tenemos. A eso se suma que la UI es un design system propio (`@ai-coo/ui` + `DESIGN.md`, notch nav, `EmptyState`, glass): el DOM de una librería de flujos habría que pelearlo con CSS.
+**El flujo —wizard y checklist— se construye acá, sin librería.** No por gusto: **el estado tiene que salir de la base de datos**, y ninguna librería de onboarding puede saber si *esta* organización ya tiene una oferta cargada. Un motor de flujo del lado del cliente resolvería el problema equivocado, y encima habría que alimentarlo con los mismos datos que ya tenemos. A eso se suma que la UI es un design system propio (`@ai-coo/ui` + `docs/diseno/design-system.md`, notch nav, `EmptyState`, glass): el DOM de una librería de flujos habría que pelearlo con CSS.
 
 **Los tours contextuales: Driver.js.** Vanilla, cero dependencias, el más liviano y el más usado. Al ser agnóstico no pelea con RSC ni con React 19, y no impone componentes: se le pasan selectores y él resuelve el resto en el momento del `drive()`, que es exactamente lo que hace falta cuando el DOM lo pinta el servidor.
 
@@ -182,7 +182,7 @@ Esto resuelve **gratis** las tres situaciones difíciles: si el usuario saltea u
 - `pnpm add driver.js` en `apps/web`.
 - `lib/onboarding/tours.ts` — un tour por módulo, definido como datos (id, pasos con selector y texto). Los selectores van como `data-tour="..."` en el JSX, **nunca clases de Tailwind**: una clase cambia con el primer refactor de estilos y el tour se rompe en silencio.
 - `components/onboarding/tour-runner.tsx` (`"use client"`) — dispara el tour la primera vez que el usuario entra a un módulo, marca `tours_seen` al terminar, y **respeta los permisos**: no se ofrece un tour de un módulo que el usuario no puede ver.
-- Estilos del popover alineados a los tokens de `DESIGN.md`.
+- Estilos del popover alineados a los tokens de `docs/diseno/design-system.md`.
 - Prioridad: Embudos → Marketing/Contenido → Agente → Ventas/Bandeja. Empezar por Embudos porque es el de mayor costo de setup.
 
 ### Fase 4 — Onboarding por acción y visibilidad interna
@@ -212,5 +212,5 @@ El gate más el checklist ya son un onboarding completo y **no agregan ninguna d
 - **El gate agrega consultas al middleware**, que corre en cada request. Mitigación: la consulta va sólo cuando hay usuario, el rol es `founder` y no es una request de Server Action; si el costo se nota, `gate_completed_at` se puede cachear en una cookie firmada. **Medirlo antes de optimizar.**
 - **El escape del super-admin es la única salida del gate.** Si un cliente se traba, hoy depende de que alguien de Limitless le marque la bandera. Vale la pena que el panel de la Fase 4 —quién está trabado y en qué paso— llegue antes de tener muchas cuentas nuevas a la vez.
 - **Los tours se rompen callados** si un selector desaparece. Cuando llegue la Fase 3: anclajes `data-tour` en el JSX, nunca clases de Tailwind, y un test que verifique que cada selector de `tours.ts` existe en el código.
-- **`CLAUDE.md` tiene dos filas desactualizadas** que conviene corregir en la misma sesión que se implemente esto: lista `app/onboarding/actions.ts` como "onboarding founder" (no existe), y menciona un acento primario violeta `#7C3AED` cuando `DESIGN.md` y los tokens definen **naranja `#E15D12`**.
-- **Sin verificar contra sesión real.** Igual que el resto de lo construido en agosto, el entorno de desarrollo no puede renderizar páginas autenticadas. Suma su bloque a `docs/PLAN_VERIFICACION.md` al implementar: el gate con cuenta founder nueva, el no-gate con cuenta invitada, y el no-gate con org holding.
+- **`CLAUDE.md` tiene dos filas desactualizadas** que conviene corregir en la misma sesión que se implemente esto: lista `app/onboarding/actions.ts` como "onboarding founder" (no existe), y menciona un acento primario violeta `#7C3AED` cuando `docs/diseno/design-system.md` y los tokens definen **naranja `#E15D12`**.
+- **Sin verificar contra sesión real.** Igual que el resto de lo construido en agosto, el entorno de desarrollo no puede renderizar páginas autenticadas. Suma su bloque a `docs/operacion/verificacion-manual.md` al implementar: el gate con cuenta founder nueva, el no-gate con cuenta invitada, y el no-gate con org holding.

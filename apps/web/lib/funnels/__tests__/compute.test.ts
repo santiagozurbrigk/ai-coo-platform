@@ -3,7 +3,7 @@
  *
  * El grupo que más importa es la propagación de `null`: es la regla que evita
  * que el módulo confunda un hueco de instrumentación con una rotura de negocio
- * (docs/FUNNELS_ARCHITECTURE.md §9.1).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §9.1).
  */
 
 import { describe, it, expect } from "vitest";

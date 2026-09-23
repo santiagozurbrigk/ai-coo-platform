@@ -1,7 +1,7 @@
 # Discord
 
 > Verificado contra el código el 2026-09-23 (commit 038caca). Backlog del área: `PENDIENTES.md` § Discord.
-> Runbook de despliegue del bot: `docs/DISCORD_DEPLOY.md` (sigue vigente salvo los nombres de variables, ver abajo).
+> Runbook de despliegue del bot: [`docs/operacion/discord-bot-deploy.md`](../operacion/discord-bot-deploy.md).
 
 ## Qué es
 
@@ -131,8 +131,7 @@ en `bot_profile_error` y queda visible hasta que se resuelva.
 | Web (Vercel) | `DISCORD_CLIENT_ID` o `NEXT_PUBLIC_DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`, `DISCORD_BOT_TOKEN`, `DISCORD_REDIRECT_URI` | OAuth de instalación y REST del bot |
 | Web | `LIMITLESS_WEBHOOK_SECRET` (o `OTC_WEBHOOK_SECRET`) | Valida las llamadas del bot (`lib/discord/webhook-auth.ts`, fail-closed, tiempo constante) |
 
-`docs/DISCORD_DEPLOY.md` todavía lista `OTC_API_URL` / `OTC_WEBHOOK_SECRET`: funcionan por el respaldo,
-pero los nombres nuevos son los `LIMITLESS_*`.
+Los nombres `OTC_*` siguen funcionando como respaldo; los vigentes son los `LIMITLESS_*`.
 
 ## Reglas de negocio y decisiones no obvias
 

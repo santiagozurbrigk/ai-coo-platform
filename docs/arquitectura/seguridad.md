@@ -2,6 +2,8 @@
 
 > Verificado contra el código el 2026-09-23 (commit 038caca). Lo que está **abierto** no se describe acá: está en `PENDIENTES.md` § Infraestructura (IDs `[AUD-SEG-*]`, `[PERMISOS-SERVER-ACTIONS]`, `[SEG-*]`). Este doc describe cómo funciona hoy.
 
+El detalle de sesión, organización efectiva, holding y permisos por módulo está en `docs/arquitectura/auth-organizaciones-y-permisos.md`; acá va el modelo de seguridad completo.
+
 ## Resumen
 
 | Capa | Mecanismo | Archivo |
@@ -95,8 +97,8 @@ Contador en Postgres (`consume_rate_limit`), fail-open. Límites y usos en `docs
 
 ## Lo que ya no aplica
 
-- `docs/security-audit-api-keys.md` (2026-06-06) sigue siendo correcto en lo que dice (ningún secreto en el bundle, rate limit en Postgres, policies SELECT eliminadas en `20260606100000`), pero está incompleto: esta página lo reemplaza.
-- `OPERATIONAL_NOTES.md` dice que `assertCronAuthorized` "permite acceso si `CRON_SECRET` no está set". **Ya no**: lanza.
+- `docs/archivo/security-audit-api-keys.md` (2026-06-06) sigue siendo correcto en lo que dice (ningún secreto en el bundle, rate limit en Postgres, policies SELECT eliminadas en `20260606100000`), pero está incompleto: esta página lo reemplaza.
+- `assertCronAuthorized` ya no "permite acceso si `CRON_SECRET` no está set" (lo decían las notas operativas viejas): lanza.
 
 ## Archivos clave
 

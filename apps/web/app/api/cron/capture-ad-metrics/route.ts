@@ -9,11 +9,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * I-1 del plan de integraciones — ver docs/FUNNELS_SOURCE_MAP.md §5.
+ * I-1 del plan de integraciones — ver docs/specs/FUNNELS_SOURCE_MAP.md §5.
  *
  * Captura las métricas de anuncios del día y las persiste en `ad_metrics_daily`.
  * Sin este cron el histórico de la etapa Spend no es reconstruible, porque los
- * ads de Zernio son live-fetch (docs/FUNNELS_ARCHITECTURE.md §9.3).
+ * ads de Zernio son live-fetch (docs/specs/FUNNELS_ARCHITECTURE.md §9.3).
  *
  * Corre después de medianoche para capturar el día ya cerrado. Se puede pedir
  * una fecha puntual con `?date=YYYY-MM-DD` para rellenar un día perdido, dentro

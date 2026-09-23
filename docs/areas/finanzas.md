@@ -139,7 +139,7 @@ Finanzas: escriben en `payment_transactions`, que este módulo no lee.
 
 Sin tests: `derive-finance-summary.ts`, `derive-monthly-series.ts`, `compute-expenses-summary.ts`,
 `enrich-team-compensation.ts`, `computeTeamPayrollAction`, `lib/mercadopago/*` (incluida la verificación de
-firma), `lib/stripe/*`. No hay e2e. `[T-1]` de `docs/TESTING_BACKLOG.md` sigue abierto.
+firma), `lib/stripe/*`. No hay e2e. Backlog: `[T-1]` en `PENDIENTES.md`.
 
 ## Archivos clave
 
@@ -157,4 +157,4 @@ firma), `lib/stripe/*`. No hay e2e. `[T-1]` de `docs/TESTING_BACKLOG.md` sigue a
 ## Lo que ya no existe
 
 - **Secciones de Stripe y Mercado Pago dentro de `/finance`** (`stripe-section.tsx`, `mercadopago-section.tsx`):
-  borradas. `OPERATIONAL_NOTES.md` todavía dice que Finanzas muestra Stripe en vivo.
+  borradas.

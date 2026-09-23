@@ -1,7 +1,7 @@
 # Whop para Limitless — verificación del mapeo de la unidad I-2
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §1](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas sobre
 Whop, y marca qué hay que **corregir en el código ya escrito**.
 
 **Capturado el 2026-08-30** de `docs.whop.com`.
@@ -196,7 +196,7 @@ Datos operativos que conviene respetar en el handler:
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Que la firma valide** con el secreto `ws_...` usado como clave literal.
 2. **Que `settlement_amount` sea el monto cobrado** y coincida con el dashboard de Whop

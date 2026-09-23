@@ -538,8 +538,8 @@ vigente.
 | **5** | Snapshots periódicos + pulso diario | Historia y las 3 cadencias del doc | Pendiente |
 
 **Track de integraciones:** ✅ **las diez unidades construidas** entre el 2026-08-29 y el
-2026-08-30. Ver `docs/FUNNELS_SOURCE_MAP.md` §5 y el estado de verificación en
-`docs/PLAN_VERIFICACION.md` §11.
+2026-08-30. Ver `docs/specs/FUNNELS_SOURCE_MAP.md` §5 y el estado de verificación en
+`docs/operacion/verificacion-manual.md` (sección Embudos).
 
 > ⚠️ **La Fase 4 destapó un hueco de la Fase 0/1:** `computeFunnel` calculaba los
 > KPIs universales pero **no los devolvía** — sólo se usaban de rebote cuando una

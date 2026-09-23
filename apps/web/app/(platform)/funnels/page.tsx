@@ -16,7 +16,7 @@ import { paths } from "@/routes/paths";
  *
  * Es un índice real y no un redirect al último usado: un redirect hace que el
  * mismo click lleve a lugares distintos según el día
- * (docs/FUNNELS_ARCHITECTURE.md §6).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §6).
  *
  * Cada tarjeta muestra **cuántos pasos tienen fuente**, no un número de negocio.
  * Es lo que el usuario necesita para elegir a cuál entrar, y evita resolver cada

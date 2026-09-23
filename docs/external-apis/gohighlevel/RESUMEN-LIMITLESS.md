@@ -1,7 +1,7 @@
 # GoHighLevel para Limitless — lo que hace falta para la unidad I-4
 
 Este documento responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §3](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas sobre
 oportunidades y pipelines. Todo lo que dice sale de la copia local que está en esta
 misma carpeta; cada afirmación linkea a la página de la que sale.
 
@@ -191,7 +191,7 @@ contar del lado de Limitless:
 ## Qué queda por verificar contra una cuenta real
 
 Estas tres cosas no se pueden cerrar leyendo documentación, porque la documentación
-no las dice. Van al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md) cuando se
+no las dice. Van al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md) cuando se
 construya I-4:
 
 1. **La forma real del objeto `pipeline`** y de sus etapas (`GET /opportunities/pipelines`).

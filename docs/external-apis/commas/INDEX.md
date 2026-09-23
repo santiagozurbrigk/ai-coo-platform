@@ -12,7 +12,7 @@ en su front-matter.
 
 | Archivo | Qué es |
 | --- | --- |
-| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita, con las preguntas de `API_DOCS_PENDIENTES.md` §2 respondidas |
+| [`RESUMEN-LIMITLESS.md`](./RESUMEN-LIMITLESS.md) | **Empezar por acá** — lo que Limitless necesita, con las preguntas de `apis-sin-documentacion.md` respondidas |
 
 ---
 

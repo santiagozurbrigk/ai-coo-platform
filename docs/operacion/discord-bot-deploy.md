@@ -77,8 +77,8 @@ cargarlo en Railway.
 | `DISCORD_BOT_TOKEN` | Paso 2 |
 | `SUPABASE_URL` | Dashboard de Supabase → Settings → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | Mismo lugar. **Es la service role, no la anon** |
-| `OTC_API_URL` | La URL pública de Limitless, sin barra al final |
-| `OTC_WEBHOOK_SECRET` | **El mismo valor** que ya tenés en Vercel |
+| `LIMITLESS_API_URL` | La URL pública de Limitless, sin barra al final (acepta el nombre viejo `OTC_API_URL`) |
+| `LIMITLESS_WEBHOOK_SECRET` | **El mismo valor** que ya tenés en Vercel (acepta el nombre viejo `OTC_WEBHOOK_SECRET`) |
 
 **Las cinco son obligatorias.** Si falta alguna el bot no arranca y te dice cuál
 —antes fallaba en silencio con las dos últimas, que ahora también se validan.

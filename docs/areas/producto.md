@@ -116,7 +116,7 @@ Ninguna directa. Usa Anthropic (sugerencia desde contexto) y el RAG (OpenAI embe
 ## Tests
 
 Ninguno. `lib/product/mapper.ts` (550 líneas), `offer-metrics.ts` y `graph-layout.ts` son lógica pura sin cobertura
-(`[T-22]` en `docs/TESTING_BACKLOG.md`). No hay e2e.
+(`[T-22]` en `PENDIENTES.md`). No hay e2e.
 
 ## Archivos clave
 
@@ -132,6 +132,6 @@ Ninguno. `lib/product/mapper.ts` (550 líneas), `offer-metrics.ts` y `graph-layo
 
 ## Lo que ya no existe
 
-- **Fallback a `mocks/product.ts`** con badge "Mock · Phase 2" (lo describe `OPERATIONAL_NOTES.md`): hoy sin datos
+- **Fallback a `mocks/product.ts`** con badge "Mock · Phase 2": hoy sin datos
   hay empty state.
-- **Propuesta de valor sólo en `useState`** (`docs/pending-features-audit.md`): ya persiste con `saveValuePropositionAction`.
+- **Propuesta de valor sólo en `useState`**: ya persiste con `saveValuePropositionAction`.

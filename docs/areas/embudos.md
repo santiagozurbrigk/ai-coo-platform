@@ -165,7 +165,7 @@ webinar y VSL → sólo `ad_clicks` en su paso Click. Ninguna plantilla tiene st
 | **Commas (ex Fanbasis)** | idem; id de proveedor `fanbasis`, host `www.fanbasis.com` | Webhooks HMAC-SHA256 hex sin timestamp. **Nunca reintenta** | idem |
 
 Resúmenes por proveedor: `docs/external-apis/<proveedor>/RESUMEN-LIMITLESS.md`.
-Mapa general de integraciones: `docs/INTEGRACIONES_MAPA.md` y `lib/integrations/registry.ts`.
+Mapa general de integraciones: `docs/integraciones/README.md` y `lib/integrations/registry.ts`.
 
 ## Reglas de negocio y decisiones no obvias
 
@@ -252,7 +252,7 @@ Mapa general de integraciones: `docs/INTEGRACIONES_MAPA.md` y `lib/integrations/
 - Clientes HTTP sin timeout (GHL, VTurb, Hyros, WebinarJam).
 - Todo lo de integraciones está **sin verificar contra cuentas reales**
   `[EMBUDOS-CUENTAS-REALES]`; la lista de verificación del área está en
-  `docs/PLAN_VERIFICACION.md` §1–12.
+  `docs/operacion/verificacion-manual.md` (sección Embudos).
 
 ## Tests
 

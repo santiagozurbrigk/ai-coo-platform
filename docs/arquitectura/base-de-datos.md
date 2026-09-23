@@ -20,9 +20,9 @@ Una sola base PostgreSQL 17 en Supabase (Auth + Storage + pgvector), multi-tenan
 
 **El historial de producción (`supabase_migrations.schema_migrations`) tiene exactamente las versiones de `supabase/migrations/`.** Verificado el 2026-09-23: 175 en el repo, las mismas 175 en producción, mismos nombres y orden.
 
-Dos matices que un dev tiene que saber:
+Matices que un dev tiene que saber:
 - `20260711180000_org_ai_credentials` figura aplicada **aunque sus columnas OAuth de Claude no existen en producción**. Es a propósito: si quedara pendiente, `supabase db push` recrearía la vista `organization_claude_status` sin el filtro por org. Si algún día se quiere OAuth de Claude, va en una migración nueva.
-- Producción tiene objetos que el repo no crea: la función `current_user_is_founder_or_admin()` (la usa la policy consolidada de `profiles` en prod) y `rls_auto_enable()` (de la plataforma). Y policies consolidadas con otros nombres (`Users read own or portfolio clients` en vez de dos policies). Detalle en `docs/DB_DIFF_PRODUCCION_2026-09-22.md`.
+- Producción tiene objetos que el repo no crea: la función `current_user_is_founder_or_admin()` (la usa la policy consolidada de `profiles` en prod) y `rls_auto_enable()` (de la plataforma). Y policies consolidadas con otros nombres (`Users read own or portfolio clients` en vez de dos policies). Detalle en `docs/historial/DB_DIFF_PRODUCCION_2026-09-22.md`.
 - En prod `authenticated` tiene SELECT a nivel tabla sobre `organizations`; en el repo es por columna. Un miembro puede leer el ciphertext de la key de Claude de su propia org (inútil sin `ENCRYPTION_MASTER_KEY`). Ver `[DB-ORGS-SELECT-COLUMNAS]`.
 
 ### Cómo aplicar una migración
@@ -212,4 +212,4 @@ Legacy vivo pero vacío en prod: `conversations`, `instagram_messages`, `instagr
 - `supabase/migrations/20260808100000_distributed_rate_limits.sql`, `20260907100000_rate_limit_reset_at_ambiguo.sql`
 - `supabase/ci/check-migrations.sh`, `supabase/ci/supabase-stubs.sql`
 - `apps/web/lib/supabase/{server,admin,fetch-all-rows}.ts`
-- `docs/DB_DIFF_PRODUCCION_2026-09-22.md` (diff histórico con prod)
+- `docs/historial/DB_DIFF_PRODUCCION_2026-09-22.md` (diff histórico con prod)

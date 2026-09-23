@@ -134,7 +134,7 @@ proveedor y los normaliza a `IntegrationHealth` (`lib/integrations/health.ts`). 
 (categoría, auth, descripción) vive en el registro único `lib/integrations/registry.ts`; los ids en
 `constants/integrations.ts`; colores en `lib/integrations/brand-colors.ts`. La página además renderiza en
 el servidor la configuración de VTurb, Hyros, WebinarJam, GHL, pagos, Fathom y ManyChat y se la pasa al
-tablero como props. Detalle de cada proveedor: `docs/INTEGRACIONES_MAPA.md` y el doc del área que la use.
+tablero como props. Detalle de cada proveedor: `docs/integraciones/README.md` y el doc del área que la use.
 
 ### Bajas (super admin)
 

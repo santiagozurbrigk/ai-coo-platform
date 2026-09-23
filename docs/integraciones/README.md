@@ -1,6 +1,6 @@
 # Integraciones
 
-> Verificado contra el código el 2026-09-23 (commit 038caca): `apps/web/lib/integrations/registry.ts`, `app/api/integrations/*`, `app/api/webhooks/*`, `apps/web/vercel.json` y conteo de filas de las tablas `*_integrations` en producción. Reemplaza a `docs/INTEGRACIONES_MAPA.md`. Backlog: `PENDIENTES.md` § Infraestructura y el § de cada área.
+> Verificado contra el código el 2026-09-23 (commit 038caca): `apps/web/lib/integrations/registry.ts`, `app/api/integrations/*`, `app/api/webhooks/*`, `apps/web/vercel.json` y conteo de filas de las tablas `*_integrations` en producción. Reemplaza a `docs/integraciones/README.md`. Backlog: `PENDIENTES.md` § Infraestructura y el § de cada área.
 
 ## Cómo está armado
 
@@ -102,7 +102,7 @@ El registro es lo que pinta la pantalla; donde discrepa con el código, el códi
 | YouTube: `transport: cron`, destino `content_assets` | No hay cron de YouTube en `vercel.json`; `lib/google/sync-youtube.ts` escribe `content_pieces` y corre al conectar y a mano |
 | Discord: mensajes por `webhook` | El bot escribe `discord_messages` directo con service role; `/api/discord/message` es un stub |
 | Stripe / Mercado Pago: cobros → `payments` por webhook | No existe tabla `payments`; Stripe no tiene webhook; MP tiene webhook pero sin tabla de destino propia |
-| `docs/INTEGRACIONES_MAPA.md`: Discord "no se ofrece" | `listed: true` |
+| `docs/integraciones/README.md`: Discord "no se ofrece" | `listed: true` |
 
 Ver `[INTEGRACIONES-REGISTRO-DESALINEADO]` en pendientes.
 
@@ -124,7 +124,7 @@ Cómo usarla:
 1. Empezar por `docs/external-apis/<proveedor>/RESUMEN-LIMITLESS.md`: lo que Limitless usa de ese proveedor, con sus trampas. Después `INDEX.md` o `ENDPOINTS*.md`.
 2. Cada archivo tiene la URL de origen en el front-matter; si algo no cierra, manda la fuente viva.
 3. Si falta un proveedor, probar su URL y buscar un spec OpenAPI; bajarlo con `docs/external-apis/tools/regenerar.sh` como modelo (hay un `build_<proveedor>.py` por cada uno) y commitearlo.
-4. Si no se puede leer la documentación oficial, registrar lo asumido en `docs/API_DOCS_PENDIENTES.md`, persistir el payload crudo antes de interpretarlo, nunca inventar un valor (lo no entendido queda `unmapped` con motivo) y aislar el mapeo en un archivo por proveedor.
+4. Si no se puede leer la documentación oficial, registrar lo asumido en `docs/integraciones/apis-sin-documentacion.md`, persistir el payload crudo antes de interpretarlo, nunca inventar un valor (lo no entendido queda `unmapped` con motivo) y aislar el mapeo en un archivo por proveedor.
 
 Zernio, Calendly, ManyChat, Typeform, Google, Meta, Stripe, Mercado Pago, Unipile y Discord **no** tienen copia local.
 
@@ -135,4 +135,4 @@ Zernio, Calendly, ManyChat, Typeform, Google, Meta, Stripe, Mercado Pago, Unipil
 - `apps/web/app/integrations/actions.ts` (`getIntegrationsOverviewAction`)
 - `apps/web/app/(platform)/integrations/`, `apps/web/components/integrations/`
 - `apps/web/lib/<proveedor>/` (cliente, integración, sync)
-- `docs/external-apis/README.md`, `docs/API_DOCS_PENDIENTES.md`
+- `docs/external-apis/README.md`, `docs/integraciones/apis-sin-documentacion.md`

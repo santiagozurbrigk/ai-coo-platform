@@ -35,7 +35,7 @@ export const runtime = "nodejs";
  *
  * ⚠️ El payload de la vía 2 lo arma quien configura el workflow y NO está
  * documentado. El normalizador busca los campos en varias capas y persiste el
- * evento crudo antes de interpretarlo — ver docs/API_DOCS_PENDIENTES.md.
+ * evento crudo antes de interpretarlo — ver `docs/integraciones/apis-sin-documentacion.md`.
  */
 export async function POST(request: Request) {
   const url = new URL(request.url);

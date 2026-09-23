@@ -10,7 +10,7 @@
  * Los nombres son transparentes, pero qué cuenta exactamente como `viewed`
  * contra `started`, o qué deduplican los sufijos `_uniq`, hay que confirmarlo
  * contra el dashboard. Por eso el payload crudo se persiste antes de pasar por
- * acá — ver docs/PLAN_VERIFICACION.md.
+ * acá — ver docs/operacion/verificacion-manual.md.
  */
 
 import type { VTurbEngagement, VTurbStats } from "./client";

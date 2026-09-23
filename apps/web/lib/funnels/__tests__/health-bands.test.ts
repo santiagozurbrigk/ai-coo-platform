@@ -2,7 +2,7 @@
  * Evaluador de health bands.
  *
  * El grupo más importante es el de `null` vs `0`: es el riesgo principal del
- * diseño (docs/FUNNELS_ARCHITECTURE.md §9.1). Confundir un hueco de
+ * diseño (docs/specs/FUNNELS_ARCHITECTURE.md §9.1). Confundir un hueco de
  * instrumentación con una rotura de negocio hace que el diagnóstico mienta.
  */
 

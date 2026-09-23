@@ -1,7 +1,7 @@
 # VTurb para Limitless — lo que hace falta para la unidad I-6
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §4](../../API_DOCS_PENDIENTES.md) dejó abiertas.
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas.
 Todo sale del [`openapi.json`](./openapi.json) y de las páginas de esta carpeta.
 
 **Capturado el 2026-08-30.**
@@ -190,7 +190,7 @@ Las [release notes](./en/03-release-notes.md) documentan un bug que estuvo vivo 
 
 ## Qué queda por verificar contra una cuenta real
 
-Van al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md) cuando se construya I-6:
+Van al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md) cuando se construya I-6:
 
 1. **Que `X-Api-Version: v1` sea efectivamente el valor aceptado**, dada la
    discrepancia con el `info.version: v3` del spec.

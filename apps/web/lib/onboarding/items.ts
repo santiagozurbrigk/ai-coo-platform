@@ -3,7 +3,7 @@
  *
  * Es sólo datos: qué se le pide al usuario, en qué nivel, y a dónde lo manda.
  * La pregunta de si un ítem **está cumplido** no se responde acá — se deriva
- * de las tablas reales en `derive.ts`. Ver docs/ONBOARDING_PLAN.md.
+ * de las tablas reales en `derive.ts`. Ver docs/specs/ONBOARDING_PLAN.md.
  */
 
 import { paths } from "@/routes/paths";

@@ -1,14 +1,14 @@
 # Design system Limitless
 
 > Verificado contra el código el 2026-09-23 (commit 038caca). Reemplaza a `DESIGN.md` (raíz) y a
-> `docs/DESIGN_SYSTEM.md`: se partió de `DESIGN.md`, se corrigió todo lo que ya no coincidía con
+> `docs/archivo/DESIGN_SYSTEM.md`, ambos archivados en `docs/archivo/`: se partió de `DESIGN.md`, se corrigió todo lo que ya no coincidía con
 > `packages/ui/src/styles/tokens.css`, `apps/web/app/globals.css`, `packages/config/tailwind/preset.ts` y
 > `packages/ui/src`, y se sumó lo útil de `DESIGN_SYSTEM.md` (índice de primitivas, showcase).
 > Cómo se arma la UI (shell, notch nav, patrones): [`ui-y-navegacion.md`](./ui-y-navegacion.md).
 >
-> Citan `DESIGN.md` desde el código: `apps/web/lib/brand.ts`, `apps/web/lib/funnels/types.ts` y
-> `apps/web/lib/funnels/validate-template.ts` (regla "token, nunca hex"). Si se borra `DESIGN.md`, apuntar
-> esos comentarios a este archivo.
+> Citan este archivo desde el código: `apps/web/lib/brand.ts`, `apps/web/lib/funnels/types.ts` y
+> `apps/web/lib/funnels/validate-template.ts` (regla "token, nunca hex"). Si se mueve este archivo,
+> actualizar esos comentarios.
 
 **Fuentes de verdad, en orden:** `tokens.css` (variables HSL por tema) → `preset.ts` (clases Tailwind) →
 `globals.css` (superficies RGB, gráficos, clases utilitarias) → `apps/web/lib/brand.ts` (hex para contextos
@@ -248,7 +248,7 @@ Respetan `usePrefersReducedMotion`: `StaggerFade`, `AnimatedNumber`, `Spotlight`
 | `DataTable` con Tanstack, orden y paginación | Tabla simple, sin dependencias |
 | `shadow-float` como clase Tailwind | Sólo variable CSS |
 | Glass light "cards sólidas blancas" | Probablemente casi transparente (ver `[GLASS-TOKENS-PISADOS]`) |
-| `docs/DESIGN_SYSTEM.md`: "dark mode only", `PlatformShell` con sidebar + topbar + context panel | Dos temas; shell con notch nav, sin sidebar ni context panel |
+| `docs/archivo/DESIGN_SYSTEM.md`: "dark mode only", `PlatformShell` con sidebar + topbar + context panel | Dos temas; shell con notch nav, sin sidebar ni context panel |
 
 ## Pendientes
 

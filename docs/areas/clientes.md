@@ -162,7 +162,7 @@ PlatformDataProvider.listClientsAction()  ← select * de clients (incluye custo
 | `[PERMISOS-SERVER-ACTIONS]` | Roles sin enforcement en actions/RLS |
 | `[TRACKERS-RIESGO-PAGOS]` | «Pago atrasado» sólo mira `clients.installments` |
 
-Lista completa y verificada: scratchpad `pendientes-clientes.md` (a volcar en `PENDIENTES.md` § Clientes).
+Lista completa y verificada: scratchpad `PENDIENTES.md` (a volcar en `PENDIENTES.md` § Clientes).
 
 ## Tests
 
@@ -191,7 +191,7 @@ Lista completa y verificada: scratchpad `pendientes-clientes.md` (a volcar en `P
 
 ## Lo que ya no existe
 
-- `app/clients/payment-actions.ts` (lo cita `CLAUDE.md`): los pagos están en `app/sales/payment-actions.ts` (Cobros).
+- `app/clients/payment-actions.ts` (lo citaba la documentación vieja): los pagos están en `app/sales/payment-actions.ts` (Cobros).
 - Las columnas financieras de la tabla (plan, días de programa, adeudado) y el botón «Crear planes»: se mudaron a `/sales/cobros`.
 - La columna «Estado» de la tabla y el campo «Apodo» de la ficha (`clients.nickname` sigue en la base).
 - La tarjeta «Información del cliente» con apartados sobre el propio cliente: los campos con `section` ahora se cargan

@@ -14,7 +14,7 @@
  * `X-Api-Version` acepta "actualmente sólo `v1`", pero el spec declara
  * `info.version: "v3"`. Se manda `v1`, que es lo que dice la documentación de
  * autenticación, y queda para confirmar con la primera llamada real
- * (docs/PLAN_VERIFICACION.md).
+ * (docs/operacion/verificacion-manual.md).
  *
  * ⚠️ **`end_date` es opcional en varios endpoints y omitirlo cambia el resultado.**
  * Las release notes documentan un bug —vivo hasta 2026-05-07— donde tres endpoints

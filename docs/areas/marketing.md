@@ -267,7 +267,7 @@ como JSON.
   `deleteContentPieceAction`, `updateSalesAttributionAction`, `syncZernioMetricsAction`,
   `getContentPatternsAnalysisAction`, `syncInstagram*Action` `[MKT-CODIGO-MUERTO]`.
 
-Detalle y prioridades: `pendientes-marketing.md` (entregado al integrador del backlog).
+Detalle y prioridades: `PENDIENTES.md` (entregado al integrador del backlog).
 
 ## Tests
 

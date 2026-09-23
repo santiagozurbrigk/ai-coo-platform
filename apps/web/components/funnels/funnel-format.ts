@@ -3,7 +3,7 @@
  *
  * Un valor `null` NUNCA se muestra como "0". Se muestra como "—" con el
  * significado de "sin datos", que es distinto de un cero real
- * (docs/FUNNELS_ARCHITECTURE.md §9.1).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §9.1).
  */
 
 import type { MetricUnit } from "@/lib/funnels";

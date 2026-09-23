@@ -1,62 +1,55 @@
-# AI COO Platform
+# Limitless
 
-Plataforma de inteligencia operativa con IA para negocios de infoproductos.
+Sistema operativo con IA para **negocios de infoproductos** (cursos, mentorías, memberships). Centraliza
+clientes, ventas, marketing, embudos, operaciones y finanzas, y le da al founder un agente con acceso a
+todo eso. Multi-tenant: cada negocio es una organización, y un **holding** puede operar varios negocios
+desde una cuenta.
 
-## Estado actual
+Monorepo pnpm + Turborepo. App principal: **`apps/web`** (Next.js 15 App Router, React 19, Supabase,
+Anthropic), deployada en Vercel (región `gru1`) desde `main`.
 
-**Phase 0 completada** — Prototipo visual navegable (mock data, sin backend).
+| Carpeta | Qué es |
+|---|---|
+| `apps/web` | La aplicación (`@ai-coo/web`) |
+| `apps/discord-bot` | Bot de Discord (Railway) que lee la actividad de los alumnos |
+| `apps/reel-worker` | Worker de video de Trial Reels (Fly.io) |
+| `packages/ui`, `packages/config`, `packages/types` | Design system, configs compartidas, tipos |
+| `supabase/migrations` | Fuente de verdad del schema (se arma la base desde cero con ellas) |
+| `docs/` | Documentación, por área — **empezá por [`docs/README.md`](./docs/README.md)** |
 
-| Recurso | URL (dev) |
-|---------|-----------|
-| Inicio | http://localhost:3000 |
-| **Recorrido guiado** | http://localhost:3000/demo |
-| Plataforma | http://localhost:3000/dashboard |
-| Sistema de diseño | http://localhost:3000/design-system |
+## Arrancar
 
-Documentación de cierre: [`docs/PHASE_0.md`](docs/PHASE_0.md)
-
-## Estructura
-
-```
-apps/web          → Next.js 15 (prototipo)
-packages/ui       → Design system
-packages/config   → Tailwind, ESLint, TypeScript
-packages/types    → Tipos compartidos
-packages/database → Reservado (Phase 1)
-packages/ai       → Reservado (Phase 1)
-packages/queue    → Reservado (Phase 1)
-packages/integrations → Reservado (Phase 1)
-```
-
-## Requisitos
-
-- Node.js >= 20
-- pnpm >= 9
-
-## Setup
+Requisitos: Node ≥ 20 y pnpm 9 (`corepack enable`).
 
 ```bash
 pnpm install
-pnpm --filter @ai-coo/web dev
+cp .env.example apps/web/.env.local     # completar; ver docs/operacion/entorno-y-deploy.md
+pnpm --filter @ai-coo/web dev           # http://localhost:3000
 ```
 
-### Atajos útiles
+No hay Supabase local: apuntá a un proyecto de desarrollo con las migraciones aplicadas, nunca a producción.
 
-- **Ctrl+K** — paleta de comandos (navegación rápida)
-- **Limpiar build** — `pnpm --filter @ai-coo/web clean` (si hay errores ENOENT en Windows)
+## Comandos
 
-Dev por defecto usa **webpack**. Opcional: `pnpm --filter @ai-coo/web dev:turbo`
+```bash
+pnpm typecheck      # tsc en todo el monorepo (turbo)
+pnpm lint
+pnpm test           # Vitest (lógica pura de lib/)
+pnpm build
+```
 
-## Documentación de producto
+Playwright vive en `apps/web/e2e/`. Detalle en [`docs/operacion/testing.md`](./docs/operacion/testing.md).
 
-Ver `/docs`:
+## Documentos de la raíz
 
-- `PROJECT_CONSTITUTION.md`
-- `SYSTEM_ARCHITECTURE.md`
-- `AI_ENGINE_SPEC.md`
-- `UI_UX_SPEC.md`
-- `PHASE_0.md` — cierre Phase 0
+| Archivo | Para qué |
+|---|---|
+| [`docs/README.md`](./docs/README.md) | Índice de toda la documentación |
+| [`PENDIENTES.md`](./PENDIENTES.md) | Backlog abierto, por área y prioridad (verificado contra el código) |
+| [`CHANGES.md`](./CHANGES.md) | Historial de cambios con contexto (desde septiembre 2026) |
+| [`CLAUDE.md`](./CLAUDE.md) | Reglas de trabajo para agentes de IA y convenciones del repo |
 
-## Próximo paso
+## Flujo de trabajo
 
-**Phase 1** — Backend, auth, base de datos e integraciones (solo tras aprobar el prototipo).
+Ramas de feature desde `main`, PR y **Squash and merge**. Nunca se pushea a `main`: cada merge deploya
+producción. Commits en español, convencionales (`feat(clientes): ...`).

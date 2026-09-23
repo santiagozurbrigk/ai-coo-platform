@@ -1,7 +1,7 @@
 # Commas (ex Fanbasis) para Limitless — verificación del mapeo de la unidad I-2
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §2](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas sobre
 Fanbasis, y marca qué hay que **corregir en el código ya escrito**.
 
 **Capturado el 2026-08-30** de `commasdocs.com`.
@@ -162,7 +162,7 @@ Los tipos de sesión, que definen cómo se cobra:
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Que la firma valide** con HMAC-SHA256 hex sobre el body crudo y el secreto sin
    transformar — es lo único que bloquea toda la ruta.

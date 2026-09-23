@@ -1,12 +1,12 @@
 /**
  * lib/marketing/ad-metrics-snapshot.ts
  *
- * I-1 del plan de integraciones — ver docs/FUNNELS_SOURCE_MAP.md §5.
+ * I-1 del plan de integraciones — ver docs/specs/FUNNELS_SOURCE_MAP.md §5.
  *
  * Captura las métricas de anuncios de Zernio y las persiste por día en
  * `ad_metrics_daily`. Es lo que hace que la etapa Spend del spine tenga
  * historia: sin esto, los ads son live-fetch y la serie no es reconstruible
- * hacia atrás (docs/FUNNELS_ARCHITECTURE.md §9.3).
+ * hacia atrás (docs/specs/FUNNELS_ARCHITECTURE.md §9.3).
  *
  * Cubre las medidas M01–M04 del mapa de fuentes, que son las etapas Spend y
  * Click de los tres embudos a la vez.

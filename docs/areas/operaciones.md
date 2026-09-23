@@ -207,7 +207,7 @@ Sin tests: `parseVideoSopResponse`, `lib/workboard/{mapper,sprint,time-report,gr
 
 ## Lo que ya no existe
 
-- **Invitación por email con token**: `OPERATIONAL_NOTES.md` describe `team_invitations` + Resend. Hoy la alta es
+- **Invitación por email con token** (`team_invitations` + Resend). Hoy la alta es
   con contraseña temporal; `/invite`, `/api/invite/validate`, `acceptInvitationAction` y la lista de pendientes
   siguen en el código pero no hay nada que cree invitaciones.
 - **Grabación de voz en inputs semanales**: ya no está en `weekly-input-form.tsx`.

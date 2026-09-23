@@ -1,7 +1,7 @@
 # APIs implementadas con suposiciones sin verificar
 
 > Verificado contra el código y contra `docs/external-apis/` el 2026-09-23 (commit 038caca).
-> Reemplaza a `docs/API_DOCS_PENDIENTES.md`. Acá queda **sólo lo que todavía no está
+> Reemplaza a `docs/integraciones/apis-sin-documentacion.md`. Acá queda **sólo lo que todavía no está
 > verificado**; lo que la documentación local ya resolvió se lista al final, en una línea.
 
 ## Cómo agregar una entrada
@@ -25,7 +25,7 @@ La regla viene del `CLAUDE.md` (regla 3). En orden:
      encabezado (ej. `lib/fathom/share-link.ts`, `lib/ghl/opportunity-event.ts`,
      `lib/webinarjam/normalize-registrant.ts`).
 3. Agregá la entrada acá con este formato y sumá la prueba manual a
-   `docs/PLAN_VERIFICACION.md`:
+   `docs/operacion/verificacion-manual.md`:
 
 ```
 ## <Proveedor> — <qué parte>
@@ -54,7 +54,7 @@ buscó "workflow", "custom webhook", "customData": sólo aparece la vía de app)
 |---|---|---|
 | El cuerpo trae `type` con un nombre `Opportunity*`. Si no, la ruta responde 200 `ignored` y **no guarda nada** | Baja | Primer evento real. Si el Workflow no manda `type`, hay que agregarlo como custom data o todos los eventos se descartan en silencio |
 | El id de la oportunidad viene como `opportunityId` (preferido) o `id`, en la raíz o bajo `data`/`opportunity`/`customData` | Baja | Primer evento real |
-| Un Workflow puede mandar `pipelineStageId`. Sin eso sólo sirve para altas (M21) y M22/M23/M25 quedan atadas a la app del Marketplace | Baja | **Es la verificación que decide la unidad I-4** (`PLAN_VERIFICACION.md` §5.2) |
+| Un Workflow puede mandar `pipelineStageId`. Sin eso sólo sirve para altas (M21) y M22/M23/M25 quedan atadas a la app del Marketplace | Baja | **Es la verificación que decide la unidad I-4** (`docs/archivo/PLAN_VERIFICACION.md` §5.2) |
 | El id del evento para deduplicar viene en `webhookId` | Media — la guía de webhooks de app lo usa en su ejemplo; para Workflow no hay nada | Si el Workflow no lo manda, `external_event_id` queda `NULL` y un reintento duplica la transición |
 
 ## GoHighLevel — REST de pipelines y oportunidades
@@ -73,7 +73,7 @@ Archivos: `apps/web/lib/vturb/client.ts`, `apps/web/lib/vturb/resolve-stats.ts`.
 | Suposición | Confianza | Qué falta |
 |---|---|---|
 | `X-Api-Version: v1` es el valor aceptado. La página de autenticación dice `v1`; `openapi.json` declara `info.version: "v3"` | Media | Primera llamada real: un 401 con key válida es esto |
-| `total_viewed` = visitantes de la página (M08), no reproducciones | Media — el schema `Stats` lista el campo sin descripción | Comparar contra el dashboard de VTurb (`PLAN_VERIFICACION.md` §6.2) |
+| `total_viewed` = visitantes de la página (M08), no reproducciones | Media — el schema `Stats` lista el campo sin descripción | Comparar contra el dashboard de VTurb (`docs/archivo/PLAN_VERIFICACION.md` §6.2) |
 | `total_started` = le dieron play (M10) | Alta por el nombre, sin descripción | idem |
 | `total_over_pitch` = llegaron al segundo del CTA (M12), válido sólo con `pitch_time > 0` | Alta — el request de `/sessions/stats` documenta `pitch_time` como "tiempo que hay que ver para considerarse pitch" | Cruzar contra `/times/user_engagement` en el segundo `pitch_time` |
 | Qué deduplican `_device_uniq` y `_session_uniq`. Limitless usa los totales brutos | Baja | Ver cuál coincide con el dashboard |

@@ -1,7 +1,7 @@
 # WebinarJam / EverWebinar para Limitless — lo que hace falta para la unidad I-5
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §5](../../API_DOCS_PENDIENTES.md) dejó abiertas.
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas.
 
 **Capturado el 2026-08-30** del centro de ayuda de WebinarJam.
 
@@ -155,7 +155,7 @@ Consecuencia para Limitless: **una instancia de embudo no se identifica sólo co
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Conseguir la API key**, que requiere aprobación previa de WebinarJam — es el
    primer bloqueo y conviene pedirla antes de empezar a construir.

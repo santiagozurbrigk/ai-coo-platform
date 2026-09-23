@@ -29,7 +29,7 @@
  * Este camino es el que hace que funcione igual cuando la grabación es de la
  * cuenta de otro — un coach que sólo comparte el link.
  *
- * Registrado en `docs/API_DOCS_PENDIENTES.md`.
+ * Registrado en `docs/integraciones/apis-sin-documentacion.md`.
  */
 
 /** Anfitrión de la grabación, tal como lo declara la página compartida. */

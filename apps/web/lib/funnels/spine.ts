@@ -12,7 +12,7 @@
  * No agregar, quitar ni reordenar etapas. Todo lo específico de un embudo va
  * en sus `steps` (ver `templates/`), nunca acá.
  *
- * Referencia: docs/FUNNELS_ARCHITECTURE.md §3.8
+ * Referencia: docs/specs/FUNNELS_ARCHITECTURE.md §3.8
  */
 
 export const SPINE_STAGES = [

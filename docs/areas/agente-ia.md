@@ -82,7 +82,7 @@ AgentDataProvider (providers/agent-data-provider.tsx)
             8. título con Haiku (fire-and-forget, sólo en el primer mensaje)
 ```
 
-Eventos SSE (`lib/agent/sse.ts`): `delta`, `tool_start`, `tool_end`, `done`, `error`. No hay `token` ni `thinking` como dice CLAUDE.md; el thinking se persiste en `thinking_content` y viaja con el mensaje.
+Eventos SSE (`lib/agent/sse.ts`): `delta`, `tool_start`, `tool_end`, `done`, `error`. No hay eventos `token` ni `thinking` (los nombraba la documentación vieja); el thinking se persiste en `thinking_content` y viaja con el mensaje.
 
 `max_tokens` (`lib/agent/max-tokens.ts`): 8192 normal, 6144 con thinking, 12288 con canvas; budget de thinking 4000. El thinking sólo va en el primer turno; los turnos posteriores a una tool van sin thinking y sin prompt caching.
 
@@ -187,7 +187,7 @@ El bot de Discord (`apps/discord-bot`) no llama a ningún proveedor de IA; su cl
 
 1. Lee `claude_api_key_encrypted` y `claude_api_key_status` con admin client. Sólo usa la clave si el status es `valid` o `valid_no_credits`; la descifra (AES-256-GCM, `lib/security/encryption.ts`).
 2. Sin clave válida → `ANTHROPIC_API_KEY` global. Sin ninguna → `source: none` y las funciones devuelven `null` (no lanzan).
-3. Cache en memoria por lambda de **30 s** (no 5 min como dice `OPERATIONAL_NOTES.md`).
+3. Cache en memoria por lambda de **30 s**.
 4. `executeWithCredentialFallback`: si la clave de la org da **401/403**, invalida el cache, marca `claude_api_key_status = 'invalid'` (condicionado a que siga `valid`, para no pisar una clave recién corregida) y reintenta **toda** la función con la global. Desde ese momento la org ve la barra roja y el resolver ya no usa su clave.
 5. Un 400 `billing_error` (sin créditos) **no** cae a la global: se traduce a un mensaje en español (`mapAnthropicCallError`) y se lanza.
 

@@ -3,7 +3,7 @@
 Copia completa y navegable de la documentación pública de las APIs externas contra
 las que Limitless integra. Existe porque el entorno remoto de desarrollo **no siempre
 alcanza los dominios de documentación**: cuando se escribió
-[`API_DOCS_PENDIENTES.md`](../API_DOCS_PENDIENTES.md) los nueve dominios probados
+[`apis-sin-documentacion.md`](../integraciones/apis-sin-documentacion.md) los nueve dominios probados
 estaban bloqueados, y varias integraciones se construyeron a ciegas por eso.
 
 Teniendo la documentación acá adentro, cualquier sesión de Claude Code o cualquier
@@ -30,7 +30,7 @@ la URL de origen está en el front-matter de cada archivo.
 ### Por dónde empezar
 
 Cada carpeta tiene un **`RESUMEN-LIMITLESS.md`** que responde, una por una, las preguntas que
-[`API_DOCS_PENDIENTES.md`](../API_DOCS_PENDIENTES.md) dejó abiertas para ese proveedor,
+[`apis-sin-documentacion.md`](../integraciones/apis-sin-documentacion.md) dejó abiertas para ese proveedor,
 y dice qué cambia en el diseño de su unidad. **Son lectura obligatoria antes de
 construir o corregir cualquiera de las integraciones.**
 
@@ -129,7 +129,7 @@ Antes de implementar contra cualquiera de estos seis proveedores, **leer de acá
 de memoria ni de una búsqueda web. Si un campo no está documentado en esta copia,
 tampoco está documentado en el proveedor: aplica la regla 3 de `CLAUDE.md` —persistir
 el payload crudo, no inventar el valor, y dejar la entrada en
-`API_DOCS_PENDIENTES.md`.
+`apis-sin-documentacion.md`.
 
 Si la fuente cambió, correr `./tools/regenerar.sh` y commitear el diff; no editar los
 archivos generados a mano.

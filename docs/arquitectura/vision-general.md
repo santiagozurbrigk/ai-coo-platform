@@ -10,6 +10,7 @@ Documentos hermanos:
 - `docs/arquitectura/base-de-datos.md` — migraciones, RLS, inventario de tablas.
 - `docs/arquitectura/jobs-webhooks-y-colas.md` — crons, webhooks, QStash, Sentry.
 - `docs/arquitectura/seguridad.md` — modelo de seguridad.
+- `docs/arquitectura/auth-organizaciones-y-permisos.md` — sesión, org efectiva, holding y permisos.
 - `docs/operacion/entorno-y-deploy.md` — variables de entorno, deploy, workflow git.
 - `docs/operacion/testing.md` — tests y CI.
 - `docs/integraciones/README.md` — mapa de proveedores externos.
@@ -191,18 +192,6 @@ Proveedores de negocio (ver docs/integraciones/README.md):
   por cron/manual/en vivo: Zernio, Fathom, Calendly, GHL, Typeform, Google (Drive/Forms/YouTube),
                          VTurb, WebinarJam, Hyros, Instagram Graph, Mercado Pago, Miro (lectura puntual)
 ```
-
-## Qué dice `CLAUDE.md` y ya no es así
-
-| Afirmación | Realidad en el código |
-|---|---|
-| "171 migraciones" (§2) | 175 (`supabase/migrations/`), las mismas 175 aplicadas en producción |
-| Landing pública en `(landing)/` en `/` (§3) | Borrada. `/` redirige a `/login` (`next.config.ts`); en `(landing)` quedan `/prueba` y `/privacidad` |
-| QStash "para ingesta RAG" (§2) | También fan-out de 6 crons, análisis de Fathom, video de SOP y reels |
-| Tabla de crons con 13 entradas (§5) | `vercel.json` tiene 19 (faltan `ghl-sync`, `executive-report-daily`, `calendly-sync-closers`, `cleanup-trial-reels`, `capture-ad-metrics`, `daily-signals`) |
-| `get_my_organization_id()` = `SELECT organization_id FROM profiles` (§6) | Desde `20260620100000` prioriza el claim JWT `active_business_org_id` |
-| Rutas API: webhooks `mercadopago`, `instagram/messages`, `unipile` (§5) | Además `whop`, `fanbasis` (Commas), `ghl`, y los de `/api/integrations/*/webhook` (Calendly, Fathom, ManyChat, Unipile, Zernio) |
-| `packages/database, ai, integrations, queue` "reservados" | Correcto: siguen vacíos |
 
 ## Archivos clave
 

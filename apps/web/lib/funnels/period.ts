@@ -5,7 +5,7 @@
  *
  * `custom-metrics.ts` cuenta sobre toda la historia de la org; un embudo siempre
  * se mide en un período, así que el módulo necesita su propia noción de ventana
- * (docs/FUNNELS_ARCHITECTURE.md §9.4).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §9.4).
  */
 
 export const FUNNEL_PERIOD_PRESETS = [

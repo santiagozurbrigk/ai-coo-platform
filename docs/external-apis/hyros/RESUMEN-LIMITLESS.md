@@ -1,7 +1,7 @@
 # Hyros para Limitless — lo que hace falta para la unidad I-8
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §6](../../API_DOCS_PENDIENTES.md) dejó abiertas.
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas.
 
 **Capturado el 2026-08-30.** La referencia sale del spec OpenAPI 3.1 **v1.40** que
 Hyros publica en `api-docs.hyros.com/ai-context/`, no del documento viejo de Apiary
@@ -198,7 +198,7 @@ del cliente sin que Limitless tenga que replicar cada reporte.
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Que la firma `X-Hyros-Signature` valide** con `t.<body>` y HMAC-SHA256 hex.
 2. **Los dos formatos de fecha** de `creationDate` (ISO vs legacy), que la doc declara

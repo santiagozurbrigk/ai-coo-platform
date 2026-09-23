@@ -138,7 +138,7 @@ Vercel **no aplica migraciones**. El orden es: aplicar la migración en Supabase
 
 ## `apps/discord-bot` en Railway
 
-Resumen de `docs/DISCORD_DEPLOY.md`:
+Resumen de `docs/operacion/discord-bot-deploy.md`:
 
 1. En el portal de Discord, activar **MESSAGE CONTENT INTENT** (privilegiado; gratis hasta 100 servidores, después exige verificación de la app).
 2. Copiar el token del bot (se muestra una vez).
@@ -158,5 +158,5 @@ Vercel `otc-plaform`, Supabase `OTC`, Fly `otc-reel-worker`, Railway `otc-discor
 - `apps/web/lib/supabase/env.ts`
 - `apps/web/next.config.ts`, `apps/web/vercel.json`, `turbo.json`
 - `apps/reel-worker/fly.toml`, `apps/reel-worker/Dockerfile`, `apps/reel-worker/README.md`
-- `apps/discord-bot/railway.json`, `apps/discord-bot/Dockerfile`, `docs/DISCORD_DEPLOY.md`
+- `apps/discord-bot/railway.json`, `apps/discord-bot/Dockerfile`, `docs/operacion/discord-bot-deploy.md`
 - `.github/workflows/ci.yml`

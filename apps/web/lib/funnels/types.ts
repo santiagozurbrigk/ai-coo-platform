@@ -3,7 +3,7 @@
  *
  * Tipos núcleo del motor de embudos.
  *
- * Referencia: docs/FUNNELS_ARCHITECTURE.md §3
+ * Referencia: docs/specs/FUNNELS_ARCHITECTURE.md §3
  */
 
 import type { SpineStageId } from "./spine";
@@ -14,7 +14,7 @@ import type { InstrumentationToolId } from "./instrumentation";
  *
  * Si llega una versión nueva del `Funnel Metrics Standard`, comparar antes de
  * asumir que las plantillas están vigentes: una plantilla desactualizada miente
- * en silencio (docs/FUNNELS_ARCHITECTURE.md §9.6).
+ * en silencio (docs/specs/FUNNELS_ARCHITECTURE.md §9.6).
  */
 export const SOURCE_DOC_VERSION = "1.0";
 
@@ -173,7 +173,7 @@ export type FunnelTemplate = {
   description: string;
   /** "Registration-led" | "Application-led" | "Conversation-led" */
   badge: string;
-  /** Token del design system. Nunca un hex — ver DESIGN.md. */
+  /** Token del design system. Nunca un hex — ver docs/diseno/design-system.md. */
   accentToken: string;
   sourceDocVersion: string;
   northStar: MetricPointer;
@@ -192,7 +192,7 @@ export type FunnelTemplate = {
 // ─── Estados de resolución ────────────────────────────────────────────────────
 
 /**
- * El riesgo principal del diseño (docs/FUNNELS_ARCHITECTURE.md §9.1).
+ * El riesgo principal del diseño (docs/specs/FUNNELS_ARCHITECTURE.md §9.1).
  *
  * Un embudo con datos parciales haría que el diagnóstico señale como "roturas"
  * lo que en realidad son huecos de instrumentación. El resolver NUNCA devuelve

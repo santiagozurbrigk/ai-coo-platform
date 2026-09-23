@@ -1,1849 +1,2053 @@
-# PENDIENTES.md — Backlog de trabajo pendiente en Limitless
+# PENDIENTES.md — Backlog abierto de Limitless, por área
 
-> **Para Claude Code y cualquier asistente IA:**  
-> Leer este archivo junto con `CHANGES.md` al inicio de cada sesión.  
-> Actualizar este archivo cuando se completa un ítem o se agregan nuevos pendientes.  
-> Al completar un ítem: moverlo a la sección `## ✅ Completados` con fecha.
+> Reescrito el 2026-09-23. Cada ítem se verificó contra el código del commit `038caca` (y, donde hacía
+> falta, contra el esquema de producción en modo sólo lectura). Los ítems de los backlogs viejos que ya
+> estaban resueltos o eran obsoletos se sacaron: la lista con la evidencia de cada uno está en
+> [`docs/historial/auditoria-docs-2026-09-23.md`](./docs/historial/auditoria-docs-2026-09-23.md).
 
----
+**Cómo se usa**
 
-## 🔴 Urgente — Hacer antes de usar con clientes reales
+- Este archivo tiene **sólo lo abierto**. Cuando cerrás un ítem, **borralo** y nombrá su ID en la entrada
+  de `CHANGES.md`. No hay sección de "completados".
+- Un ítem nuevo va en la sección de su área, en su prioridad, con el mismo formato: ID en corchetes,
+  **Tipo**, **Estado verificado** (qué viste en el código), **Qué hay que hacer**, **Dónde**.
+- Lo que requiere probar con cuentas reales se lista acá como `verificación manual` y los pasos están en
+  [`docs/operacion/verificacion-manual.md`](./docs/operacion/verificacion-manual.md).
 
-### [ONBOARDING-CLIENTES-PROBAR] Probar el onboarding de clientes en producción 🔴
+**Prioridades**
 
-**Qué es:** el formulario de onboarding por link está en producción:
-- la migración se aplicó en OTC el 2026-09-23;
-- el código entró a `main` con el PR de la rama `claude/gallant-johnson-hczrys`.
+| | Significa |
+|---|---|
+| **P0** | Rompe algo, pierde o expone plata, datos o accesos. Antes que cualquier feature. |
+| **P1** | Hacer pronto: bug visible, verificación bloqueante, deuda que ya muerde. |
+| **P2** | Mejora, deuda o limpieza con costo acotado. |
+| **P3** | Idea, feature futura o decisión de negocio sin urgencia. |
 
-Incluye el link por creador, el link general con su bandeja, los estados de
-sistemas, el aviso de clientes sin novedades y el de próximo lanzamiento.
+**Tipos:** bug · seguridad · verificación manual · deuda técnica · feature · decisión de negocio · tests.
 
-**Qué hacer:**
 
-1. Campos personalizados → «Preguntas del onboarding» → Cargar preguntas (86).
-2. Seguir `docs/PLAN_VERIFICACION.md` → «Onboarding de clientes por link»,
-   bloques A a G.
-3. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`)
-   queda reemplazado. Sus respuestas **no** se importan (decisión del usuario).
+## P0 — lo que rompe o arriesga plata, datos o seguridad
 
----
-
-
-### [ONBOARDING-CLIENTES-RESTO] Lo que quedó afuera del onboarding de clientes 🟡
-
-Fases 1 a 3 hechas en la rama `claude/gallant-johnson-hczrys`. Quedó:
-
-1. **Aviso al equipo cuando alguien completa el formulario.** El formulario
-   viejo posteaba en Slack #onboarding-clientes con un checklist de 72 hs.
-   Limitless no tiene Slack, y Discord no tiene un canal de avisos por
-   organización (`discord_integrations` no guarda uno, y el token del bot es
-   global). Hoy el aviso es la bandeja «sin asignar» y la línea de tiempo.
-   Decidir: ¿canal de Discord (hay que sumar el canal a la config), mail
-   (Resend) o nada?
-2. El equipo del paso 9 va como texto con plantilla. Una tabla sería un tipo de
-   campo nuevo.
-3. La condición («mostrar sólo si») y el aviso de audio se cargan con la
-   plantilla y no se editan desde la pantalla.
-4. La ficha del growth partner no muestra «sin novedades hace N días»: sólo la
-   lista de clientes. Sumarlo si hace falta.
-
----
-### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos 🔴
-
-**Qué es:** la tarjeta «Clientes» (los infoproductores de cada growth partner,
-con su Marketing, Ventas y Sistemas) está construida, y la migración se aplicó en
-producción el 2026-09-23. El add-on `growth_partners` está prendido sólo para
-Limitless. Falta probarla en pantalla.
-
-**Qué hacer:**
-
-1. Seguir `docs/PLAN_VERIFICACION.md` → «Clientes de clientes (growth
-   partners)».
-2. ⭐ **15 clientes de Limitless** tienen datos de Marketing / Ventas / Sistemas
-   cargados en el growth partner mismo. En su ficha aparece el aviso: crear el
-   cliente que corresponda y apretar «Pasarlos a…».
-3. Avisar a **Optimiza tu Control**, si hace falta: había cargado la plantilla
-   (1 cliente con datos) y deja de ver esos apartados.
-
----
-
-### [AUDITORIA-ABIERTOS] Lo que la auditoría de backend dejó para el dev de backend 🟠
-
-**Qué es:** la lista priorizada de lo que se encontró y no se arregló en la
-sesión, porque requiere diseño, migrar datos o una decisión de producto. Está
-completa en `docs/AUDITORIA_BACKEND_2026-09-22.md` §3. Lo más importante:
-
-1. Roles sin enforcement en RLS ni en actions (ver `[PERMISOS-SERVER-ACTIONS]`).
-2. Tokens OAuth en texto plano: Calendly, Stripe, Instagram, Typeform, Google,
-   Fathom, ManyChat.
-3. Sin timeouts en los clientes de APIs externas.
-4. ✅ (2026-09-22) Las tres migraciones rotas se corrigieron y las 171 arman una
-   base desde cero. Las versiones duplicadas están resueltas y `RUN_ALL_PHASE1.sql`
-   se movió a `supabase/scripts/`.
-5. El techo de 1000 filas sigue en otros lugares, y hay 290 lecturas que no
-   miran `error`.
-6. Calendly: dos crons se pisan y la sync hace N+1. Typeform pierde respuestas
-   por encima de 1000.
-7. Parsers de montos rotos: import de ClickUp y Excel.
-8. Facturación por closer: `closing_calls.amount_closed` no existe; decidir de
-   dónde sale.
-9. ✅ (2026-09-22) Se corrió el diff contra producción y se reconcilió lo que
-   importaba (`docs/DB_DIFF_PRODUCCION_2026-09-22.md`). Queda pendiente:
-   - ✅ historial de migraciones ordenado: prod tiene exactamente las 171
-     versiones del repo. Mantenerlo con la regla de CLAUDE.md
-     ("Migraciones Supabase");
-   - ✅ restos legacy de prod borrados: 15 columnas vacías y la tabla
-     `metric_snapshots`;
-   - ✅ job `migrations` en el CI, que arma la base desde cero en cada push.
-
----
-
-### [REPO-RENOMBRADO-DEPLOYS] Confirmar que los deploys siguen después del renombre 🟡
-
-**Qué es:** el repo pasó de `ai-coo-platform` a `limitless-system` (2026-09-22).
-GitHub redirige las URLs viejas, y Vercel y Railway se conectan con su app de
-GitHub, que normalmente sigue el renombre sola. Pero no se verificó.
-
-**Qué hacer:**
-
-1. Vercel → proyecto → Settings → Git: tiene que mostrar
-   `santiagozurbrigk/limitless-system`. El próximo merge a `main` tiene que
-   generar un deploy.
-2. Railway → servicio del bot de Discord → Settings → Source: el mismo repo, con
-   `Root Directory` = `apps/discord-bot` todavía puesto.
-3. En las copias locales:
-   `git remote set-url origin https://github.com/santiagozurbrigk/limitless-system`.
-4. No crear nunca un repo nuevo llamado `ai-coo-platform`, porque anula la
-   redirección.
-
----
-
-### [1A1-MANUALES-SIN-PROBAR] Probar las 1-1 subidas con un link 🔴
-
-**Qué es:** se construyó todo el pedido —subir la 1-1 pegando el link de Fathom,
-que las tareas salgan solas, y el contador de cuántas lleva cada cliente— y
-**nada se probó contra la base**. Lo que sí está verificado contra una grabación
-real es el camino de red: del link salen el ID, la fecha, la duración y el
-transcript completo en castellano, sin clave de API ni sesión iniciada.
-
-**La migración ya está aplicada en producción** (2026-09-21): la tabla
-`client_tasks` y las columnas nuevas de `fathom_calls` están creadas y con RLS.
-Lo que falta es probar la feature con una llamada de verdad.
-
-⚠️ **Ojo con esto al probar:** el contador va a decir **0 en todos los
-clientes**, porque el clasificador no reconoció ninguna de las 424 grabaciones
-como llamada de entrega. No es un bug de lo nuevo — es el estado de los datos, y
-está medido en `[1-1-SEMBRAR-Y-MEDIR]`. Las sesiones que subas por link sí van a
-contar desde el primer minuto.
-
-**Qué hacer, en este orden** (el detalle completo está en
-`docs/PLAN_VERIFICACION.md`):
-
-1. Abrir una ficha de cliente → **Sesiones 1-1** → «Subir llamada», pegar el link
-   de una 1-1 real. Tiene que aparecer con su fecha y duración de verdad.
-2. Mirar **Tareas**: separadas en «le toca al cliente» y «le toca al coach».
-   ⭐ **Leerlas una por una**: tienen que ser compromisos hacia adelante, no
-   consejos del coach ni cosas que el cliente ya hizo. Éste es el único punto que
-   depende de un modelo y el único que no se pudo probar.
-3. Pegar **el mismo link otra vez**: tiene que decir «Esa llamada ya estaba» y no
-   duplicar ni tareas ni la entrada del timeline.
-4. ⚠️ Subir una llamada que **la sincronización ya había bajado**: tiene que
-   reusar la fila, no crear una segunda. Si se duplica, `props.call.id` no es el
-   mismo número que `recording_id` y hay que mirar `lib/fathom/share-link.ts`.
-5. ⚠️ **Lo más importante:** pegar el link de una grabación **de otra cuenta** —un
-   coach que graba con su propio Fathom—. Es el supuesto central del diseño. Si
-   falla, hay que sumar el camino de pegar el transcript a mano.
-6. Mandar una tarea del coach al tablero: aparece allá con el nombre del cliente
-   adelante y **sigue estando** en la ficha.
-
----
-
-### [1A1-CLAVE-ANTHROPIC-ROTA] Una organización tiene la clave de IA vencida 🔴
-
-**Qué es:** encontrado en los logs de Vercel el 2026-09-21. La organización
-`997e94be-7dac-46bd-8a07-749ef18c9142` tiene su clave propia de Anthropic
-**rechazada con `401`**, y **no hay clave global configurada** como respaldo.
-
-El cron de Fathom corre cada 10 minutos y falla las **12 llamadas** pendientes de
-esa organización, una y otra vez, desde hace días. En el log se lee:
-`[anthropic] La clave propia de la organización ... fue rechazada. No hay clave
-global configurada: el trabajo no se puede hacer.`
-
-**Qué hacer:** o esa organización carga una clave válida en Ajustes → IA, o se
-configura `ANTHROPIC_API_KEY` global en Vercel como red de contención. Mientras
-tanto esas 12 llamadas no se procesan.
-
-**Lo que sí se arregló el 2026-09-21:** el problema **ya no es invisible**. Ahora
-el rechazo se guarda (`claude_api_key_status = 'invalid'`) y la organización ve
-una barra roja en todas sus pantallas, con link a Ajustes. Efecto secundario
-útil: una clave marcada como inválida deja de usarse, así que se dejan de gastar
-`401` cada diez minutos. **Falta confirmar que el cartel aparezca de verdad**:
-la marca se pone sola en el primer rechazo después del deploy. Si a los diez
-minutos no aparece, mirar `claude_api_key_status` de esa organización.
-
----
-
-### [FICHA-V2-MIGRACION] Aplicar la migración de apartados, facturación y fase 🔴
-
-**Qué es:** el 2026-09-21 se construyeron cuatro pedidos de la ficha —tareas
-escritas a mano, los tres apartados de información, la facturación del negocio
-del cliente y la fase del recorrido elegible a mano— y la migración
-`20260921120000_ficha_secciones_facturacion_y_fase_manual.sql` **no está
-aplicada**.
-
-**Qué se rompe sin ella:** la tarjeta «Información del cliente» y la de
-facturación no se dibujan (no hay campos con sección ni tabla donde leer), y el
-selector de fase falla al guardar.
-
-**Qué hacer:**
-
-1. Aplicar la migración (`supabase db push` o el SQL Editor del dashboard).
-2. ⭐ Mirar la tabla de clientes **antes de cargar la plantilla**: las columnas
-   configurables que ya existían tienen que seguir ahí. La migración las deja en
-   `show_in_table = true` justamente para eso.
-3. Clientes → Configurar → Campos personalizados → solapa Clientes → **«Cargar
-   plantilla»**: crea los 22 campos de Marketing, Ventas y Sistemas. Apretarlo
-   dos veces no duplica nada.
-4. El resto de los pasos, con su resultado esperado, está en
-   `docs/PLAN_VERIFICACION.md` → «Ficha del cliente — apartados, facturación y
-   fase manual».
-
----
-
-### [FASE-MANUAL-SIN-PLAZOS] Un cliente con la fase fijada a mano nunca figura trabado 🟡
-
-**Qué es:** `clients.manual_stage_set_at` se guarda cada vez que alguien fija la
-fase, pero **nadie lo lee todavía**. `deriveClientJourneyStatus` cuenta los
-plazos desde el hito inmediatamente anterior, y el primer hito de una fase
-fijada a mano no tiene anterior registrado — así que ese cliente cae en el caso 3
-de `lib/checkpoints/stalled.ts` y nunca aparece como trabado.
-
-**Por qué la columna existe igual:** es el único dato que no se puede
-reconstruir después. Guardarlo desde el principio cuesta nada; inventarlo más
-adelante sería inventar.
-
-**Qué hacer:** cuando el próximo hito pendiente no tiene anterior registrado
-pero la fase fue fijada a mano, contar los días desde `manual_stage_set_at`. Es
-hermano de `[C3-TRABADO-SIN-PRIMER-HITO]` y probablemente se resuelvan juntos.
-
----
-
-### [FACTURACION-MONEDAS] La facturación mezcla USD y ARS sin convertir 🟡
-
-**Qué es:** cada mes de `client_revenue_entries` guarda su moneda, pero el
-resumen compara el último mes contra el anterior **sin mirar cuál es cuál**. Un
-cliente que cargó agosto en ARS y septiembre en USD ve una variación que no
-significa nada, y el «mejor mes» sale del número más grande, o sea siempre el
-que está en pesos.
-
-**Qué hacer, por orden de esfuerzo:** lo barato es no comparar meses de monedas
-distintas —dejar `changePct` en `null` y decir por qué—, que es una tarde. Lo
-correcto es guardar la cotización del mes junto al monto. Ojo: **ninguna parte
-del repo guarda cotizaciones hoy** (ni Cobros ni Finanzas), así que eso es
-decidir de dónde salen y con qué frecuencia, no copiar un patrón que ya exista.
-
----
-
-### [FICHA-LENTA] La ficha del cliente tarda más de diez segundos en dibujarse 🟡
-
-**Qué es:** medido contra el preview con un cliente real el 2026-09-21. Abrir
-una ficha dispara del orden de **quince server actions** —recorrido, propuestas,
-sesiones, tareas, wins, Discord, campos configurables, facturación, resumen,
-cobros…— y las tarjetas van apareciendo de a una. La de «Información del
-cliente» puede tardar más de diez segundos.
-
-**Por qué importa:** quien abre una ficha ve media pantalla y cree que lo demás
-no existe. Y como varias tarjetas devuelven `null` mientras cargan, no hay
-siquiera un esqueleto que avise que falta algo.
-
-**Qué hacer, de menor a mayor esfuerzo:**
-1. Que las tarjetas que hoy devuelven `null` mientras cargan muestren un
-   esqueleto: el usuario ve que algo viene.
-2. Juntar las lecturas de la ficha en una sola action, como ya hace
-   `getClientsBoardAction` con la tabla.
-3. Mover a la página (Server Component) lo que no depende de interacción.
-
----
-
-### [FASE-REFRESCO-CARO] Cambiar la fase recarga los 264 clientes 🟡
-
-**Qué es:** `setClientManualStageAction` termina llamando `refreshClients()`,
-que vuelve a pedir **toda** la lista de clientes de la organización para
-reflejar el cambio de uno solo. En Optimiza tu Control son 264 filas, y el
-selector tarda varios segundos en mostrar la fase nueva.
-
-**Por qué está así:** es lo que arregló el bug del 2026-09-21 —antes no se
-actualizaba nunca—, pero es el martillo más grande disponible.
-
-**Qué hacer:** o bien el proveedor expone una forma de actualizar un cliente
-suelto, o bien `ClientJourneySection` guarda la fase en su propio estado apenas
-la fija (actualización optimista) y deja el `refreshClients()` corriendo por
-detrás para la tabla.
-
----
-
-### [FICHA-CUSTOM-EN-LA-LISTA] La lista de clientes arrastra el texto de los 22 campos 🟡
-
-**Qué es:** `listClientsAction` hace `select("*")` sobre `clients`, así que el
-`jsonb` de campos configurables de **cada** cliente viaja al navegador por
-`PlatformDataProvider` en cada carga de la plataforma. En `/clients` casi nada
-de eso se dibuja: `showInTable` viene en `false` por defecto.
-
-Importa desde el 2026-09-22, cuando el techo de un campo de texto pasó de 2.000
-a 20.000 caracteres: el peor caso por cliente pasó de ~44 KB a ~440 KB. El caso
-real es mucho más chico, pero la dirección es la que es.
-
-**Qué hacer:** que la lista traiga sólo las columnas que dibuja, y que `custom`
-entero se lea en la ficha —que ya carga el cliente aparte—. Hermano de
-`[FASE-REFRESCO-CARO]` y `[FICHA-LENTA]`: los tres son el mismo problema de
-traer de más.
-
-**Qué NO hacer:** bajar el techo de vuelta. El límite estaba mal por ser bajo,
-no por ser alto.
-
----
-
-### [CUSTOM-ERRORES-PRIMERO] Wins y checkpoints informan sólo el primer campo inválido
-
-**Qué es:** `validateFieldValues` devuelve **todos** los errores a propósito
-—está en su docstring— pero dos de sus tres llamadores se quedan con el
-primero:
-
-- `app/clients/checkpoint-event-actions.ts:159`
-- `app/clients/win-actions.ts:624`
-
-Con un formulario de varios campos, eso es corregir, guardar, y recién ahí
-enterarse del siguiente.
-
-**Qué hacer:** lo mismo que ya se hizo el 2026-09-22 en
-`client-custom-fields-actions.ts` — juntar `Object.values(validation.errors)`
-con « · ». Una línea en cada archivo. Quedó afuera porque el pedido era sobre la
-ficha del cliente, no sobre wins ni checkpoints.
-
----
-
-### [UI-SIN-TESTS] `packages/ui` no tiene tests 🟡
-
-**Qué es:** el paquete tiene `lint` y `typecheck`, pero no `test`. El
-2026-09-21 se arregló ahí un bug de formato (`parseAnimatableMetricValue` se
-comía un espacio y «0 de 2» se leía «0de 2») y **no se pudo fijar con un test**:
-se verificó a mano contra diez formatos.
-
-**Qué hacer:** sumar Vitest al paquete, con `parse-metric-value` y
-`metric-trend` como primeros casos — son lógica pura y son los que más fácil se
-rompen sin que nadie se entere.
-
-**De paso, algo que quedó sin arreglar:** un valor como «+77%» pierde el signo
-al animarse (queda «77%»). No afecta a lo que se construyó —la facturación
-dibuja su propia píldora— pero sí a cualquier `MetricStat` que reciba un valor
-con signo.
-
----
-
-### [CLIENTES-VER-CON-DATOS] Mirar el panel de clientes rediseñado con datos reales 🟡
-
-**Qué es:** el 2026-09-21 se rehizo el panel de clientes (buscador, filtros
-condicionales con conteo, orden, fila clickeable, sin columna «Estado»). Se
-verificó con tres clientes de prueba y **sin base**: no se vieron las columnas
-configurables ni las de recorrido.
-
-**Qué hacer:**
-1. Abrir Clientes en la organización de 264. Arriba tiene que decir
-   «Todos (264) · Pendientes de onboarding (1)» y nada más — no hay pastilla de
-   «Onboarding hecho» ni de «Casos de éxito» porque no hay nadie en esos estados.
-2. Buscar «gomez» sin tilde y confirmar que encuentra a los Gómez.
-3. Ordenar por «Última 1-1»: el que tiene la sesión subida tiene que quedar
-   primero y el resto por nombre.
-4. Clickear en cualquier parte de una fila: abre la ficha. Tildar el check de
-   la próxima tarea **no** tiene que abrirla.
-5. Mirar el ancho de la tabla a 1280px con las 3 columnas configurables y las
-   de recorrido: si desborda, la columna «Progreso de etapa» es la primera
-   candidata a ir a la ficha.
-
----
-
-### [FICHA-VER-CON-DATOS] Mirar la ficha rediseñada con un cliente real 🟡
-
-**Qué es:** el 2026-09-21 se rediseñó la ficha del cliente (encabezado, franja
-de indicadores, dos columnas, encabezados uniformes). Se verificó renderizándola
-con el cliente de prueba en oscuro, claro y móvil, pero **sin base de datos**:
-recorrido, sesiones 1-1, tareas, wins y Discord se vieron vacíos.
-
-**Qué hacer:** abrir la ficha de un cliente con todo cargado (el que tiene la
-1-1 subida sirve) y mirar:
-1. La franja de arriba: sesiones, pendientes, recorrido («3 de 8 · sigue: …»)
-   y satisfacción con su color.
-2. Que la columna izquierda —recorrido, sesiones, tareas, llamadas de venta,
-   historial— no quede demasiado angosta con la lateral al lado a 1280px.
-3. Que al subir una llamada el número de «Tareas pendientes» de la franja se
-   actualice solo.
-4. ~~El apodo~~ — el campo se eliminó de la ficha el 2026-09-21 (estaba
-   cargado en 0 de 307 clientes).
-
----
-
-### [DEMO-LAYOUT-500] El layout de plataforma no funciona en modo demo 🟡
-
-**Qué es:** con Supabase sin configurar, cualquier página bajo `(platform)`
-devuelve 500 desde `getHoldingSessionState` (`lib/holding/session.ts:26`),
-antes de que el modo demo del proveedor de datos llegue a correr. El "modo demo
-con mocks" que documenta el `CLAUDE.md` sólo cubre el cliente, no el servidor.
-
-**Por qué importa:** es lo que impide renderizar cualquier pantalla de la
-plataforma en local sin credenciales, para revisar diseño o sacar capturas.
-Encontrado al rediseñar la ficha del cliente; se resolvió con una página
-temporal fuera del layout.
-
-**Qué hacer:** hacer que los cargadores del layout (`getHoldingSessionState`,
-`getCurrentUserPermissions`, `getCurrentOnboardingContext`) devuelvan un valor
-neutro cuando `isSupabaseConfigured()` es falso, en vez de tirar.
-
----
-
-### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar 🟡
-
-**Qué es:** `updateClientTaskAction` ya permite cambiar título, detalle, dueño y
-fecha, pero la ficha sólo deja tildar, borrar y mandar al tablero. Una tarea que
-la IA escribió medio torcida hay que borrarla y volver a cargarla.
-
-**Qué hacer:** hacer editable la fila en `components/clients/client-tasks-section.tsx`.
-La acción ya está hecha y probada por tipos; es sólo UI.
-
----
-
-### [DIALOG-DOBLE-PADDING] El padding duplicado de los modales 🟡
-
-**Qué es:** `DialogContent` trae `p-6` y `DialogHeader`/`DialogFooter` agregan su
-propio `px-6`. Resultado: el contenido queda a 48px del borde, y las líneas
-divisorias del encabezado y del pie arrancan 24px adentro en vez de ir de lado a
-lado como pide el diseño de esos componentes (que traen `border-b`/`border-t`
-justamente para eso).
-
-**Por qué no se arregló ya:** sacar el `p-6` de `DialogContent` re-estila los
-**176** usos de diálogo de la aplicación. Es un cambio de diseño, no un bugfix,
-y hay que mirarlo pantalla por pantalla.
-
-**Qué hacer:** decidir si el padding vive en el contenedor o en cada sección,
-aplicarlo en `packages/ui/src/primitives/dialog.tsx`, y recorrer los diálogos
-más usados (workboard, clientes, integraciones) antes de mergear.
-
----
-
-### [DISCORD-SIN-PROBAR] Probar canales, equipo y sugerencias 🔴
-
-**Qué es:** las migraciones ya corrieron y la pantalla está lista, pero **nada se
-probó a mano**. El servidor real sigue con 15 de 16 mensajes sin dueño y 7
-personas sin definir, de las cuales 4 son del propio equipo.
-
-**Qué hacer, en este orden:**
-
-1. Integraciones → Discord. Los 8 canales aparecen como **Comunitario**, y
-   `『🏆』wins` y `『🏆』wins-personales` con la etiqueta «Logros».
-2. Sacar `『👨』equipo` de los canales monitoreados: ahí escribe el equipo.
-3. Abrir «Quiénes escribieron acá» en `『🏆』wins`. Tienen que aparecer 7 nombres
-   **con sugerencias**: Luckas Falco y Nazareno Gamero con "el nombre coincide
-   exacto", Thiago Azcurra y Fede McEwen con "el nombre coincide", Santiago
-   Molina con "puede ser — revisalo antes de confirmar", y Geronimo Robles y
-   Osne sin sugerencia.
-4. Confirmar las de equipo. El contador «sin asociar» tiene que bajar de 7 a 3.
-5. Asociar a un cliente real a alguien, y **mirar la ficha de ese cliente**: los
-   mensajes que ya estaban guardados tienen que aparecer ahí.
-   **Si no aparecen, ése es el primer bug a mirar.**
-6. Marcar un canal como «De un cliente» con **un** cliente, escribir desde una
-   cuenta no asociada, y confirmar que se cuenta para ese cliente pero **no**
-   apaga la alerta de silencio.
-7. Escribir desde una cuenta marcada como equipo en ese mismo canal: **no** tiene
-   que contarse para nadie.
-
----
-
-### [AVISO-Y-SATISFACCION-SIN-PROBAR] Probar el aviso por fecha y la satisfacción 🔴
-
-**Qué es:** se construyeron los dos últimos pedidos de los testers y **no se
-probaron a mano**.
-
-**Qué hacer:**
-1. Clientes → Campos personalizados → crear uno de tipo **fecha** con "avisarme
-   cuando falten 15 días". Cargarle a un cliente una fecha dentro de esos 15
-   días y ver que se pinte en rojo con el "faltan N días".
-2. En la ficha de un cliente, marcar un nivel de satisfacción y confirmar que
-   queda con la fecha y con tu nombre.
-3. Tocar el nivel ya marcado y ver que se borra.
-
----
-
-### [1-1-SEMBRAR-Y-MEDIR] Sembrar identidades y medir el clasificador 🔴
-
-**Qué es:** la Fase 5 dejó el clasificador de llamadas enchufado, pero **el
-estado de los datos hace que arranque casi apagado**. Medido contra producción el
-2026-09-11 y **vuelto a medir el 2026-09-21 — no cambió nada**:
-
-| Dato | 2026-09-11 | 2026-09-21 |
+| ID | Área | Qué |
 |---|---|---|
-| Identidades sembradas | **0** | **0** |
-| Clientes con mail cargado | 1 de 335 | — |
-| Grabaciones clasificadas | 20 de 350 | 99 de 424 (18 venta, 81 equipo) |
-| ⭐ Grabaciones clasificadas como **entrega (1-1)** | — | **0 de 424** |
-| Clientes con llamadas vinculadas | **0** | **0** (421 de 424 sin cliente) |
-| Grabaciones **con transcripción** | — | **424 de 424** |
-
-⭐ **Las dos filas del medio son la noticia.** El clasificador lleva 424
-grabaciones y **no reconoció ni una sola llamada de entrega**, así que el
-contador de 1-1 arranca en cero para todos los clientes aunque las sesiones
-hayan existido. Y las 424 **sí tienen transcripción**: el material está, lo que
-falta es saber de quién es cada llamada. El paso 1 de acá abajo es lo que
-destraba eso.
-
-**Qué hacer, en este orden:**
-
-1. **Apretar "Cargar identidades desde el CRM"** en Clientes → Llamadas sin
-   asociar. Sin esto el resolvedor no resuelve nada. *(No se ejecutó desde la
-   sesión: escribe ~335 filas en producción.)*
-2. Dejar que corra el cron de procesamiento y mirar
-   `select purpose, count(*) from fathom_calls group by purpose`.
-3. **Medir los falsos positivos** del peldaño del nombre: de las fechas que
-   aparecen con signo de pregunta, cuántas están mal. Más de una de cada cinco →
-   dejar de mostrar los candidatos.
-
----
-
-### [CLIENTES-SIN-MAIL] 334 de 335 clientes no tienen mail cargado 🔴
-
-**Qué es:** el peldaño determinista del clasificador de llamadas busca el mail
-del invitado. Con 1 mail cargado está prácticamente apagado, y todo el trabajo
-cae en el peldaño del nombre, que es candidato y pide confirmación.
-
-**Es la palanca más grande** para que las llamadas se vinculen solas. La columna
-`clients.email` existe y se hereda del lead al cerrar la venta, así que los
-clientes nuevos deberían venir con mail; lo que falta es completar los viejos.
-
----
-
-### [COBROS-PROBAR] Probar Cobros con una sesión real 🔴
-
-**Qué es:** el seguimiento financiero de cada cliente se mudó de Clientes a
-**Ventas → Cobros** (2026-09-11). La pantalla compila, entra en el build y pasa
-los 943 tests, pero **nunca se dibujó**: el entorno de desarrollo no tiene
-Supabase ni sesión.
-
-**Qué probar, en orden de riesgo:**
-
-1. **Registrar una cuota con comprobante** y que el adeudado baje. Es lo más
-   riesgoso: las Server Actions cambiaron de archivo.
-2. **Recargar con F5 después de registrar un pago** y que siga ahí. Prueba la
-   revalidación nueva, que ahora apunta a Cobros y no a la ficha del cliente.
-3. **Comparar el adeudado** de dos o tres clientes contra lo que mostraba
-   Clientes antes: tiene que dar idéntico.
-
-**Bloque completo en:** `docs/PLAN_VERIFICACION.md`.
-
----
-
-### [COBROS-AVISAR-PERMISOS] Avisar al equipo del cambio de acceso 🔴
-
-**Qué es:** los cobros ahora están bajo el permiso de **Ventas**. Quien tenga
-acceso total a Clientes pero Ventas en "Sin acceso" **deja de ver el monto, el
-adeudado y los comprobantes**, que hasta ayer veía en la tabla de clientes.
-
-**Qué hacer:** repasar los roles configurados y decidir, para cada persona que
-hoy toca plata de clientes, si le corresponde acceso a Ventas. Es un cambio
-buscado, pero se descubre cuando alguien no puede trabajar.
-
----
-
-### [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo 🔴
-
-**Qué es:** se arregló que un miembro con permiso total a Clientes pueda cargar y
-gestionar, y se agregó el botón de alta que no existía. **No se probó con una
-cuenta de miembro real** — no hay una segunda sesión en el entorno de desarrollo.
-
-**Qué hacer, antes de cargar la cartera en serio:** entrar con la cuenta de
-equipo y confirmar que aparecen los seis botones (Nuevo cliente, Cargar
-clientes, Crear planes, Revisión semanal, Wins, Recorrido, Campos) y que se
-puede guardar un cliente de prueba.
-
----
-
-### [IA-CLAVES-INVALIDAS] Cuatro organizaciones con la clave de IA vencida
-
-**Qué es:** `401 API key is invalid` repitiéndose 221 veces por día. Desde hoy
-esas organizaciones funcionan con la clave global de Limitless, así que **no están
-rotas**, pero están gastando la nuestra.
-
-**Qué hacer:** buscar en los logs las líneas `[anthropic] La clave propia de la
-organización ... fue rechazada` y avisarles para que la actualicen.
-
----
-
-### [BAJAS-SIN-PROBAR] La baja del super admin nunca se ejecutó entera 🔴
-
-**Qué es:** el borrado de organizaciones, holdings y personas está construido y
-la migración aplicada, pero **nunca se apretó el botón**. El cascade está medido
-contra la base real; lo que falta probar es el borrado de la cuenta de login y
-el barrido de Storage, que necesitan credenciales que no están en el entorno de
-desarrollo.
-
-**Qué hacer:** dar de baja una organización de prueba y después **intentar
-entrar con el email de su founder**. Si entra, la baja no fue de verdad. Bloque
-completo en `docs/PLAN_VERIFICACION.md`.
-
----
-
-### [PERMISOS-SERVER-ACTIONS] El bloqueo cubre pantallas, no actions
-
-**Qué es:** desde hoy el layout de `(platform)` corta el render de un módulo que
-el rol no incluye. Pero las Server Actions siguen abiertas: quien conozca el
-nombre de una puede invocarla igual.
-
-**Qué hacer:** un wrapper por módulo sobre `requireOrganizationId()`, o un guard
-explícito en las actions que tocan plata y equipo. Hasta entonces el permiso es
-una barrera de navegación, no de datos.
-
-**Actualizado 2026-09-22 (auditoría de backend):** es más amplio que las actions.
-Las policies de RLS filtran por org y ninguna por rol, así que un viewer también
-escribe `team_roles.permissions`, `organizations` y finanzas con PostgREST
-directo. Acciones concretas abiertas a cualquier miembro: `saveClaudeApiKeyAction`,
-los `disconnect*Action`, el Drive del founder y `updateCloserCommissionAction`.
-Ver `docs/AUDITORIA_BACKEND_2026-09-22.md` §3.
-
----
-
-### [TRACKERS-PERMISOS-VACIOS] Todos los wins ya cargados quedan sin permiso 🔴
-
-**Qué es:** los permisos existen desde hoy, así que **cada win cargado antes de
-esta sesión quedó en "sin preguntar"** — o sea, no publicable. Es deliberado: no
-se puede asumir un permiso que nadie dio. Pero significa que la primera vez que
-entres al dashboard vas a ver todo marcado sin permiso.
-
-**Qué hacer:** repasar los wins que ya se usaron en material y cargarles el
-permiso que efectivamente dieron, con la nota de cómo lo dijeron.
-
----
-
-### [TRACKERS-PROBAR-CON-SESION] Probar los cinco cambios con una sesión real 🔴
-
-**Qué es:** las capturas de la revisión semanal, del tracker con permisos y de la
-ficha del cliente se sacaron con el middleware puenteado y datos inventados. Eso
-verifica que la pantalla dibuja, **no** que las Server Actions escriben.
-
-**Qué probar:** cargar un permiso y ver que el filtro "Con permiso" lo levanta;
-marcar una reservada; cargar objetivo y fecha de egreso en la ficha; anotar un
-estado en la revisión semanal y ver la fecha del anotado.
-
-**Bloque completo en:** `docs/PLAN_VERIFICACION.md`.
-
----
-
-### [TRACKERS-EGRESO-MANUAL] La fecha de egreso no se calcula del plan
-
-**Qué es:** `clients.exit_date` se carga a mano. Existe `plan_durations` con la
-duración del plan; calcular la fecha desde ahí y dejarla editable era la propuesta
-del análisis y quedó afuera.
-
----
-
-### [TRACKERS-RIESGO-PAGOS] "En riesgo" sólo ve las cuotas cargadas
-
-**Qué es:** la señal de pago atrasado sale de `clients.installments`. Un cliente
-sin cuotas cargadas —pago único, o cuotas que nunca se cargaron— **nunca dispara
-esa señal**, así que necesita las otras dos para aparecer en riesgo.
-
----
-
-### [TRACKERS-RECOMENDACIONES-6-10] Lo que el análisis dejó para después
-
-**Qué es:** de las diez recomendaciones de `docs/TRACKERS_EXCEL_VS_LIMITLESS.md` se
-construyeron las cinco primeras. Quedan: ficha de caso (creencias, restricciones,
-proceso), checklist de contenido por caso, revisión mensual de patrones, caso de
-éxito como entidad curada, próximos pasos por llamada de entrega y responsable por
-cliente. **Son producto nuevo, no una migración chica.**
-
----
-
-
-### [PROPUESTAS-CALIDAD-SIN-VER] Medir los falsos positivos del matcher de hitos 🔴
-
-**Qué es:** el filtro que decide qué propuesta sobrevive tiene 19 tests, pero
-**el matcher nunca corrió contra la API real**. Los tests cubren que no se
-inventen hitos ni textos y que el umbral corte; no cubren la calidad de las
-coincidencias.
-
-**Qué mirar en la primera corrida real:** cuántas propuestas se aceptan contra
-cuántas se descartan. Si se descartan más de la mitad, hay que subir el piso de
-confianza (`MIN_MATCH_CONFIDENCE`, hoy 0.7) o endurecer el prompt — una lista de
-propuestas que casi siempre están mal se deja de mirar.
-
----
-
-### [B-FATHOM-NUNCA-PROBADO] Probar Fathom contra una cuenta real 🔴
-
-**Qué es:** L0 arregló el módulo de keys por miembro —que **nunca funcionó**,
-porque el código usaba una columna inexistente— pero **nada se probó contra
-Fathom**. Ni conectar una key, ni crear un webhook, ni recibir un evento.
-
-**Lo que más riesgo tiene, en orden:**
-
-1. **La verificación de firma.** Se asume HMAC-SHA256 sobre el cuerpo crudo y una
-   lista de headers posibles. **Si Fathom firma distinto, se rechazan todos los
-   webhooks** y no llega ninguna llamada. Es lo primero a mirar con un evento real.
-2. **La forma del payload del webhook** y de `crm_matches`. El extractor acepta
-   variantes y descarta lo que no entiende, pero la primera llamada real manda.
-3. **`POST /webhooks`.** Que devuelva `id` y `secret` como dice el plan.
-
-**Cómo se verifica (del plan):** dos miembros conectan su key → el panel los
-muestra conectados con su mail confirmado → cada uno graba una llamada y **las dos
-llegan solas** → los dos en una misma llamada dan **una sola fila** → uno revoca la
-key y la fila pasa a "revocada" → uno se desconecta y **el webhook desaparece de su
-cuenta de Fathom**.
-
----
-
-### [B-SEMBRAR-IDENTIDADES] Sembrar `client_identities` 🔴
-
-**Qué es:** la tabla existe y la resolución de contraparte la usa, pero **nadie la
-llena todavía**. Sin la siembra, el módulo arranca resolviendo mucho menos de lo
-que puede: cada llamada iría a la cola de revisión en vez de resolverse sola.
-
-**De dónde sale, todo ya existe en la base:** `clients` (nombre, **apodo**, mail),
-`sales_leads`, `closing_calls` (nombre y mail de cada turno), contactos de GHL, y
-el **mail del comprador** de los pagos.
-
-**Ojo con el apodo:** `clients.nickname` es exactamente el tipo de dato que hace
-match con un nombre de pantalla de Zoom, y hoy no lo usa nadie.
-
----
-
-### [D-SOPS-VIDEO-NUNCA-CORRIO] Probar el flujo entero de SOP desde video 🔴
-
-**Qué es:** el encargo D está completo pero **nunca se ejecutó**: no se subió un
-video, no se llamó a Whisper ni a Sonnet, y el worker no corrió una sola vez. La
-lógica pura tiene 25 tests; el resto no tiene ninguna prueba real.
-
-**Lo que más riesgo tiene, en orden:**
-
-1. **ffmpeg en Vercel.** El binario de `@ffmpeg-installer` está en `apps/web` por
-   Trial Reels, pero el worker de SOPs nunca se ejecutó en producción. Si no está
-   disponible en la lambda, falla ahí y no hay forma de saberlo antes.
-2. **El tiempo.** `maxDuration = 800`; un Loom de una hora hace cinco llamadas a
-   Whisper en serie. Puede no alcanzar.
-3. **El peso estimado del audio** (`ESTIMATED_BYTES_PER_SECOND`) se eligió por
-   criterio, no midiendo. Conviene transcribir un audio real y ajustar.
-4. **La calidad del SOP.** La regla de "no inventar pasos" está en el prompt; no
-   hay forma de saber cuánto la respeta sin correrla contra un video real.
-
-**Necesita:** `OPENAI_API_KEY`, `QSTASH_TOKEN` y `NEXT_PUBLIC_APP_URL`.
-
----
-
-
-### [E-RETENCION] Decidir la retención de mensajes de terceros 🔴
-
-**Qué es:** el bot lee y guarda mensajes de **personas que no son usuarias de
-Limitless** (los clientes de tu cliente). Hoy se guardan para siempre y no hay nada
-escrito que diga que el servidor está siendo registrado.
-
-**Cuándo:** **antes** de instalarlo en el servidor de un cliente, no después.
-
----
-
-
-
-### [A-PROBAR-CAPTURAS] La subida de capturas nunca se ejecutó 🔴
-
-**Qué es:** el flujo de captura (pedir signed URL → subir → registrar) está
-escrito copiando el patrón de `sop_attachments`, pero **nunca corrió**. Toca
-storage, que es donde más fácil se rompe algo silenciosamente.
-
-✅ **Verificado el 2026-09-03 — la mitad de seguridad:** el bucket `client-wins`
-existe, es **privado**, limita a 10 MB y sólo imágenes, y **ninguna policy de
-`storage.objects` lo nombra**: ningún rol del cliente puede leerlo ni escribirlo
-directamente. Sólo el admin del servidor, que es lo que hace el código.
-
-🔴 **Falta la vuelta completa**, que necesita la `SUPABASE_SERVICE_ROLE_KEY` (no
-está en el entorno de desarrollo): pedir el signed URL, subir la imagen, verla en
-el tracker, y confirmar que borrar un win **borra también el archivo** del bucket.
-
----
-
-### [A-ENGANCHES-W3] Wins desde Discord y desde llamadas
-
-**Qué es:** la fase W3 dejó la sección de wins en la ficha del cliente, pero los
-**candidatos automáticos** no están: un testimonio de Discord y una llamada de
-Fathom deberían proponer un win que alguien acepta —mismo criterio que las
-propuestas de checkpoint de C3—. Lo conectan los Encargos **E** y **B**.
-`client_wins.source` y `source_ref` ya existen para eso.
-
----
-
-### [C3-TRABADO-SIN-PRIMER-HITO] Un cliente que nunca arrancó no figura como trabado
-
-**Qué es:** el plazo se cuenta desde el hito **inmediatamente anterior**. Si un
-cliente no tiene ningún hito registrado, no hay desde cuándo contar y **no se
-marca trabado** — aunque sea el caso más urgente (compró y nunca empezó).
-
-**Por qué quedó así:** anclarlo a la fecha de alta del cliente es una decisión de
-producto distinta, no un bug. Hoy esos clientes se ven igual en la lista, con
-"Sin empezar".
-
-**Si se decide cambiarlo:** el único lugar a tocar es `deriveClientJourneyStatus`
-en `lib/checkpoints/stalled.ts`, caso 3.
-
----
-
-
-### [C2-PROBAR-FICHA] Probar el registro de checkpoints en la ficha con sesión real
-
-**Qué es:** la sección "Recorrido" de la ficha del cliente ya se vio en un
-navegador, pero **con datos fabricados y una página descartable** (borrada).
-Falta la pasada real: entrar a un cliente, registrar un checkpoint, ver que las
-métricas se piden según lo configurado y que se guardan.
-
-**Qué mirar,** bloque §16 de `docs/PLAN_VERIFICACION.md`. Los tres que más
-importan: que un checkpoint con `sets_client_status` **mueva el estado del
-cliente** al registrarlo; que **deshacer NO revierta el estado** (sí avisa); y
-que un monto ilegible se rechace en vez de guardarse como cero.
-
----
-
-### [C1-PROBAR-PANTALLA] Probar el Recorrido del cliente con una sesión real
-
-**Qué es:** la migración está aplicada y los cortes de la base verificados, pero
-la pantalla sólo se vio **con datos fabricados y el founder forzado**. Falta la
-pasada real: crear tres fases, meterles checkpoints y elegirles métricas.
-
-**Qué mirar,** bloque §15 de `docs/PLAN_VERIFICACION.md`. Los dos pasos que más
-importan: que una métrica siga apuntando a su columna después de renombrarla, y
-que borrar una fase con checkpoints adentro **se rechace** (la base los borraría
-en cascada).
-
-**Pendiente de scope, anotado a propósito:** `clients.current_stage_id` todavía
-no existe. Es estado, no catálogo, y se escribe al registrar un evento — va en la
-migración de **C2**.
-
----
-
-### [C0-PROBAR-PANTALLA] Probar Campos personalizados con una sesión real
-
-**Qué es:** ✅ **parcialmente verificado el 2026-09-03 con datos reales.** En la
-base hay dos columnas creadas desde la pantalla: una de wins (`tipo_de_win`, 7
-opciones, cargada con el botón de ejemplo y **después renombrada a "Wbinar"
-manteniendo su clave interna** — que es la prueba del mecanismo entero) y una de
-checkpoints (`nose`, lista de 2 opciones, obligatoria).
-
-Queda por probar: archivar una opción, el rechazo al sacar una opción en uso, y
-que un `operator` no vea los botones de editar.
-
-**Qué mirar,** en el orden del bloque §14 de `docs/PLAN_VERIFICACION.md`. El paso
-que más importa: crear una columna, renombrarla y confirmar que su **clave interna
-no cambia** — si cambia, el mecanismo entero se cae.
-
-**Verificar también** que un `operator` ve la pantalla sin los botones de editar.
-
----
-
-### [C0-PENDIENTES] Lo que C0 dejó abierto a propósito
-
-**`options_source = 'journey_stages'` no se puede elegir desde la UI.** La
-columna existe en la base y la lógica la soporta; falta el catálogo de fases,
-que entrega **C1**. Cuando esté, se habilita la opción en la pantalla y el campo
-"Fase" del Encargo A pasa a tomar sus opciones del catálogo cambiando una fila,
-sin migrar datos.
-
-**El chequeo de "columna en uso" todavía no puede fallar.** `isFieldInUse`
-consulta `client_wins` y `client_checkpoint_events`, que no existen: las traen el
-**Encargo A** y **C2**. Hoy toda columna cuenta como sin uso y se puede borrar.
-Reverificar cuando esas tablas entren.
-
-**Sin cobertura de Playwright** en la pantalla de campos personalizados.
-
----
-
-
-### [INTEGRACIONES-VERIFICAR] Ver las incidencias con datos reales 🟡
-
-**Qué es:** la pantalla de Integraciones ahora muestra incidencias por integración
-—último error del proveedor, videos sin pitch time, eventos de pago sin
-interpretar, secreto de webhook de GHL faltante— derivadas de columnas que **hoy
-están vacías o en cero en casi todos los proveedores**.
-
-**Qué mirar:** que cuando efectivamente falle algo, el texto que aparece sea el
-correcto y accionable. En particular `last_error` de VTurb, Hyros y WebinarJam,
-que antes no se veía en ningún lado y ahora es lo primero que se lee.
-
-**Cómo forzarlo barato:** conectar cualquiera de los tres con una API key
-inválida. El sync guarda el error y la tarjeta tiene que pasar a "Con error".
-
----
-
-### [LLAMADAS-VERIFICAR-FATHOM] Probar el cruce con datos reales 🔴
-
-**Qué es:** el motor está construido pero **nada se probó contra una cuenta real
-de Fathom**. El mapeo de campos se hizo leyendo la documentación.
-
-**Qué mirar, en orden:**
-
-1. **¿`calendar_invitees` viene poblado?** Es la señal de la que cuelga todo.
-   El schema lo marca obligatorio, pero una reunión sin evento de calendario
-   podría traer el array vacío.
-2. **¿Cuántas grabaciones quedan sin turno, y cuáles de esas eran ventas?** Se ve
-   en Integraciones → Fathom → Configuración. Estar en esa lista no es un
-   problema:
-   una reunión de equipo o una sesión con un cliente no es una venta.
-3. **¿La ventana de 45 minutos del match provisional es la correcta?** Se eligió
-   por criterio, no midiendo cruces reales.
-
-**Alcance actual:** Limitless registra **únicamente llamadas de venta**. Equipo y
-entrega de servicio quedan para más adelante — cuando se implementen, entran por
-`counterparty` y `purpose`, que ya existen.
-
----
-
-### [LLAMADAS-FASE-2-PULIR] Detalles que quedaron a medias del seguimiento
-
-~~**Responsable del próximo paso**~~ — resuelto el 2026-09-03: la columna
-`next_action_owner_id` ya se carga desde la columna Responsable de la tabla.
-
-**Calificación previa:** `pre_call_qualification` tiene columna y acción, pero la
-tabla sólo expone la posterior. La previa tendría que poder cargarse desde la
-ficha del turno, antes de la llamada.
-
-**Turnos de Calendly sin lead:** los 186 turnos que no vienen de GHL no tienen
-identidad estable hasta que un sync les complete el mail. Se resuelve solo —el
-mail ya se persiste desde la Fase 0—, pero conviene verificar que efectivamente
-se completen.
-
-**Sin cobertura de Playwright** en la tabla de seguimiento. La lógica pura tiene
-37 tests; la pantalla, ninguno.
-
----
-
-### [SEGUIMIENTO-ESCALA] El estado se deriva en JS, no en SQL
-
-La tabla de seguimiento lee hasta **2.000 leads** y filtra, ordena y pagina en
-memoria en el servidor, porque el estado del lead se deriva de sus turnos y no
-está persistido. Con 964 leads (medidos el 2026-09-03) sobra, pero el margen
-es menor de lo que parecía: pasado el techo la tabla avisa que hay leads afuera
-en vez de mostrarse incompleta.
-
-**Corregido 2026-09-22:** el aviso no podía dispararse nunca. PostgREST corta en
-1000 filas y el `.limit(2001)` devolvía 1000, así que pasado ese número los leads
-se perdían sin aviso. Ahora se pagina con `fetchAllRows` y el techo real es 2.000.
-
-Cuando no alcance, hay que derivar el estado en la base (vista o función), **no**
-persistirlo: guardar un estado derivado es lo que haría que la tabla mienta
-cuando los datos cambian por debajo.
-
----
-
-### [LLAMADAS-CANCELED-BY] Leer quién canceló en Calendly
-
-**Qué es:** `cancelled_by` se llena con `unknown` en los dos proveedores.
-Calendly expone el autor en `cancellation.canceled_by` y todavía no se lee; GHL
-no lo informa.
-
-**Por qué importa:** que cancele el lead es una señal sobre el lead; que cancele
-el closer es una señal sobre la operación. Con `unknown` en todo, la distinción
-no se puede usar.
-
----
-
-### [REPORTES-PULSO-DIARIO] Revisar la primera salida real del pulso diario
-
-**Qué es:** el reporte diario se construyó pero **nunca corrió**. Su prompt le pide algo distinto al semanal: detectar roturas obvias sin recomendar acciones, y decir en una oración cuando el día fue normal.
-
-**Qué mirar en el primer resultado real:** que un día tranquilo produzca un reporte corto y honesto en vez de inflar riesgos para llenar espacio. Si sale ruidoso, lo que hay que ajustar es el prompt del sistema en `lib/executive-reports/generate-daily.ts`, no la UI.
-
-**Cuándo:** el cron corre todos los días a las 11 UTC (8 de la mañana en Argentina).
-
----
-
-### [REPORTES-GENERACION-MANUAL] Decidir qué pasa con el botón de pipeline semanal
-
-**Qué es:** la UI de reportes ya no ofrece generar nada, como se pidió. Pero `GenerateWeeklyPipelineButton` sigue en **Inteligencia** y en **Operaciones**, y ese botón dispara un pipeline que —entre otras cosas— genera el reporte ejecutivo semanal.
-
-**Por qué no se tocó:** sacarlo rompería esas dos pantallas, que están fuera del pedido.
-
-**Qué decidir:** si el reporte ejecutivo tiene que salir de ese pipeline, o si el botón debería generar sólo lo de Inteligencia y Operaciones y dejar el ejecutivo puramente automático.
-
----
-
-### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
-
-**Qué es:** el documento define bandas de salud por métrica —qué valor es sano, cuál está en el piso y cuál está roto— y Limitless tiene el código construido y testeado en `lib/funnels/health-bands.ts`, con la precedencia de tres niveles (plantilla → override de oferta → baseline de la org).
-
-**Está en pausa por decisión tuya**, desde que arrancamos la Fase 2. La UI no pinta ningún número en verde ni en rojo: mostrar un semáforo es hacer una afirmación sobre el negocio, y esa afirmación todavía no se habilitó.
-
-**Cuando lo habilites**, lo que falta es la capa de presentación: el semáforo en la tabla de pasos, en los KPIs y `diagnoseFunnel()` para decir dónde está el cuello de botella. El motor ya está.
-
----
-
-### [EMBUDOS-CUENTAS-REALES] Conectar las cuentas y correr la verificación 🔴
-
-**Qué es:** las diez unidades del plan de integraciones están construidas y **ninguna está verificada contra datos reales**, que es lo que Santiago decidió dejar para el final. Los pasos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md), sección por sección.
-
-**Las tres cosas que hay que conseguir primero:**
-
-1. 🔑 **API key de WebinarJam** — requiere aprobación de su equipo, es lo más lento y bloquea tres pasos del embudo Webinar. Ver `[WEBINARJAM-API-KEY]`.
-2. 🔑 **Cuenta de Hyros con la API habilitada** — la documentación no dice qué plan la incluye.
-3. 🔑 **Una sub-cuenta de GHL para probar el webhook** — 10 minutos, y define si I-4 funciona ya o espera la aprobación del Marketplace. Ver `[EMBUDOS-GHL-ENTREGA]`.
-
-**Las tres verificaciones que más pueden cambiar el código:**
-
-- ⚠️ El payload del Workflow de GHL (`PLAN_VERIFICACION.md` §5.2).
-- ⚠️ La semántica de los campos de VTurb, que su spec no describe (§6.2).
-- ⚠️ Que el LTV de Limitless coincida con el que el cliente ya usa (§8) — si no, la definición de M32 o M33 está mal elegida.
-
----
-
-
-### [EMBUDOS-FUENTES] Plan de integraciones del módulo de Embudos
-
-**Qué es:** el mapa completo de las 34 medidas atómicas que pide el documento fuente, con su estado en Limitless y el orden de construcción, está en **[`docs/FUNNELS_SOURCE_MAP.md`](./docs/FUNNELS_SOURCE_MAP.md)**. Leerlo antes de arrancar cualquier integración de embudos.
-
-**Estado actual (2026-08-30):** ✅ **las diez unidades están construidas.** Lo que falta no es código, son **cuentas reales** — ver `docs/PLAN_VERIFICACION.md` §11. La única medida del documento que quedó como imposible es **M16** (clicks al CTA durante un webinar en vivo): la API de WebinarJam no la expone.
-
-**Orden acordado — de afuera hacia adentro, no de a un embudo:**
-- **Ola 1 (extremos, sirve a los 3 embudos):** ✅ **Completa.** ~~I-1 métricas de ads~~ · ~~I-2 pagos con Whop y Fanbasis~~ 🔨 *(falta conectar una cuenta real y verificar el mapeo)* · ~~I-3 asistencia y cierres + detección de fuente vacía~~
-- **Ola 2 (medios, por costo):** ~~I-4 GHL opportunities~~ 🔨 *(construido 2026-08-30; falta recibir el primer webhook real — ver `[EMBUDOS-GHL-ENTREGA]`)* · ~~I-6 VTurb~~ 🔨 *(construido 2026-08-30; falta conectar una cuenta real)* · ~~I-5 webinar~~ 🔨 *(construido 2026-08-30; bloqueado por la aprobación de la API key)* — 📗 documentación capturada. **Ola 2 completa.** Hallazgos que cambian el diseño: GHL **no** tiene historial de cambios de etapa (hay que construirlo desde webhooks); VTurb **sí** da la curva de retención y ya modela el segundo del CTA; WebinarJam resuelve el stick rate del lado del servidor pero **no expone clicks al CTA**, y su API key **requiere aprobación previa** — pedirla ya.
-- **Ola 3:** ~~I-9 retención~~ 🔨 *(construido 2026-08-30)* · ~~I-8 Hyros~~ 🔨 *(construido 2026-08-30)* · ~~I-10 triggers de Zernio~~ 🔨 *(construido 2026-08-30; las historias son imposibles de periodizar — Meta sólo expone las de 24 h)* — 📗 Hyros capturado. Confirma que **`I-7` no hace falta** (M08 y M09 salen de `/leads` y del reporte de atribución) y que `fields=cost` cubre M01, así que tampoco hace falta cruzar la API de cada plataforma de ads.
-
-**Verificación:** nada se prueba contra cuentas reales hasta terminar todas las olas — ver [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md).
-
-**Documentación de las APIs:** ✅ **los seis proveedores están capturados** en [`docs/external-apis/`](./docs/external-apis/) — GoHighLevel, VTurb, Whop, Commas (ex Fanbasis), Hyros y WebinarJam. Cada uno tiene un `RESUMEN-Limitless.md` que responde las preguntas que estaban abiertas en `docs/API_DOCS_PENDIENTES.md`. Se refresca con `docs/external-apis/tools/regenerar.sh`. **Leer el resumen del proveedor antes de construir o corregir su unidad.**
-
-**Decisiones cerradas:** VSL en VTurb (tiene API pública) · todos los clientes pagan Hyros · landings en Vercel, así que los opt-ins salen de Hyros e I-7 desaparece · clientes repartidos en partes iguales entre los tres embudos. **No queda ninguna pregunta abierta en el plan.**
-
----
-
-### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
-
-**Qué es:** I-4 está construido, pero la pregunta que decide si funciona sigue abierta. Los webhooks de plataforma de GHL **se configuran dentro de una app del Marketplace**, que Limitless no tiene aprobada (`[FEAT-GHL-OAUTH]`). El endpoint acepta por eso dos vías: la firma Ed25519 de la plataforma, y un **secreto compartido por organización** para eventos entregados desde una acción "Webhook" de un Workflow de la sub-cuenta.
-
-**Lo que hay que verificar, y es lo único que importa:** que un Workflow de GHL pueda mandar **`pipelineStageId`** en el cuerpo del webhook. Si no pudiera, esa vía sólo serviría para altas (M21) y M22, M23 y M25 quedarían atadas a la aprobación del Marketplace.
-
-**Cómo probarlo:** los pasos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §5.2. Generar el secreto desde Integraciones, armar el Workflow apuntando a la URL, mover una oportunidad de etapa y **mirar el payload crudo** en `ghl_webhook_events`.
-
-**Consecuencia si sale mal:** hay que priorizar `[FEAT-GHL-OAUTH]`, que es lento porque depende de la aprobación de GHL.
-
----
-
-### [EMBUDOS-GHL-BACKFILL] Poblar la última etapa conocida de las oportunidades preexistentes
-
-**Qué es:** el historial de etapas arranca con el primer webhook y **no se puede reconstruir hacia atrás** — GHL no lo expone. Lo que sí se puede es traer el **estado actual** de las oportunidades que ya existen, para que la primera transición que llegue se derive contra una etapa conocida en vez de registrarse como alta.
-
-`searchGHLOpportunities` ya está construido en `lib/ghl/client.ts` y no se usa todavía.
-
-**Ojo:** poblar el estado inicial **no** debe generar filas en `ghl_stage_transitions` — sería inventar transiciones que nadie observó. Sólo escribe `ghl_opportunities`.
-
----
-
-### [EMBUDOS-VTURB-PITCH] Configurar el pitch time de los VSL en VTurb
-
-**Qué es:** VTurb permite marcar en qué segundo del video está la oferta (`pitch_time`). Con eso configurado, la medida **"llegaron al CTA"** del embudo VSL sale directo y sin cálculos.
-
-**Sin eso, esa medida no se puede mostrar.** VTurb devuelve `pitch_time = 0` para los videos que no lo tienen, y su contador pasa a incluir a todo el que abrió el video — un número que parece la métrica correcta y no lo es. Limitless lo detecta y muestra "sin datos" en vez de ese número.
-
-**Acción:** entrar a cada player en VTurb y configurarle el pitch time. El panel de Integraciones dice cuántos videos están sin configurar.
-
----
-
-### [WEBINARJAM-API-KEY] Pedir la API key de WebinarJam 🔴
-
-**Qué es:** la API de WebinarJam/EverWebinar **requiere aprobación previa** — no alcanza con tener cuenta.
-
-**Por qué subió de prioridad (2026-08-30):** se debatió reemplazar WebinarJam por VTurb y **no se puede**. Los clientes corren sus webinars **en vivo, a una hora fija**, y VTurb es un reproductor de archivos grabados: en un webinar en vivo no hay video que medir. Sin esta key, **tres de los siete pasos del embudo Webinar no tienen datos** y no hay plan B. El razonamiento completo está en `docs/FUNNELS_SOURCE_MAP.md`, sección "Por qué WebinarJam no se puede reemplazar con VTurb".
-
-**Acción:** seguir [el artículo de solicitud](./docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md) para la cuenta del cliente que vaya a usarse.
-
-**Ya no hace falta saber cuál de los dos productos usa el cliente:** son la misma API con dos prefijos y el sync consulta los dos. La integración está construida (2026-08-30) y **lo único que falta es la key.**
-
-**Después de conseguirla:** cargar el segundo en el que aparece la oferta de cada webinar, desde el panel de Integraciones. Sin ese número no se puede medir el stick rate — ver `docs/PLAN_VERIFICACION.md` §7.3.
-
----
-
-### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de webhooks de Whop y Commas contra eventos reales
-
-**Qué es:** la capa de pagos (I-2) está construida y su mapeo se escribió a ciegas. **Desde el 2026-08-30 la documentación de los dos proveedores está capturada** en [`docs/external-apis/whop/`](./docs/external-apis/whop/) y [`docs/external-apis/commas/`](./docs/external-apis/commas/), y el mapeo ya se corrigió leyéndola (ver `[EMBUDOS-PAGOS-CORREGIR]` en Completados).
-
-Lo que queda para este ítem es lo que ninguna documentación resuelve: **ver un payload real de cada proveedor** y confirmar que el mapeo corregido lo lee bien. La firma de los dos ya está documentada (Whop: Standard Webhooks con secreto `ws_`; Commas: `x-webhook-signature`, HMAC-SHA256 hex sobre el body crudo), pero ninguna de las dos se probó contra un evento real.
-
-**Por qué no bloquea:** cada webhook se persiste crudo en `payment_webhook_events` antes de interpretarse. Un evento que no se sabe leer queda en estado `unmapped` con su motivo y se puede reprocesar; nunca se inventa un número.
-
-**Cuándo:** decisión de Santiago (2026-08-30) — **no se conecta nada hasta que esté todo construido**, y ahí se hace una sola pasada de prueba de punta a punta.
-
-**Los pasos exactos están en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §3**, junto con el resto de las verificaciones pendientes de todas las unidades.
-
-**La UI de conexión ya está hecha** (2026-08-30): `/integrations` → sección "Pagos".
-
----
-
-### [EMBUDOS-GHL-PIPELINE] Sync de oportunidades/pipelines de GHL
-
-**Qué es:** la sección 05 del documento fuente le asigna al **GHL pipeline** los "Stage counts, set/close, follow-up" — o sea, los conteos por etapa del embudo DM. La integración GHL de Limitless consume `/calendars` y `/contacts`, pero no `/opportunities` ni `/pipelines`.
-
-**Efecto:** el embudo DM no se puede medir según el estándar hasta que exista. Contra lo que se asumió en la Fase 1, el DM **no** era construible end-to-end.
-
-**Acción:** extender `lib/ghl/` con sync de oportunidades y sus etapas, y agregar las fuentes correspondientes a `lib/funnels/sources.ts`.
-
----
-
-~~### [DB-PLANES] Aplicar migración de tabla plans en Supabase~~ ✅ Completado 2026-08-26
-
----
-
-## 🟡 Trial Reels — Feature en producción, mejoras pendientes
-
-
-
-### [TRIAL-4] Assets reales de LUT y música en el worker (Fly.io)
-
-**Qué es:** `apps/reel-worker/luts/` solo tiene `.gitkeep`. Las variantes V3 (música) y V5 (color) usan fallbacks de baja calidad.  
-**Efecto actual:**
-- V5 (color): usa `eq` filter en lugar del LUT cálido → colorimetría plana
-- V3 (música): sale en silencio si no hay `background-music.mp3`
-
-**Acción:** Conseguir/crear un `warm.cube` (LUT cálido) y un `background-music.mp3` libre de derechos, ponerlos en `apps/reel-worker/luts/` y hacer redeploy en Fly.io.  
-**Quién puede hacerlo:** Santiago (conseguir los assets) + Claude (commit + redeploy)
-
----
-
-## 🟠 Bugs conocidos — Verificar en producción
-
-### [EMBUDO-PANEL-DMS] El embudo del panel general ya no mide DMs
-
-**Contexto:** el 2026-09-15 se arregló el embudo del panel general, que se
-dibujaba tapando la card entera con un "26300%". Una de las dos causas era de
-datos: sus tres etapas de arriba —leads, respondidos, agendados— salen de
-`conversations`, la tabla del **inbox viejo** (ManyChat/Unipile), que quedó
-vacía cuando el inbox pasó a Zernio. Hoy el embudo arranca en las llamadas de
-cierre y la bajada de la card lo dice.
-
-**Qué falta:** volver a medir el tramo de DMs. El inbox de Zernio se consume
-**en vivo** (`listZernioConversationsAction`) y no persiste etapas, así que no
-alcanza con cambiarle la fuente: hay que decidir qué se persiste —conteo de
-conversaciones por período, cuáles tuvieron respuesta del negocio— y de dónde
-sale "agendado" ahora que Calendly/GHL son la fuente de las llamadas.
-
-**Mientras tanto no está roto:** el embudo muestra el tramo que sí tiene datos
-reales (agendadas → realizadas → cierres), decreciente por construcción.
-
-**Archivos clave:** `lib/metrics/build-sales-funnel-stages.ts`,
-`components/dashboard/sales-funnel-strip.tsx`,
-`app/integrations/zernio/actions.ts`
-
----
-
-### [BUG-1] Stories de Instagram — verificar en producción tras fix
-
-**Contexto:** Fix deployado en `claude/architecture-review-improvements-fdj4ae`. Ahora usa el endpoint correcto `GET /v1/accounts/{accountId}/instagram/stories` + fallbacks. Las historias se fuerzan a `postType='story'` antes del dedup y entran primero en `allPosts`.  
-**Para verificar:** Con una historia activa en Instagram → sync manual desde `/marketing/content` → el log `[syncZernioContent] stories sync` debe mostrar `fromDedicatedEndpoint > 0` → ir al tab "Historias" en la UI.  
-**Si sigue sin aparecer:** Revisar que el registro en DB tenga `type='story'` (puede ser que exista como `type='post'` de syncs anteriores; el próximo sync lo corrige vía UPDATE).  
-**Archivos clave:** `app/marketing/content/sync-actions.ts`, `lib/zernio/client.ts`
-
----
-
-
-## 🟣 Nuevos Features — Implementar cuando Santiago lo indique
-
-### [ONBOARDING] Onboarding guiado para cuentas nuevas — ✅ las cuatro fases construidas
-
-**Qué es:** hasta el 2026-08-31 **no existía onboarding de founder**: una cuenta nueva la creaba el super-admin, el founder cambiaba la contraseña y entraba a un dashboard vacío. Hoy hay gate, checklist y tours; falta la visibilidad interna.
-
-**El plan completo está en [`docs/ONBOARDING_PLAN.md`](./docs/ONBOARDING_PLAN.md)** — leerlo antes de escribir una línea.
-
-**Estado: ✅ Primera tanda completa (2026-08-31)** — Fases 0, 1 y 2. Migraciones **aplicadas en Supabase**, capa de derivación con 35 tests, gate de tres pasos con ruteo en el middleware, y checklist en el panel y la notch nav. Cero dependencias nuevas, como se acordó.
-
-**✅ Fase 3 completa (2026-08-31)** — tours contextuales con Driver.js en Embudos, Contenido, Agente y Bandeja. Es la única dependencia que agregó todo el plan, y queda en el chunk del runner: el bundle compartido no se movió (185 kB).
-
-**✅ Fase 4 completa (2026-08-31)** — panel **Super Admin → Onboarding**: en qué punto quedó cada organización, ordenado por quién necesita atención primero. Una sola consulta (`onboarding_org_progress`) para todas, y la derivación pasa por la misma función pura que la aplicación, así que el panel no puede mostrar un progreso distinto del que ve el cliente.
-
-**Lo que falta:**
-1. **Probar el flujo completo en un navegador** — lo verificado es SQL, tests, build y render aislado del popover. Pasos en [`docs/PLAN_VERIFICACION.md`](./docs/PLAN_VERIFICACION.md) §13.5, §13.6, §13.9 y §13.10. Lo más importante sigue siendo que una cuenta nueva pase primero por el cambio de contraseña y después por el gate, en ese orden.
-
-**Riesgo a mirar tras el merge con `main`:** el PR #33 dejó anotado que con 10 módulos las islas de la notch nav se superponen a 1280px. Esta rama **suma un ítem a la isla derecha** (el contador de configuración pendiente), que sólo aparece mientras el checklist tiene pasos abiertos. Con 8 módulos hay margen, pero conviene medirlo antes de encender Operaciones y Producto.
-
-**Deuda conocida:** el layout resuelve el estado en cada request de founder (~8 counts en paralelo, cache de 60 s) — medir antes de optimizar. Y el filtro de desconexión de integraciones sigue sin poder observarse porque ninguna org tiene una integración desconectada.
-
-~~**Estado: ✅ Fase 0 completa (2026-08-31)** — migración `onboarding_state`, catálogo, capa de derivación pura y resolver, con 25 tests. Falta aplicar la migración en Supabase. **Siguiente: Fase 1** (gate de tres pasos + ruteo en el middleware).~~
-
-**Las tres decisiones ya están cerradas (2026-08-31):**
-1. **Gate duro de tres pasos** (identidad y unidades · oferta principal · avatar principal), con salida de emergencia vía `organizations.skip_onboarding`.
-2. **Los invitados no pasan por el gate** — reciben un tour corto derivado de sus permisos. El ruteo del middleware debe condicionarse a `role = 'founder'` desde la Fase 1.
-3. **Primera tanda: Fases 0, 1 y 2** (derivación · gate · checklist). Los tours con Driver.js quedan para después y **no se agrega ninguna dependencia** en esta tanda.
-
-**La decisión de diseño que no se negocia:** el progreso se **deriva** de las tablas reales, no se guarda en booleanos por paso. Un booleano miente en cuatro casos concretos que ya pasan en este repo — están enumerados en el plan. Se persiste sólo lo no derivable: `gate_completed_at`, `dismissed_items`, `tours_seen`.
-
-**Piezas existentes que hay que reusar, no duplicar:** las Server Actions de settings, producto y avatar (no se escribe una sola mutación nueva); `CinematicWelcome` + `markWelcomePending()`, que hoy **nadie dispara** y cuyo lugar es el final del gate; y el ratio `boundSteps / stepCount` que la página de embudos ya calcula.
-
-**Lo que NO se toca:** `onboarding_responses` y el wizard de `/onboarding/holding` son del holding y quedan como están.
-
----
-
-### [UI-21ST] Cuatro componentes de 21st.dev relevados — decidir cuáles entran
-
-**Qué es:** el relevamiento completo (instalación, dependencias, código de uso, prompts y checklist) está en **[`docs/COMPONENTES_21ST.md`](./docs/COMPONENTES_21ST.md)**. Leerlo antes de correr cualquier `21st add`.
-
-**Decisiones abiertas:**
-- **Dropdown Range Date Picker** (`ruixen.ui`) — el de mayor valor: filtro de rango de fechas para `/marketing/anuncios`, `/finance/*`, `/executive-reports` y `/sales/closing`. **Bloqueado por dos cosas:** no declara licencia, y hay que verificar que exponga `value`/`onChange` (si el rango se queda adentro del componente, no sirve para filtrar).
-- **Adaptive Notch Navigation Bar** (`arunachalam`) — técnicamente el más limpio (cero dependencias de registry), pero es navegación horizontal y `CLAUDE.md` dice que la navegación es solo sidebar. Decisión de producto: ¿va en `(landing)` / `(founder)`, o no va?
-- **Tabs variante `button`** (`sean0205`/ReUI) — **no instalar.** Portar la variante a `packages/ui/src/primitives/tabs.tsx` con `cva`, dejando `default` igual que hoy.
-- **Statistics Card 1** (`sean0205`/ReUI) — **no instalar.** Ya tenemos `MetricCard`, `MetricStat` y `MetricBand`. Lo único que aporta es el menú `⋯` por tarjeta; portarlo a `MetricCard` como prop `actions`.
-
-**Prerrequisito para cualquiera de los dos primeros:** sesión de 21st.dev (`npx @21st-dev/cli@latest login`). Sin credenciales el registry devuelve 403.
-
----
-
-### [FEAT-EMBUDOS] Módulo de Embudos — motor genérico + plantillas por tipo de funnel
-
-**Qué es:** Módulo de medición que permite al usuario intercambiar entre "vistas" de embudos (Webinar, VSL book-a-call, DM, y los que vengan), cada uno con su estructura, sobre un spine universal de 7 etapas. Análisis completo y decisiones cerradas en **[`docs/FUNNELS_ARCHITECTURE.md`](./docs/FUNNELS_ARCHITECTURE.md)** — leer antes de implementar.
-
-**Principio no negociable:** un tipo de embudo es un dato, no un módulo. Agregar un embudo nuevo = agregar un archivo de plantilla en TS. Si hace falta escribir un componente, la arquitectura falló.
-
-**Fases:**
-1. ~~**Fase 0** — Normalizar el documento a schema~~ ✅ **Completada 2026-08-29.** `lib/funnels/` con spine, tipos, las 3 plantillas, KPIs universales, health bands, instrumentación y validador. Typecheck + lint limpios, validador con 0 problemas. **Pendiente: revisión de Santiago del schema antes de arrancar la Fase 1.**
-2. ~~**Fase 1** — Instancias + resolver + página genérica~~ ✅ **Completada 2026-08-29.** Migración, catálogo de fuentes, capa pura de cálculo, resolver contra Supabase, Server Actions, índice y detalle genérico. **Pendiente: aplicar la migración `20260829120000_funnels_phase1.sql` en Supabase y activar el add-on `embudos` en la org.**
-3. **Fase 2** — Parcial. ✅ Configuración de fuentes por step (2026-08-29). ⏸️ Health bands y `diagnoseFunnel()` **en pausa por pedido de Santiago** hasta nuevo aviso.
-4. **Fase 3** — Switcher + segunda y tercera instancia. **Bloqueada por el track de integraciones.**
-5. **Fase 4** — KPIs universales + `/funnels/comparar` con agrupación por price point.
-6. **Fase 5** — Snapshots periódicos + pulso diario.
-
-**Riesgo principal:** el resolver nunca debe devolver `0` por ausencia de datos. Si lo hace, el diagnóstico marca huecos de instrumentación como roturas de negocio y el founder pierde confianza en el módulo. `ResolvedMetric.value` es `number | null` y la UI distingue etapa salteada / sin datos / bajo el piso.
-
-**Deuda a resolver en el camino:** tabla propia `funnel_period_snapshots` (`metrics_snapshots` no sirve — su UNIQUE colisiona con varias instancias por org); `resolveSourceValue` necesita ventana temporal; no existe timezone de reporte por org.
-
-**Testing:** ✅ Vitest incorporado al monorepo (2026-08-29) y CI corriendo `pnpm test` en cada push. El backlog completo de tests pendientes del repo está en [`docs/TESTING_BACKLOG.md`](./docs/TESTING_BACKLOG.md) — 24 ítems priorizados, pensados para que los tome un agente tester. 153 tests de conformidad verifican las plantillas contra el documento fuente. Cuando llegue una versión nueva del documento, actualizar `lib/funnels/__tests__/document-fixture.ts` primero y dejar que los tests señalen qué plantillas quedaron atrás.
-
----
-
-### [FEAT-EMBUDOS-INTEGRACIONES] Track de integraciones bloqueante para Embudos
-
-**Qué es:** Santiago definió que las etapas de Webinar y VSL se llenan **sí o sí con integración** (sin input manual como salida) y que la atribución sigue tal cual asume el documento fuente. Eso convierte estas integraciones en prerrequisito de la Fase 3 de `[FEAT-EMBUDOS]`, no en mejora futura.
-
-| Integración | Alimenta | Bloquea |
-|---|---|---|
-| **Hyros** | Atribución real, ROAS by-source, EPL, journeys | Etiquetado `[Hyros]`, KPIs universales |
-| **WebinarJam / Zoom** | Show-up rate, stick rate, CTA clicks | Embudo Webinar entero (etapa Engaged) |
-| **Hosting de VSL con analytics** | Play rate, avg watch % | Embudo VSL (etapa Engaged) |
-| Scoring de calificación | Qualified rate de aplicaciones | Etapa Intent del VSL |
-
-**Decisión abierta:** qué proveedor de hosting de video se soporta para el VSL (Wistia, Vimeo, YouTube, player propio). Cada uno tiene un modelo de analytics distinto — hay que resolverlo antes de escribir el binding de la etapa Engaged.
-
-**Nota:** Whop / Fanbasis del documento quedan cubiertos por los equivalentes que Limitless ya tiene (Stripe + Mercado Pago). No bloquean.
-
----
-
-### [FEAT-GHL-OAUTH] GHL OAuth / Marketplace App — migrar de Private Integration Token a OAuth
-
-**Qué es:** Cuando Limitless sea aprobado como app en el GHL Marketplace, reemplazar el flujo de Private Integration Token por OAuth estándar ("Connect with GHL"). El proceso de aprobación de GHL es lento.
-**Estado actual:** Integración funcional con Private Integration Token. El usuario pega el token + Location ID manualmente.
-**Pendiente:**
-1. Registrar Limitless como app en GHL Marketplace (proceso manual de Santiago)
-2. Agregar `GHL_CLIENT_ID` y `GHL_CLIENT_SECRET` a env vars
-3. Implementar `/api/integrations/ghl/oauth/start` → `/api/integrations/ghl/oauth/callback`
-4. Reemplazar StepCredentials en `ghl-connect-dialog.tsx` por botón "Conectar con GHL"
-5. Actualizar `ghl_integrations` para guardar `access_token` + `refresh_token` en lugar de `api_key_encrypted`
-
-**Decisión tomada:** Private Integration Token ahora; OAuth cuando sea posible.
-
----
-
-### [FEAT-EXCEL-IMPORT-FASE3-RESTANTE] Importación de pagos y consumo de metrics_snapshots
-
-**Qué es:** Lo que queda de importación de datos:
-- Importación de pagos (tab "Pagos") — clientes y llamadas cubiertos, pagos no
-- Oportunidades de GHL (pipeline) → closing_calls como stretch goal
-- Conectar `metrics_snapshots` a módulos de Finanzas y Métricas de ventas para visualizar los datos importados
-
-**Estado:** ✅ **COMPLETADO (2026-08-25)**. Arquitectura baseline-live implementada en todos los paneles: `finance-data-provider` (financeSummary + monthlySeries), Dashboard, Finance metrics, Intelligence module, Agente de IA (org-context). Column mapper implementado. Deuda menor: si el archivo tiene filas de totales/subtítulos en columna A, aparecen como opciones en el dropdown — sin filtrado por ahora.
-**Complejidad:** Media
-
----
-
-### [FEAT-1] Secuencias de historias
-
-**Qué es:** Feature para planificar y publicar secuencias de historias de Instagram como una unidad cohesiva.  
-**Estado DB:** Tablas `story_sequences` y `story_frames` ya creadas en producción (migración 20260811140000). Listas para usar.  
-**Pendiente:** Análisis conjunto con Santiago + implementación de UI y acciones.  
-**Preguntas a resolver antes de implementar:**
-- ¿Zernio soporta publicación de historias? ¿Individual o en lote?
-- ¿Qué tipo de contenido va en cada historia (video, imagen, texto)?
-- ¿El founder define la secuencia en Limitless o en Zernio?
-- ¿Hay delay entre historias de la misma secuencia?
-- ¿Cómo se integra con el módulo de Marketing/Contenido existente?
-
----
-
-### [FEAT-2] Análisis de competidores
-
-**Qué es:** Feature para que el founder monitoree cuentas de competidores y extraiga insights de su estrategia de contenido.  
-**Estado DB:** Tablas `competitors` y `competitor_posts` ya creadas en producción (migración 20260811150000). Listas para usar.  
-**Pendiente:** Análisis conjunto con Santiago + implementación de UI, acciones y análisis IA.  
-**Preguntas a resolver antes de implementar:**
-- ¿Desde dónde se obtienen los datos? (Zernio, scraping, API de Meta, entrada manual)
-- ¿Qué se analiza? (frecuencia, formatos, hooks, CTAs, temas, engagement)
-- ¿Dónde vive en el producto? (¿tab en Marketing? ¿módulo separado?)
-- ¿La IA genera un reporte periódico o es on-demand?
-- ¿Cuántos competidores por org?
-
----
-
-## 🟪 Notch nav — adoptada, con validación pendiente
-
-> El 2026-08-30 la notch nav reemplazó al sidebar de plataforma (ver `CHANGES.md`).
-> El flag `NEXT_PUBLIC_NAV_STYLE` ya no existe: es la única navegación.
-
-### [NAV-1] Validar con sesión real
-
-**Qué es:** el entorno de desarrollo no renderiza las páginas autenticadas (faltan
-env de Supabase), así que la barra sólo se verificó con providers mockeados.
-
-**Acción:** recorrer la plataforma en el preview de Vercel y confirmar: pill activo
-al navegar, dropdowns de módulo, switcher de holding, badge de clientes con el número
-real, menú de perfil (nombre y organización correctos) y cierre de sesión. En mobile,
-el drawer.
-**Quién:** Santiago.
-
-### [NAV-2] Limpieza opcional: renombrar `sidebar-modules.ts`
-
-Ya no hay sidebar de plataforma, pero el config sigue llamándose así. Renombrarlo a
-`lib/navigation/platform-modules.ts` toca ~15 imports sin cambiar comportamiento.
-Cosmético, hacer sólo si molesta.
-
-> **Ojo:** `components/navigation/sidebar-*` que quedan **no son restos**: los usan el
-> sidebar de super-admin y el drawer mobile. No borrarlos.
-
-### [NAV-3] Etiqueta "Fase 1 · Beta"
-
-La mostraba el footer del sidebar y se perdió. Decidir si va a algún lado de la notch
-(p. ej. el menú de perfil) o si ya no hace falta.
-
----
-
-## 🔵 Rebranding Limitless — cerrado, con 5 pendientes acotados
-
-> Fases 1 y 2 completas — ver `CHANGES.md` 2026-08-29. La app usa el naranja
-> `#E15D12`, el logotipo real y el favicon nuevo, en tema claro y oscuro.
-> Lo que queda abajo son decisiones, no trabajo mecánico.
-
-### [CHART-A] Vista de tabla como equivalente accesible de cada gráfico
-
-**Qué es:** hoy los valores de un gráfico se leen por tooltip, leyenda con valor y
-etiquetas directas. No hay una vista de tabla equivalente, que es el fallback limpio
-para lectores de pantalla, impresión y modo de contraste forzado.
-
-**Acción:** un toggle "gráfico / tabla" en `ChartShell` que renderice los mismos datos
-como `<table>`. La mayoría de los componentes de `charts/platform` ya reciben los datos
-en forma de filas, así que el toggle puede vivir en el shell.
-**Complejidad:** media.
-
----
-
-### [CHART-B] Embudo con etapas de valor muy dispar
-
-**Qué es:** `FunnelChartPanel` dibuja el ancho proporcional al valor. Con un rango tipo
-120.000 → 210 las últimas tres etapas quedan como hilos de 1px y ocupan media card sin
-mostrar nada.
-
-**Por qué no se "arregló" en el rediseño de gráficos:** el ancho proporcional es
-correcto — la caída realmente es esa, y una escala logarítmica mentiría sobre la
-conversión. Los valores y porcentajes están rotulados, así que la información se lee.
-
-**Acción posible:** ofrecer una variante en barras horizontales (una barra por etapa +
-la tasa de conversión entre etapas) para cuando el rango es muy amplio. Es una decisión
-de producto, no un bug.
-**Complejidad:** media.
-
----
-
-### [REBRAND-EXTERNO] Renombrar lo que vive fuera del repositorio 🟡
-
-**Qué es:** el código y la documentación ya no dicen "Limitless". Lo que sigue
-diciéndolo son **nombres registrados en servicios externos**, que renombrar acá
-no cambia allá — y que en varios casos rompen algo si se cambian sin coordinar:
-
-| Dónde | Nombre actual | Qué pasa si se renombra |
-|---|---|---|
-| Vercel | proyecto `otc-plaform` (con el typo) | Cambia la URL de preview; hay un fallback hardcodeado en `welcome-email.ts` |
-| Supabase | proyecto `OTC` | Sólo cosmético; el `project-ref` no cambia |
-| Fly.io | app `otc-reel-worker` | Cambia la URL del worker → actualizar `REEL_WORKER_URL` |
-| Railway | servicio `otc-discord-bot` | Sólo cosmético |
-| Meta | verify token `otc_instagram_webhook_2024` | **Rompe el webhook de Instagram** hasta actualizarlo en el panel de Meta |
-| Supabase (datos) | holding sembrado `'Limitless Portfolio'` | Es una fila real; requiere una migración nueva, no editar la vieja |
-
-**Variables de entorno:** `OTC_WEBHOOK_SECRET` y `OTC_API_URL` pasaron a
-`LIMITLESS_WEBHOOK_SECRET` y `LIMITLESS_API_URL`. **El código lee las dos**, así
-que nada se cae hasta que se actualicen en Vercel y en Railway. Una vez
-actualizadas, borrar el respaldo de `lib/discord/webhook-auth.ts`,
-`apps/discord-bot/src/lib/limitless-api.ts` y `turbo.json`.
-
-**Cookie:** `otc_active_org` pasó a `limitless_active_org`, y la vieja se sigue
-leyendo. Se puede borrar el respaldo de `lib/holding/constants.ts` después de
-24 h de la primera publicación (es lo que dura la cookie).
-
-**Migraciones aplicadas:** no se tocaron. Editar una migración ya ejecutada no
-cambia nada en la base y rompe la verificación de la CLI de Supabase.
-
----
-
-### [BRAND-B] Licenciar Neue Haas Grotesk
-
-**Qué es:** el manual (sección 07) pide Neue Haas Grotesk para títulos. Es de licencia
-comercial (Monotype) y no está comprada, así que `--font-display` resuelve a Inter.
-Los títulos no coinciden con el manual.
-
-**Acción:** comprar la licencia web, poner los archivos en `apps/web/app/fonts/`,
-cargarla con `next/font/local` y apuntar `--font-display` a su variable en
-`packages/ui/src/styles/tokens.css`. Ningún componente necesita cambios — la utilidad
-`font-display` de Tailwind ya existe.
-**Quién:** Santiago (licencia) + Claude (implementación).
-
-### [BRAND-C] Validar el texto negro sobre los botones naranjas
-
-**Qué es:** `--primary-foreground` pasó de blanco a negro. Blanco sobre `#E15D12` da
-3.64:1, por debajo de AA para texto normal; negro da 5.78:1. Cambia el aspecto de
-todos los botones primarios de la app.
-
-**Acción:** que el equipo mire los botones y confirme. Si se prefiere blanco pese al
-contraste, es una línea en `tokens.css` (`--primary-foreground: 0 0% 100%`).
-**Quién:** Santiago.
-
-### [BRAND-D] Limpieza — borrar la rama `brand-source`
-
-**Qué es:** el material de identidad (incluido el manual en PDF de 58 MB) se subió a la
-rama `brand-source`, deliberadamente fuera de `main` para no cargar el historial.
-
-**Acción:** una vez que el equipo tenga el material guardado en otro lado, borrar la
-rama en GitHub. **No mergearla a `main`.**
-
-### [BRAND-E] Dominio — fuera del alcance (decisión de Santiago)
-
-`optimizatucontrol.com` sigue en pie. Está centralizado en `brand.domain`, pero hay
-referencias sueltas fuera de ese campo:
-
-- `lib/utm/build-links.ts`, `components/marketing/utm-generator.tsx`, `components/settings/settings-form.tsx`
-- `app/(landing)/privacidad/page.tsx` — `CONTACT_EMAIL` y `APP_URL`
-- `mocks/utm-links.ts`
-- `lib/email/welcome-email.ts` — fallback `https://otc-plaform.vercel.app` (con el typo del original)
-
-~~`app/api/queue/publish-reel-variation/route.ts` — fallback `https://app.otc.com`~~
-**Corregido el 2026-09-08:** ese dominio no existe, así que el mail de aviso de
-Trial Reels salía con links rotos cuando faltaba `NEXT_PUBLIC_APP_URL`. Ahora cae
-en `brand.domain`.
-- `components/super-admin/infrastructure-page.tsx` — hostname de Vercel
-
-**Acción:** al definir el dominio de Limitless, migrar DNS y actualizar estas
-referencias + `brand.domain`.
-
----
-
-## 🟢 Deuda técnica — Phase 2 (baja urgencia)
-
-### [TRIAL-REELS-MUSICA] Remontar la carga de música en Marketing
-
-**Qué es:** el bloque de música de Trial Reels se sacó de Integraciones (no era
-una integración). `ReelMusicUpload` y `uploadReelMusicAction` siguen existiendo,
-pero **ya no hay ninguna pantalla que los monte**: el track que ya está subido se
-sigue usando, pero no se puede cambiar.
-
-**Dónde va:** Marketing → Contenido, junto al resto de la configuración de Trial
-Reels. Es montar el componente, nada más.
-
----
-
-### [LAYOUT-CAJONES] Revisar los otros cuatro cajones laterales
-
-**Qué es:** el arreglo de `PageTransition` (sacarle el `transform` a la animación
-de entrada de página) devolvió el comportamiento correcto a **todos** los
-`position: fixed` de la aplicación. Los cajones de retrospectiva de sprint,
-versiones de SOP, leads de UTM y llamadas del cliente estaban rotos igual que el
-de ManyChat, pero **no se verificaron uno por uno**.
-
-**Qué mirar:** que abran a pantalla completa contra el borde derecho, y que
-cerrados no asomen.
-
-**Regla que quedó:** ningún wrapper que envuelva la página puede tener
-`transform` —ni siquiera la matriz identidad que queda después de una animación—
-porque se vuelve el bloque contenedor de los `fixed` de adentro.
-
----
-
-### [INTEGRACIONES-LOGOS] Faltan logos sólo si entra un proveedor nuevo
-
-**Qué es:** las catorce integraciones ofrecidas tienen su marca real y un test lo
-verifica. Si entra una nueva sin asset, se dibuja su inicial y el test falla.
-
----
-
-### [INTEGRACIONES-PLAYWRIGHT] Cubrir la pantalla de Integraciones con Playwright
-
-**Qué es:** el rediseño no tiene cobertura de e2e. Lo que más conviene cubrir es
-el recorrido completo: filtrar por "requieren atención", abrir el detalle, volver
-al tablero.
-
-**La lógica pura sí está cubierta**: 23 tests en
-`lib/integrations/__tests__/health.test.ts`.
-
----
-
-*(TECH-1 y TECH-2 completados — ver tabla abajo)*
-
-
-
-
-### [TECH-4] VSL Player placeholder en landing
-
-**Contexto:** `components/landing/vsl-player.tsx:37` renderiza un placeholder cuando no hay `NEXT_PUBLIC_VSL_URL`. Cuando exista el video de ventas real, setear esa env var en Vercel.  
-**Archivos clave:** `components/landing/vsl-player.tsx`
-
----
-
-### [TECH-5] Badge `children` en React 19 — revisión global
-
-**Contexto:** `packages/ui/src/primitives/badge.tsx` fue corregido, pero hay ~15 archivos pre-existentes con el mismo patrón (`extends React.HTMLAttributes` sin `children?: React.ReactNode`) que Vercel ignora por caché de Turbo. En un rebuild limpio fallarían.  
-**Acción:** Hacer un `grep -rn "HTMLAttributes" packages/ui/src/` y agregar `children?: React.ReactNode` a todos los componentes que lo necesiten.
-
----
-
----
-
-## 🟡 Rediseño de Clientes — las cinco fases (acordado 2026-09-11)
-
-**Las cinco fases están hechas.** Lo que queda es verificarlas con datos reales.
-
-### [CLIENTES-F2-PROGRESO-ETAPA] Progreso por etapa y fecha límite ✅ 2026-09-11
-
-**Hecho.** `stageReached`/`stageTotal`, `nextCheckpointDueAt` y `formatDueDate`
-en `lib/checkpoints/stalled.ts`, con 12 tests nuevos (955 en total).
-
-**Todavía no se ve en ninguna pantalla:** son datos calculados que consume la
-Fase 4. Cuando esa fase los muestre, hay que confirmar a ojo que el "3 de 4" de
-un cliente real coincide con sus checks en el Recorrido.
-
----
-
-### [CLIENTES-F3-OBJETIVO] El objetivo general como campo configurable ✅ 2026-09-11
-
-**Hecho.** `field_definitions` llega a `entity = 'client'`, `clients.custom`
-guarda los valores, hay una tercera solapa en Campos personalizados y una
-sección "Datos del cliente" en la ficha. Botón que carga "Objetivo general" con
-las opciones de la imagen. 10 tests nuevos sobre la regla de fusión.
-
-**🔴 Falta aplicar la migración**
-`20260911120000_campos_configurables_de_cliente.sql`. Sin eso no funciona nada
-de esto. Pasos en `docs/PLAN_VERIFICACION.md`.
-
----
-
-### [OBJETIVO-DOS-LUGARES] El objetivo quedó en dos campos 🟡
-
-**Qué es:** ahora hay dos cosas que se llaman "objetivo":
-
-1. El **campo configurable** nuevo — la categoría ("escalar a 50k"), que es lo
-   que se ve en la tabla y permite agrupar.
-2. **`clients.goal_text` + `goal_metric_*`** — la narrativa y el número, que se
-   cargan en el diálogo de baseline y los usan los wins para medir si el cliente
-   llegó a donde iba.
-
-Miden cosas distintas, así que no es duplicación accidental. Pero los dos se
-llaman igual y eso confunde al cargar.
-
-**Qué decidir:** renombrar el de baseline a algo como "Meta medible" (es lo que
-realmente es), o retirarlo si el campo configurable alcanza. Lo segundo implica
-revisar qué pasa con `deriveClientCase`, que compara contra `goal_metric_value`.
-
----
-
-### [CLIENTES-F4-TABLA-NUEVA] La tabla nueva de Clientes ✅ 2026-09-11
-
-**Hecho.** Cliente · Etapa · Próxima tarea (check + fecha límite) · las columnas
-configurables · Progreso de etapa · Estado. El check inline registra al toque si
-el hito no pide métricas, y abre el diálogo de siempre si las pide.
-
-**🔴 Sin probar con sesión real.** 15 pasos en `docs/PLAN_VERIFICACION.md`. Lo
-más riesgoso: el check inline, que mueve tres columnas de la fila a la vez.
-
----
-
-### [CLIENTES-F5-CALLS-ENTREGA] Clasificación de entrega y "última 1-1" ✅ 2026-09-11
-
-**Hecho.** Se enchufó `resolveCounterparty`, que estaba construido y con 20 tests
-desde septiembre y nunca se había usado. Sin migración: las columnas de la base
-ya estaban todas.
-
-**🔴 Arranca casi apagado por los datos.** Ver el ítem de abajo.
-
----
-
-## ✅ Completados (referencia histórica)
-
-### ✅ [PRIVACIDAD-NO-PUBLICA] `/privacidad` se lee sin iniciar sesión — 2026-09-23
-
-Sumada a `isPublicPath`, con su caso en `public-paths.test.ts`. Antes
-redirigía al login, y quien revisa una app OAuth (Google, Meta) no podía leerla.
-
-### ✅ [AUDITORIA-MIGRACIONES] Migraciones de la auditoría de backend aplicadas en producción — 2026-09-22
-
-Aplicadas en el proyecto Supabase **OTC** (`nrzlylzbmsuowzhpdnjl`), que es la
-base de Limitless, y verificadas ahí mismo, en transacciones con rollback:
-
-- un no-founder que intenta `role = 'founder'` recibe `42501`;
-- editar el nombre propio sigue andando;
-- como usuario común: `search_rag_chunks` no ejecuta, la vista de Claude da una
-  sola fila, zernio y youtube dan 0 filas, `enabled_add_ons` no se puede editar
-  y `name` sí.
-
-**Deriva encontrada al aplicar:** en producción `organizations` tenía UPDATE
-sobre todas las columnas para cualquier usuario, porque la 20260619100000 nunca
-quedó aplicada, y no existen las columnas OAuth de Claude (20260711180000). La
-migración 20260922110000 se ajustó para las dos cosas. Sigue pendiente correr
-`supabase db diff` completo (ver `[AUDITORIA-ABIERTOS]`).
-
-
-### 2026-09-15 — El embudo del panel general que se salía de la card
-
-Dos bugs encadenados: el chart normalizaba contra la primera etapa asumiendo que
-siempre es la más grande (263 clientes activos contra 1 cierre daban un trapecio
-230 veces más alto que la card), y las etapas no formaban un embudo porque
-"Clientes activos" es el stock del CRM, no una etapa. La escala quedó acotada a
-`[0, 1]` en `lib/chart/funnel-scale.ts` —protege a los 7 embudos de la app— y el
-armado de etapas, en `lib/metrics/build-sales-funnel-stages.ts`, es decreciente
-por construcción. 12 tests nuevos. Falta mirarlo en pantalla: ver
-`PLAN_VERIFICACION.md`.
-
-### 2026-09-15 — Fathom: qué trae la primera vez
-
-Decidido y construido: **desde la conexión en adelante**, no el historial. Antes
-había dos comportamientos distintos —90 días para la organización, todo para un
-miembro— y ahora hay una sola regla para las dos.
-
-### 2026-09-15 — Observaciones de testers
-
-- **Fathom desbloqueado**: el cron de cada 10 minutos hacía dos pedidos de más a
-  la API (el listado completo y una sonda de diagnóstico). ~312 pedidos diarios
-  por organización pasaron a 24.
-- **La barra de arriba** ya no se rompe cuando crece el negocio: el contador
-  corta en 99+.
-- **Varios responsables por tarea**, cualquiera la puede cerrar y se guarda quién
-  la cerró. El filtro mira a todos los responsables, no sólo al primero.
-- **"+ Agregar tarea"** abre el formulario con la columna puesta, en vez de crear
-  una tarjeta vacía.
-- **Aviso por fecha en campos configurables**: cada organización define su fecha
-  con su propio umbral, en vez de una columna "próximo lanzamiento" que sólo le
-  servía a una.
-- **Nivel de satisfacción del cliente**, con fecha, autor y aviso de dato viejo.
-
-### 2026-09-09 — [DISCORD-IDENTIDAD] El bot se llama y se ve como la marca del cliente
-
-El campo "Nombre del bot" existía desde el principio pero **no cambiaba el
-nombre del bot**: sólo se interpolaba dentro del texto del saludo. El nombre que
-Discord muestra al lado de cada mensaje seguía siendo el de la aplicación, igual
-para todos los clientes. Ahora se aplica como apodo por servidor, y se sumó la
-foto. El default `'Asistente OTC'` de la base —que el barrido del rebrand no
-tocó— quedó corregido antes de que se lo llevara el próximo cliente que conecte.
-
-⚠️ **Pendiente de verificación real:** ver el bloque en
-`docs/PLAN_VERIFICACION.md`. Lo más probable de todo: un servidor conectado
-antes de este cambio **no tiene el permiso «Cambiar apodo»** y hay que
-reconectar el bot. La foto funciona igual sin reconectar.
-
-### 2026-09-09 — [DISCORD-CLAVE] El bot guardaba en el vacío y ahora lo dice al arrancar
-
-`SUPABASE_SERVICE_ROLE_KEY` en Railway no era una clave de Supabase válida, así
-que cada escritura del bot fallaba y `!vincular` no respondía nada. El bot ahora
-verifica la clave al arrancar, dice qué rol tiene y consulta la base para
-confirmar que puede leer y escribir. Corregida la clave, el flujo anda de punta a
-punta: vincular, responder y guardar.
-
-### 2026-09-09 — [DISCORD-SIN-F5] La pantalla de Discord se actualiza sola
-
-Una vinculación hecha desde Discord no aparecía hasta apretar F5: el cambio
-llega de afuera de la aplicación y no hay mutación propia que dispare el
-refresco. Ahora refresca al volver a la pestaña —que es el recorrido real: irse a
-Discord, escribir el comando y volver— más un intervalo lento con la pestaña
-visible. La mitad que faltaba: el componente guardaba las listas en
-`useState(prop)`, que toma el valor una sola vez, así que el refresco traía datos
-nuevos y la pantalla seguía mostrando los viejos. Verificado en el navegador con
-datos que cambian a mitad de sesión (aparece a los 22 s, sin F5). PR #54.
-
-### 2026-09-08 - [DISCORD-CANALES] Se pueden elegir los canales que lee el bot
-
-No se podia: la pantalla ofrecia quitar canales pero no agregarlos, y el unico
-camino --la deteccion automatica-- solo alcanza a los canales que se **crean**
-despues de configurar el patron. En un servidor que ya existia no se podia
-monitorear nada. Ahora hay un selector que lista los canales del servidor.
-
-### 2026-09-08 - [DISCORD-URI-PORTAL] La URI de retorno quedo registrada
-
-El runbook documentaba `/api/integrations/discord/oauth/callback`, con un
-`/oauth/` de mas; la ruta real es `/api/integrations/discord/callback`. Corregido
-en la documentacion, y las dos rutas del flujo pasaron a armar la URI con la
-misma funcion.
-
-### 2026-09-08 — [E-D1-DESPLEGAR] El bot de Discord está desplegado y la tarjeta existe
-
-El bot corre en Railway (`@ai-coo/discord-bot`, online) con sus variables
-cargadas, y la app tiene sus credenciales en Vercel. Lo que faltaba era la
-entrada en Integraciones: Discord estaba sin listar desde antes del rediseño, así
-que el flujo de conexión existía pero no había forma de llegar a él. Ahora tiene
-tarjeta, y conectada lleva a la pantalla de canales en vez de repetir el OAuth.
-
-La tarjeta avisa de los dos modos de falla del runbook: **sin canales
-monitoreados** el bot está adentro y no lee nada, y **mensajes guardados sin
-texto** significa que falta activar MESSAGE CONTENT INTENT en el portal de
-Discord — el fallo peligroso, porque el bot parece andar y guarda filas en blanco.
-
-### 2026-09-08 — [REBRAND-Limitless] "Limitless" salió del código y la documentación
-
-El producto se llama Limitless en todo lo que vive dentro del repositorio. Las
-variables de entorno, la cookie del negocio activo y dos claves de localStorage
-se renombraron **leyendo el nombre viejo como respaldo**, para que publicar no
-dejara caído el bot de Discord ni sacara a las cuentas holding del negocio que
-estaban mirando. Lo que vive afuera quedó inventariado en `[REBRAND-EXTERNO]`.
-
-### 2026-09-08 — [INTEGRACIONES-REDISEÑO] Registro único, contrato de estado y pantalla nueva
-
-Las catorce integraciones pasaron a un registro único y a un contrato de estado
-común. El catálogo dejó de ser un mock con filas inventadas. El estado `error`
-del badge, que se declaraba y nunca se producía, ahora se alcanza. Las cinco
-integraciones que vivían en paneles sueltos debajo del grid entraron al tablero.
-Se eliminó el flujo de conexión simulado que corría en producción.
-`requireOrganizationId` quedó memoizada por request: ~30 resoluciones por render
-pasaron a una. Mapa de flujos en `docs/INTEGRACIONES_MAPA.md`.
-
-### 2026-09-08 — [INTEGRACIONES-PANEL-FANTASMA] El panel que asomaba a la derecha
-
-Era el cajón de ManyChat, y la causa era global: el wrapper de transición de ruta
-animaba `translateY`, y un elemento con `transform` se vuelve el bloque
-contenedor de sus descendientes `position: fixed`. Arreglado en la raíz
-(animación de sólo opacidad) y el cajón se eliminó.
-
-### 2026-09-08 — [EMBUDOS-PAGOS-CORREGIR] El mapeo de pagos ya estaba corregido
-
-Al revisarlo contra los dos resúmenes se confirmó que `lib/payments/normalize.ts`
-ya usa `settlement_amount`, la unidad de monto por proveedor y la lista literal
-de eventos. Lo que **sí** estaba mal era la ayuda del formulario de conexión, que
-decía que el secreto de Whop empieza con `whsec_` cuando empieza con `ws_`, y que
-apuntaba a `apidocs.fan` en vez de a la documentación vigente de Commas.
-
-### 2026-09-07 — Nueve bugs del feedback de testers
-
-- **El asistente de alta** ya no dice "faltan datos" cuando no faltan, y dejó de
-  crear un avatar duplicado por cada reintento.
-- **Los clientes aparecen sin F5** al cargarlos, importarlos, editarlos o borrarlos.
-- **Las capturas se pueden agregar a un win ya guardado**, que era justamente
-  cuando no se podía.
-- **"facturación" y "facturacion" son la misma medida**: el recorrido del cliente
-  ya no dice "hay un solo número" teniendo dos.
-- **El límite del video de SOPs es el real (50 MB)** y frena al elegir el archivo.
-- **Los errores de Fathom se leen**: se acabó el párrafo en inglés sobre digests.
-- **Una clave de IA vencida ya no deja a la organización sin producto.**
-- **El límite de intentos del login volvió a ser compartido** entre servidores.
-- **Las previews de los links compartidos** vuelven a mostrar el logo.
-
-### 2026-09-06 — Bajas del super admin
-
-- **Eliminar organizaciones, holdings y personas** desde el super admin, con
-  vista previa del alcance, confirmación escribiendo el nombre exacto
-  (revalidada en el servidor) y registro de la baja en una tabla que no se borra
-  con lo borrado.
-- **El login ya no sobrevive a la baja**: `profiles` no tiene FK a `auth.users`,
-  así que la cuenta se da de baja aparte. Los archivos de Storage también.
-
-### 2026-09-06 — Volver atrás, notas por cliente y los nueve del feedback
-
-- **Las tres migraciones `20260906*` aplicadas y verificadas** (2026-09-06): las
-  columnas de notas existen, `storage_path` acepta null, y los 63 roles quedaron
-  con las 13 claves nuevas — cero claves viejas, cero desconocidas. La
-  consolidación se corrió primero como consulta de sólo lectura y el resultado
-  real coincidió fila por fila con esa previsión.
-
-- **Volver atrás en todas las pantallas**: `page-meta.ts` con `parent` + derivación
-  por path; 23 pantallas que no tenían título propio ahora lo tienen. Test que
-  recorre `app/(platform)` en disco.
-- **Notas libres por cliente**, separadas de la nota de la revisión semanal.
-- **Cobros que aparecen sin recargar** (`refreshClientPayments` expuesto).
-- **Comprobante opcional** al registrar un pago.
-- **Cambio de contraseña** desde Configuración, verificando la actual de verdad.
-- **Una sola regla de comisión** (`lib/metrics/match-closer.ts`): se acabó el
-  `includes` que le sumaba las ventas de cualquier "Juan" al primer Juan del equipo.
-- **Gastos con miembro elegido de una lista**, no tipeado.
-- **Sync de Fathom por miembro** sin pisar el estado ni reportar éxito falso.
-- **Permisos consolidados** de 21 submódulos a 13 módulos, con traducción de las
-  claves viejas.
-- **Permiso aplicado en el servidor**: tipear `/finance` sin acceso ya no entra.
-
-| Fecha | Ítem | Branch |
-|-------|------|--------|
-| 2026-09-05 | MIGRACION-20260904110000: aplicada y verificada — las dos columnas `checkpoint_checked_at` y los dos índices parciales existen. Y se arregló el build del bot en Railway: construía el monorepo en vez del bot porque faltaba el root directory del servicio | `claude/checkpoints-cliente-ccc3ih` |
-| 2026-09-04 | CABLES-PROPUESTAS: el buzón de C3 empieza a recibir. Cron diario `daily-signals` que clasifica los mensajes de Discord y propone hitos desde los mensajes y desde las llamadas de entrega de Fathom. Solapa **Candidatos** en Wins con los testimonios de todos los clientes juntos. Un hito que no está en el catálogo se descarta entero; piso de confianza 0.7; la marca es de "evaluado", no de "propuesto". 849 tests | `claude/checkpoints-cliente-ccc3ih` |
-| 2026-09-04 | TRACKERS-EXCEL: las cinco piezas que los Excel tenían y Limitless no — permisos del cliente sobre su win (con la forma en que quiere aparecer), estado de uso con el filtro "Sin usar", objetivo con el que entró, fecha de egreso y estado actual en palabras. Más la pantalla de **Revisión semanal** con las cuatro preguntas. 812 tests | `claude/checkpoints-cliente-ccc3ih` |
-| 2026-09-04 | OPERACIONES-ADDON-APAGADO: SOPs salió del add-on `operaciones` y es un módulo propio de la barra superior. El creador de SOPs existía y **nadie podía llegar**, porque las 5 organizaciones tienen `enabled_add_ons` vacío. El resto de Operaciones sigue detrás del add-on | `claude/checkpoints-cliente-ccc3ih` |
-| 2026-09-03 | SEGUIMIENTO-EN-EL-MOMENTO: el modal de resultado de la llamada pide también el seguimiento (calificación, próximo paso, fecha, responsable, nota) en un solo guardado. "No show" pasó de acción directa a modal con el mismo bloque. El panel de detalle ahora usa `acceptsManualOutcome`, así que las llamadas "asistió sin resultado" pueden cerrarse | `claude/seguimientos-tabla-closing-u6arke` |
-| 2026-09-03 | SEGUIMIENTO-TABLA: la pestaña Seguimiento pasa de acordeón a tabla editable celda por celda (calificación, próximo paso, fecha, responsable, notas), con panel lateral para el hilo de intentos, filtros, buscador, orden y paginado. Se ven **todos** los leads, no sólo los tres estados accionables. Valores de seguimiento propios por organización (`sales_follow_up_options`): cada valor declara si pide fecha o cierra el hilo, se archiva en vez de borrarse, y los de fábrica no se pueden pisar. Se completó `next_action_owner_id`, que no tenía UI. 595 tests | `claude/seguimientos-tabla-closing-u6arke` |
-| 2026-09-02 | LLAMADAS-FASE-2: seguimiento del lead. Tabla `sales_leads` que hila los intentos (845 leads, 861 turnos, 15 con reagendas). Próximo paso con fecha y notas — lo que faltaba para que una llamada que no cierra deje de ser un callejón sin salida. Tres estados de trabajo derivados: seguimiento vencido, falta resultado y sin próximo paso. Calificación antes y después. Ciclo lead → cliente cerrado al vender. 577 tests | `Claude-New-Features` |
-| 2026-09-01 | LLAMADAS-ALCANCE: reducción a sólo llamadas de venta. Una grabación lo es cuando el mail de un participante coincide con el del lead de un turno y el horario corresponde; match provisional por horario mientras los turnos no tengan mail. Se retiró lo que quedó fuera de alcance (tipos de reunión, parser de título, match contra clientes, detección de equipo). El mail del lead ahora viaja al cliente al cerrar. 558 tests | `Claude-New-Features` |
-| 2026-09-01 | LLAMADAS-FASE-1: un solo clasificador con dos ejes (con quién / para qué). Se empezaron a leer los invitados de Fathom —con mail e `is_external`— que el parser descartaba, y el cruce grabación↔turno por horario y mail, con FK real. Parser posicional del título como respaldo. UI de mapeo de tipos y cola de sin clasificar. 581 tests | `Claude-New-Features` |
-| 2026-09-01 | LLAMADAS-FASE-0: `showed` de GHL dejó de contarse como venta; canceladas se importan como canceladas y no como no-show; los syncs dejaron de pisar los estados manuales; se dejó de inventar `"delivery"`; rescate de llamadas trabadas; `lead_email` persistido; documentación de Fathom bajada al repo. 544 tests | `Claude-New-Features` |
-| 2026-08-31 | BRAND-A: paleta categórica aplicada a badges, etiquetas y nodos del grafo; 0 clases violeta en la app | `Claude-Design` |
-| 2026-08-31 | Rediseño del sistema de gráficos: paleta categórica y ordinal validadas, leyendas, espaciados y barra de progreso honesta en métricas | `Claude-Design` |
-| 2026-08-31 | REPORTES-IA: pulso diario (tercera cadencia), UI rediseñada y movida a un panel de la isla derecha de la barra. "Reportes" salió de Operaciones. Sólo generación automática. Rehecho sobre `main` después de que entraran #32/#33/#34: 509 tests, lint y tsc limpios, build de 131 páginas | `Claude-New-Features` |
-| 2026-08-30 | ADDON-EMBUDOS: add-on `embudos` activado en la org "Optimiza tu Control" (`46cce98c`). El módulo ya aparece en el sidebar; no depende de ninguna integración | — (cambio de datos) |
-| 2026-08-30 | EMBUDOS-UI: interfaz del módulo — switcher que conserva el período, KPIs universales con las dos ratios decisivas, etiquetas [Meta]/[Hyros], spine con conectores, índice con estado de configuración. Destapó que computeFunnel no devolvía los KPIs universales. 414 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | EMBUDOS-I8: integración Hyros — atribución por fuente, y corrección del ROAS by-source, que usaba las mismas medidas que el blended y por lo tanto mostraba el mismo número. **Cierra las 10 unidades del plan.** 408 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | EMBUDOS-I9-I10: retención y compras por cliente (desbloquea LTV:CAC) + triggers de Zernio. Sin integraciones nuevas ni migraciones. 395 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | EMBUDOS-HUECOS: fuente de clicks al CTA de VTurb (M16) y fuentes de formulario (M13, M17, M18), que estaban marcadas como medibles pero desconectadas del módulo. Debate WebinarJam vs VTurb cerrado y documentado. 372 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | EMBUDOS-I5: integración WebinarJam / EverWebinar — registrantes persistidos por fila (la API no acepta rangos de fecha arbitrarios), stick rate pedido filtrado al servidor, segundo de la oferta configurable. M16 documentado como no medible. 364 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | EMBUDOS-I6: integración VTurb — caché por período (engagement_rate es un promedio y no se puede sumar entre días), M12 sólo cuando el player tiene pitch time, catálogo de videos y selector en el formulario de fuentes. 351 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | EMBUDOS-I4: oportunidades de GHL — historial propio de transiciones de etapa (GHL no lo expone), período ciego explícito, webhook con dos vías de autenticación, tres fuentes de embudo con etapa configurable. 331 tests en verde | `Claude-New-Features` |
-| 2026-08-30 | DOC-EXTERNAL-APIS-2: Whop (897 páginas + 3 specs OpenAPI), Commas ex Fanbasis (42 secciones), Hyros (482 guías + 3 specs) y WebinarJam (17 artículos) bajados a `docs/external-apis/`, con un `RESUMEN-Limitless.md` por proveedor. Cierra las seis secciones de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
-| 2026-08-30 | DOC-EXTERNAL-APIS: documentación completa de GoHighLevel (948 páginas) y VTurb (28 endpoints + `openapi.json`) bajada a `docs/external-apis/`, con scripts de regeneración y dos `RESUMEN-Limitless.md` que cierran §3 y §4 de `API_DOCS_PENDIENTES.md` | `Claude-New-Features` |
-| 2026-08-26 | FEAT-GHL-MULTI-CALENDAR: multi-selección de calendarios GHL + filtro en closing panel | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-26 | UI-CLEANUP: Eliminación botón flotante del agente (FloatingChat) + fix layout integrations page (min-w-0) | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-PLANES-CUOTAS-CLIENTES: planes con sistemas de cuotas, eliminar clientes, asignar plan, closing con cuotas manuales — migración SQL pendiente de aplicar en Supabase | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FIX-VENTAS-CASH-COLLECTED: panel de métricas de ventas usa gastosTotales del provider (no snapshot) para cash collected | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FIX-BASELINE-GAPS: Baseline fallback en Intelligence module (collect-context.ts) y monthlySeries (finance-data-provider) — cierran los dos últimos vacíos de la arquitectura baseline | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-BASELINE-ARCHITECTURE: Arquitectura baseline escalable — baseline-service.ts, finance-data-provider fallback, Dashboard, Finance metrics, agente IA, data_source column en metrics_snapshots | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-METRICS-DERIVE: Auto-derivación de métricas combinadas al importar — deriveSalesMetrics (close_rate, show_rate, tasa_agendamiento, tasa_fantasma, inasistencias, no_cierres) y deriveFinanceMetrics (margen, pct_margen); mapper de filas reducido a solo métricas primarias (11 ventas, 4 finanzas) | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-EXCEL-TRANSPOSED-ROW-MAPPER: Mapeo manual de filas en formato pivot — TransposedRowMapper con dropdowns por campo Limitless, auto-sugerencia desde diccionario, rowMapping pasado al parser, texto de confirm corregido (upsert) | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-EXCEL-PIVOT: Soporte formato pivot en importación de métricas — auto-detección de meses como columnas, parser transpuesto, banner "Formato tabla detectado", fix preview para archivos con título merged (resuelve __EMPTY) | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FIX-EXCEL-PREVIEW: getExcelPreviewAction ahora usa { header: 1 } y salta filas de título — fix para archivos con celdas merged/título en la primera fila | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FIX-VERCEL-BUILD x4: prefer-const, unused imports/props, SectionDef[] filter inference, keyof Union type — 4 errores de build de Vercel corregidos en serie | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-EXCEL-MULTISHEET: Selector de hoja en wizard de importación Excel — heurística pickBestSheet, SheetSelector UI, re-fetch al cambiar hoja, re-auto-mapeo | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-25 | FEAT-EXCEL-COLUMN-MAPPER: UI de mapeo columna-a-columna para archivos Excel propios — paso "mapper" en wizard, auto-mapeo, vista previa, validación de campos requeridos | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-24 | FEAT-GHL-UTM: Atribución UTM en closing calls — fetch attributionSource del contacto GHL durante sync, columna + panel de detalle en UI | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-24 | FEAT-GHL-PHASE2: Importación datos históricos GHL contacts + Excel clientes/llamadas — wizard 3 pasos, parsers Excel, preview GHL, server actions | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-24 | FIX-GHL-TIMESTAMPS: GHL `/calendars/events` requiere Unix ms, no ISO 8601 — fix sync que devolvía 0 citas | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-24 | FEAT-GHL-PHASE1: Integración GoHighLevel Calendar — Private Integration Token, sync horario, UI dialog multi-paso, badges de origen en closing | `claude/ghl-integration-data-loading-9cd72n` |
-| 2026-08-23 | BUG-3: Patrón UTC-midnight — isInCurrentMonth (enrich-team-compensation.ts) + periodBounds (cta-actions.ts) | `feat/trial-retry-variation` |
-| 2026-08-23 | BUG-2: Gráfico distribución ya incluye content_pieces Zernio (ya estaba implementado) | `main` |
-| 2026-08-23 | TRIAL-1: Reintentar variante fallida — botón en variation-card.tsx + retryVariationAction (ya existía implementado) | `main` |
-| 2026-08-23 | refactor(agent/marketing): split de action files grandes — agent/actions.ts (1665→1252 líneas) + canvas-actions.ts + workboard-actions.ts; marketing/actions.ts (963→536 líneas) + utm-actions.ts | `claude/architecture-review-improvements-fdj4ae` |
-| 2026-08-23 | Sentry integration (client/server/edge configs + withSentryConfig en next.config.ts) | `claude/architecture-review-improvements-fdj4ae` |
-| 2026-08-23 | perf(holding): RPC get_holding_dashboard_stats — 28 queries → 2 paralelas | `claude/architecture-review-improvements-fdj4ae` |
-| 2026-08-23 | fix(holding): dropdown del switcher de negocios scrollable (max-h-[280px]) | `claude/architecture-review-improvements-fdj4ae` |
-| 2026-08-23 | feat(crons): fan-out QStash para sync-metrics, intelligence-snapshot, executive-report, founder-tone | `claude/qstash-fanout-playwright` |
-| 2026-08-24 | fix(e2e): clearCookies() en beforeEach para garantizar refresh token virgen (tests 6/7 holding) | `claude/architecture-review-improvements-fdj4ae` |
-| 2026-08-23 | feat(testing): Playwright E2E setup + tests holding flow (pendiente ejecutar con cuenta real) | `claude/qstash-fanout-playwright` |
-| 2026-08-11 | TECH-1: Fathom deep analysis vía QStash (reemplaza void pattern que se perdía en Vercel) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | TECH-2: Retención real YouTube Analytics API (fallback gracioso a estimación) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | SEED: Limpieza de 171 registros ficticios en Supabase prod (org `46cce98c-...`) | directo en DB |
-| 2026-08-11 | TECH-3: Mecanismo add-ons por org (DB + permisos + sidebar dinámico + super-admin toggle) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | TRIAL-3: Música personalizable por org en Trial Reels | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | TRIAL-2: Botón "Generar con IA" para captions/hashtags por variante | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | BUG-1: Sync de stories de Instagram via Zernio (doble estrategia con fallback) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | Upload real de video a Zernio en Trial Reels (bug crítico) | `feat/trial-reels-video-upload` |
-| 2026-08-11 | Email de notificación cuando todos los reels terminan de publicar | `feat/trial-reels-video-upload` |
-| 2026-08-11 | Cron de limpieza de Storage (`trial-reels` bucket, 30 días) | `feat/trial-reels-video-upload` |
-| 2026-08-11 | Delay real entre publicaciones con QStash (reemplazó setTimeout fake) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-11 | Estado "scheduled" para variantes encoladas en QStash | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-10 | Fix reel-worker crasheaba en Node.js 20 (migrar a Node.js 22) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-10 | Auth triple redundancia worker (X-Worker-Secret + Bearer + query param) | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-09 | Fix MRR=0 y Nuevos clientes=0 en Panel General | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-08 | Fix errores 403 en consola por URLs CDN de Instagram expiradas | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-08 | Fix React #418 (hidratación) en detalle de contenido | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-08 | Fix "Conectá tus redes" en dashboard aunque Zernio estuviera conectado | `claude/marketing-module-console-errors-g2py5w` |
-| 2026-08-08 | Fix panel ManyChat roto en página de integraciones | `claude/marketing-module-console-errors-g2py5w` |
-
----
-
-*Creado: 2026-08-11. Actualizar con cada sesión — mover ítems completados a la tabla de abajo.*
+| `[PERMISOS-SERVER-ACTIONS]` | Plataforma | Los permisos por módulo no protegen datos, sólo pantallas |
+| `[AUTH-CALLBACK-NEXT]` | Plataforma | Open redirect en `/auth/callback` (nuevo) |
+| `[LLAMADAS-EMBED-ROTO]` | Ventas | `/sales/llamadas` no muestra ninguna llamada |
+| `[CLOSING-LIST-1000]` | Ventas | El calendario y la lista de Closing pierden los turnos más recientes |
+| `[ZERNIO-KEY-GLOBAL]` | Marketing | Una org sin Zernio usa la key global de Zernio |
+| `[EMBUDOS-WEBHOOK-PERDIDA]` | Embudos y Lanzamientos | Webhooks de pagos y GHL que responden 200 sin haber guardado el evento |
+| `[1A1-CLAVE-ANTHROPIC-ROTA]` | Agente de negocio e IA | Una organización sin clave válida y sin clave global |
+| `[EQUIPO-DESACTIVAR-NO-BLOQUEA]` | Operaciones, Finanzas y Producto | Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo] |
+| `[PERMISOS-SERVER-ACTIONS/infra]` | Infraestructura, seguridad y tests (transversal) | Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1) |
+
+## Índice por área
+
+| Área | Doc | P0 | P1 | P2 | P3 |
+|---|---|---|---|---|---|
+| [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 11 | 25 | 16 |
+| [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 9 |
+| [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 13 | 14 | 6 |
+| [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 18 | 4 |
+| [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
+| [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 17 | 6 |
+| [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 13 | 9 |
+| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 1 | 18 | 38 | 8 |
+
+---
+
+## Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord
+
+Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
+
+### Plataforma · P0
+
+#### [PERMISOS-SERVER-ACTIONS] Los permisos por módulo no protegen datos, sólo pantallas
+- **Tipo:** seguridad
+- **Estado verificado:** `getCurrentUserPermissions` sólo se usa en `app/(platform)/layout.tsx` y en componentes de navegación. Ninguna server action consulta `modules`. Ninguna policy RLS mira `role` (todas `organization_id = get_my_organization_id()`). Confirmado sin guard: `saveClaudeApiKeyAction` (`app/settings/actions.ts:438`), `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`), los `disconnect*Action`, todas las de `app/discord/actions.ts`. `team_roles` tiene policies de insert/update/delete para cualquier miembro (`20260616400000_team_roles_permissions.sql`): un member puede editar los permisos de su propio rol por PostgREST.
+- **Qué hay que hacer:** helper `requireModuleAccess(moduleId, level)` sobre `requireOrganizationId()` y aplicarlo primero en plata, equipo, BYOK e integraciones; policies de escritura por rol en `team_roles`, `team_invitations`, `organizations`, finanzas y tablas de integraciones.
+- **Dónde:** `apps/web/lib/auth/get-current-permissions.ts`, `apps/web/app/**/actions.ts`, `supabase/migrations/`.
+
+#### [AUTH-CALLBACK-NEXT] Open redirect en `/auth/callback` (nuevo)
+- **Tipo:** seguridad
+- **Estado verificado:** `apps/web/app/auth/callback/route.ts` hace `NextResponse.redirect(`${origin}${next}`)` con `next = searchParams.get("next")` sin validar. `next=.evil.com` → `https://app.com.evil.com`; `next=@evil.com` → host `evil.com`. Es la ruta de vuelta de login OAuth y recuperación de contraseña.
+- **Qué hay que hacer:** aceptar sólo paths que empiecen con `/` y no con `//`; si no, `/dashboard`. Test unitario.
+- **Dónde:** `apps/web/app/auth/callback/route.ts`.
+
+### Plataforma · P1
+
+#### [PERMISOS-LAYOUT-NAV-SUAVE] El bloqueo por módulo vive en un layout que no se re-renderiza al navegar (nuevo)
+- **Tipo:** seguridad / verificación manual
+- **Estado verificado:** el chequeo `sinAcceso` está en `app/(platform)/layout.tsx` leyendo `x-pathname`. En App Router los layouts compartidos no se re-renderizan en navegaciones cliente; la paleta ⌘K (`routes/navigation.ts` → `buildPlatformNavigation()`) lista todos los módulos sin filtrar permisos ni add-ons. Muy probable que `Cmd+K → Finanzas` muestre la pantalla a un rol sin acceso.
+- **Qué hay que hacer:** verificar en navegador; si se confirma, mover el chequeo a cada `page.tsx` (o a un layout por módulo) y filtrar la paleta con `canSeeNavItem`.
+- **Dónde:** `apps/web/app/(platform)/layout.tsx`, `apps/web/components/navigation/command-palette.tsx`, `apps/web/routes/navigation.ts`.
+
+#### [PERMISOS-FOUNDER-AREA] `/founder` no pasa por el bloqueo de permisos (nuevo)
+- **Tipo:** seguridad
+- **Estado verificado:** `module-for-path.ts` mapea `/founder` → `operations`, pero la ruta vive en `app/(founder)/`, cuyo layout (`layouts/founder-layout.tsx`) no chequea nada. El test de `module-for-path` sólo recorre `app/(platform)`.
+- **Qué hay que hacer:** mover `/founder` bajo `(platform)` o replicar el chequeo en `app/(founder)/layout.tsx`; extender el test a `(founder)`.
+- **Dónde:** `apps/web/app/(founder)/`, `apps/web/lib/navigation/module-for-path.ts`.
+
+#### [HOLDING-PORTFOLIO-ROL] El portfolio del holding no mira el rol
+- **Tipo:** seguridad
+- **Estado verificado:** policies `holding_reads_portfolio_*` (`20260630100000`) sin rol; `resolveEffectiveOrganizationId` valida la cookie/header contra `holding_businesses` pero no contra `canManageHolding`, así que cualquier miembro del holding que setee la cookie a mano opera sobre un negocio.
+- **Qué hay que hacer:** exigir `canManageHolding` en `resolveEffectiveOrganizationId` y en `get_my_holding_business_org_ids()`.
+- **Dónde:** `apps/web/lib/holding/resolve-org.ts`, migración nueva.
+
+#### [DISCORD-VINCULAR-EMAIL-AJENO] `!vincular` acepta el email de otro alumno (nuevo, amplía auditoría §3.10)
+- **Tipo:** seguridad
+- **Estado verificado:** `apps/discord-bot/src/handlers/link-handler.ts` vincula con cualquier email exacto de un cliente de la org, sin confirmar que la persona sea dueña. Con el bot hablando, además auto-vincula por nombre visible >0.85 (dato que controla el usuario).
+- **Qué hay que hacer:** mandar el match por email también al buzón (o confirmar por mail); quitar el auto-vínculo por nombre.
+- **Dónde:** `apps/discord-bot/src/handlers/link-handler.ts`.
+
+#### [DISCORD-VINCULO-SIN-REATRIBUIR] Resolver el buzón no reasigna los mensajes viejos (nuevo)
+- **Tipo:** bug
+- **Estado verificado:** `linkDiscordClientManuallyAction` (`app/discord/actions.ts:1227`) hace upsert en `discord_client_links` sin llamar `recalcularAtribucion`; `linkDiscordPersonAction` sí (línea 908). El `!vincular` del bot tampoco reatribuye. La actividad de la ficha filtra por `discord_messages.client_id`, así que los mensajes previos no aparecen.
+- **Qué hay que hacer:** llamar `recalcularAtribucion(supabase, org, { discordUserId })` en `linkDiscordClientManuallyAction`; para el bot, reatribuir en `saveClientLink` o en un paso del cron.
+- **Dónde:** `apps/web/app/discord/actions.ts`, `apps/discord-bot/src/lib/supabase.ts`.
+
+#### [E-RETENCION] Retención de mensajes de terceros en Discord
+- **Tipo:** decisión de negocio
+- **Estado verificado:** no hay borrado ni TTL sobre `discord_messages`; no hay aviso en el servidor.
+- **Qué hay que hacer:** decidir plazo y aviso antes de instalar el bot en el servidor de un cliente; implementar un cron de purga.
+- **Dónde:** `discord_messages`, `apps/web/app/api/cron/`.
+
+#### [SIGNUP-PUBLICO] Cualquiera puede crearse una org founder (nuevo)
+- **Tipo:** decisión de negocio / seguridad
+- **Estado verificado:** `/login` tiene toggle "Crear cuenta" → `signUpAction` → `ensureUserBootstrap` crea org + founder. Esa org usa la `ANTHROPIC_API_KEY` global.
+- **Qué hay que hacer:** decidir si el alta es sólo por super admin/trial. Si sí: sacar el toggle y el action, y desactivar signups en Supabase Auth.
+- **Dónde:** `apps/web/components/auth/supabase-login-form.tsx`, `apps/web/app/auth/actions.ts`.
+
+#### [LOGIN-RATE-LIMIT] Rate limit de login sólo por email
+- **Tipo:** seguridad
+- **Estado verificado:** `authRateLimit(`signin:${email}`)` 5/15 min (`app/auth/actions.ts:119`, `lib/rate-limit.ts`). Sin clave por IP, sin captcha: cualquiera bloquea a otro y el spraying no se limita.
+- **Qué hay que hacer:** doble clave IP + email; captcha tras N fallos.
+- **Dónde:** `apps/web/app/auth/actions.ts`, `apps/web/lib/rate-limit.ts`.
+
+#### [BAJAS-SIN-PROBAR] La baja del super admin nunca se ejecutó entera
+- **Tipo:** verificación manual
+- **Estado verificado:** código completo en `app/super-admin/delete-actions.ts` y `lib/super-admin/execute-deletion.ts`; CHANGES no registra una ejecución real.
+- **Qué hay que hacer:** bloque "Bajas" de `docs/operacion/verificacion-manual.md` § Plataforma.
+- **Dónde:** super admin → organizaciones → baja.
+
+#### [DISCORD-SIN-PROBAR] Canales, equipo, sugerencias y atribución sin probar
+- **Tipo:** verificación manual
+- **Estado verificado:** migraciones aplicadas; ningún registro de prueba en CHANGES.
+- **Qué hay que hacer:** bloque "Discord — canales y personas" de `docs/operacion/verificacion-manual.md` § Plataforma.
+- **Dónde:** `/integrations/discord`.
+
+#### [PERMISOS-VERIFICAR-SESION] Probar el bloqueo con un rol limitado (ex bloque de PLAN_VERIFICACION)
+- **Tipo:** verificación manual
+- **Estado verificado:** nunca se probó con una segunda cuenta.
+- **Qué hay que hacer:** bloque "Permisos por módulo" de `docs/operacion/verificacion-manual.md` § Plataforma.
+- **Dónde:** `/team/roles`, sesión de member.
+
+### Plataforma · P2
+
+#### [DEMO-LAYOUT-500] El layout de plataforma rompe sin Supabase
+- **Tipo:** bug
+- **Estado verificado:** `getHoldingSessionState()` (`lib/holding/session.ts:26`) llama `createClient()` sin chequear `isSupabaseConfigured()`; `createClient` tira por `getSupabaseUrl()`.
+- **Qué hay que hacer:** devolver valores neutros en `getHoldingSessionState`, `getCurrentUserPermissions`, `getCurrentOnboardingContext` sin Supabase.
+- **Dónde:** `apps/web/lib/holding/session.ts`, `apps/web/lib/auth/get-current-permissions.ts`.
+
+#### [ADDONS-HOLDING] Add-ons de UI y de servidor salen de orgs distintas en un holding (nuevo)
+- **Tipo:** bug
+- **Estado verificado:** `getCurrentUserPermissions` lee `enabled_add_ons` de `profile.organization_id`; `lib/auth/add-ons.ts` usa la org efectiva. Un holding mirando un negocio ve la nav del holding y el servidor aplica los add-ons del negocio.
+- **Qué hay que hacer:** leer los add-ons de `requireOrganizationId()` en `getCurrentUserPermissions`.
+- **Dónde:** `apps/web/lib/auth/get-current-permissions.ts`.
+
+#### [PERMISOS-SIN-ROL-NAV] Un member sin rol pasa el gate pero no ve ningún ítem (nuevo)
+- **Tipo:** bug
+- **Estado verificado:** layout: sin `hasRoleConfigured` no bloquea. Notch nav: `checkAccess` mira `modules` (todo `none`) → no muestra nada.
+- **Qué hay que hacer:** decidir una política única (sin rol = acceso de lectura a todo, o forzar rol al invitar) y aplicarla en nav y layout.
+- **Dónde:** `components/navigation/notch-nav/platform-notch-nav.tsx`, `app/(platform)/layout.tsx`, `app/team/actions.ts`.
+
+#### [ONBOARDING-SKIP-SIN-UI] La salida del gate no tiene botón (nuevo)
+- **Tipo:** feature
+- **Estado verificado:** `skip_onboarding` sólo se setea al crear negocios de holding (`app/(platform)/holding/actions.ts:146`, `onboarding/holding/actions.ts:183`). Ninguna acción de `app/super-admin` lo escribe, aunque la spec dice que "el super-admin la marca".
+- **Qué hay que hacer:** toggle en el detalle de org del super admin (`updateOrgSkipOnboardingAction` con `requireSuperAdmin`).
+- **Dónde:** `apps/web/app/super-admin/actions.ts`, `components/super-admin/organization-detail.tsx`.
+
+#### [DASHBOARD-CODIGO-MUERTO] Métricas custom que se piden y no se dibujan + 10 componentes sin uso (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** `app/(platform)/dashboard/page.tsx` llama `getCustomMetricsAction("dashboard")`; `DashboardPageContent` recibe `customMetrics` y no lo usa. Sin importadores: `ai-recommendations`, `alerts-intelligence`, `custom-metrics-section` (+ `custom-metric-builder`), `next-actions-strip`, `operational-metrics-section`; `executive-summary`, `opportunities-list`, `risks-list`, `weekly-changes` sólo se re-exportan.
+- **Qué hay que hacer:** decidir si vuelve `CustomMetricsSection` al panel; si no, sacar la consulta y borrar los componentes.
+- **Dónde:** `apps/web/components/dashboard/`.
+
+#### [EMBUDO-PANEL-DMS] El embudo del panel no mide DMs
+- **Tipo:** feature
+- **Estado verificado:** `lib/metrics/build-sales-funnel-stages.ts` arranca en llamadas; `conversations` (inbox viejo) vacía.
+- **Qué hay que hacer:** decidir qué se persiste del inbox de Zernio para contar DMs y respuestas.
+- **Dónde:** `apps/web/lib/metrics/build-sales-funnel-stages.ts`, `components/dashboard/sales-funnel-strip.tsx`.
+
+#### [CLIENT-HEALTH-LEGACY] El health score del super admin usa la tabla del inbox viejo (nuevo)
+- **Tipo:** bug
+- **Estado verificado:** `lib/super-admin/org-health.ts` suma 25 pts si hay filas en `conversations`, vacía desde Zernio. Tampoco pagina (techo de 1000 filas, auditoría §3 confiabilidad 2).
+- **Qué hay que hacer:** redefinir las cuatro señales con fuentes vivas y contar en SQL.
+- **Dónde:** `apps/web/lib/super-admin/org-health.ts`, `client-health.ts`.
+
+#### [PERMISOS-LOG] `console.log` de permisos en cada render (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** `lib/auth/get-current-permissions.ts` loguea userId, rol y mapa de módulos para todo member en cada request de plataforma.
+- **Qué hay que hacer:** borrar el log.
+- **Dónde:** `apps/web/lib/auth/get-current-permissions.ts`.
+
+#### [GLASS-TOKENS-PISADOS] `globals.css` pisa los tokens glass de `tokens.css` (nuevo)
+- **Tipo:** bug (visual) / verificación manual
+- **Estado verificado:** `globals.css` redefine `--glass-bg: rgba(255,255,255,0.03)`, `--glass-border`, `--glass-blur` en `:root` dentro de `@layer base`, emitido después de `tokens.css` y con igual especificidad que `.dark`. `.glass` usa `var(--glass-bg)`.
+- **Qué hay que hacer:** confirmar en DevTools; decidir qué valor es el buscado y dejar una sola declaración.
+- **Dónde:** `apps/web/app/globals.css:114`, `packages/ui/src/styles/tokens.css`.
+
+#### [UI-EMOJIS] Emojis en la UI contra la regla de Lucide (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** 20 archivos en `components/` con emojis/símbolos en JSX o strings de UI (p. ej. `sales/zernio-inbox-panel.tsx` y `zernio-side-panel.tsx` "🔥 Caliente", `sales/team-call-ranking.tsx` medallas, `settings/theme-selector.tsx`, `integrations/zernio-connect-modal.tsx`, `lanzamientos/launch-post-mortem-panel.tsx`, varios "✓").
+- **Qué hay que hacer:** reemplazar por íconos Lucide; agregar regla de lint.
+- **Dónde:** `apps/web/components/**`.
+
+#### [NAV-PALETA-PERMISOS] La paleta ⌘K no filtra por permisos ni add-ons (nuevo)
+- **Tipo:** bug
+- **Estado verificado:** `components/navigation/command-palette.tsx` usa `platformNavigation` estático.
+- **Qué hay que hacer:** construirla con `buildPlatformSidebarNav(enabledAddOns)` + `canSeeNavItem`.
+- **Dónde:** `apps/web/components/navigation/command-palette.tsx`, `apps/web/routes/navigation.ts`.
+
+#### [DIALOG-DOBLE-PADDING] Padding duplicado en los modales
+- **Tipo:** deuda técnica
+- **Estado verificado:** `packages/ui/src/primitives/dialog.tsx` con `p-6` en content y `px-6` en header/footer.
+- **Qué hay que hacer:** decidir dónde vive el padding y recorrer los diálogos más usados.
+- **Dónde:** `packages/ui/src/primitives/dialog.tsx`.
+
+#### [UI-SIN-TESTS] `packages/ui` sin tests
+- **Tipo:** tests
+- **Estado verificado:** `packages/ui/package.json` sin script `test`.
+- **Qué hay que hacer:** Vitest con `parse-metric-value` y `metric-trend`; fijar el caso "+77%" que pierde el signo.
+- **Dónde:** `packages/ui/src/lib/`.
+
+#### [DISCORD-PERMISOS] Configuración de Discord abierta a cualquier miembro
+- **Tipo:** seguridad
+- **Estado verificado:** `app/discord/actions.ts` sólo exige `requireOrganizationId()`; RLS `org_access` sin rol.
+- **Qué hay que hacer:** cubrir con `[PERMISOS-SERVER-ACTIONS]` (módulo `integrations`, nivel `full`).
+- **Dónde:** `apps/web/app/discord/actions.ts`.
+
+#### [DISCORD-PERFIL-SIN-PROBAR] Nombre y foto del bot por servidor, nunca contra Discord
+- **Tipo:** verificación manual
+- **Estado verificado:** sólo tests con fetch mockeado (`lib/discord/__tests__/profile.test.ts`).
+- **Qué hay que hacer:** bloque "Perfil del bot" de `docs/operacion/verificacion-manual.md` § Plataforma.
+- **Dónde:** `/integrations/discord`.
+
+#### [ONBOARDING-VERIFICAR] Gate, checklist, tours y panel de onboarding sin sesión real
+- **Tipo:** verificación manual
+- **Estado verificado:** construido y con tests puros; PENDIENTES [ONBOARDING] dice que falta navegador.
+- **Qué hay que hacer:** bloques de onboarding de `docs/operacion/verificacion-manual.md` § Plataforma.
+- **Dónde:** `/onboarding`, `/dashboard`, `/super-admin/onboarding`.
+
+#### [NAV-1] Validar la notch nav con sesión real
+- **Tipo:** verificación manual
+- **Estado verificado:** sólo verificada con providers mockeados.
+- **Qué hay que hacer:** recorrer en preview: pill activo, dropdowns, switcher holding, badge de clientes, perfil, drawer mobile; medir islas a 1280px con Operaciones y Producto activos.
+- **Dónde:** `components/navigation/notch-nav/`.
+
+#### [SETTINGS-CLOSER-POR-NOMBRE] "Mi Calendly" depende del nombre del rol (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** `lib/settings/initial-data.ts` detecta closer por `team_roles.name` ILIKE closer.
+- **Qué hay que hacer:** usar `profiles.is_closer`/flag de multi-closer si existe, o un permiso explícito.
+- **Dónde:** `apps/web/lib/settings/initial-data.ts`.
+
+#### [INVITE-ROL-SIN-VALIDAR] `customRoleId` de invitación no se valida contra la org
+- **Tipo:** seguridad
+- **Estado verificado:** `inviteTeamMemberAction` guarda `custom_role_id: customRoleId` sin chequear `team_roles.organization_id` (sólo founder puede llamarla).
+- **Qué hay que hacer:** validar pertenencia antes de insertar.
+- **Dónde:** `apps/web/app/team/actions.ts:231`.
+
+#### [ROL-MEMBER-SIN-CATALOGO] `member` no figura en el catálogo de roles (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** invitados se crean con `role = 'member'`; no está en `VALID_ROLES` (`lib/team/mapper.ts`) ni en `constants/roles.ts`, que siguen listando `operator`/`viewer`/`setter` que ningún flujo crea.
+- **Qué hay que hacer:** reducir el catálogo a `founder`/`member` (+ `admin` si se usa) y documentar.
+- **Dónde:** `apps/web/constants/roles.ts`, `apps/web/lib/team/mapper.ts`, `packages/types`.
+
+#### [TESTS-AUTH] Auth, holding y middleware sin tests (auditoría §3 salud 4)
+- **Tipo:** tests
+- **Estado verificado:** sin `__tests__` para `lib/auth/*`, `lib/holding/*`, `lib/rate-limit.ts`, `lib/supabase/middleware.ts`.
+- **Qué hay que hacer:** extraer lo puro (decisiones de redirect, resolución de org efectiva) y testearlo.
+- **Dónde:** `apps/web/lib/auth/`, `apps/web/lib/holding/`.
+
+#### [DISCORD-BOT-SIN-TESTS] El bot no tiene tests (nuevo)
+- **Tipo:** tests
+- **Estado verificado:** `apps/discord-bot/package.json` sin script `test`; `attribution.ts`, `testimonial-handler.ts`, `link-handler.ts` sin cubrir.
+- **Qué hay que hacer:** Vitest para atribución, pre-filtro de testimonios y árbol de `!vincular`.
+- **Dónde:** `apps/discord-bot/src/`.
+
+#### [INTEGRACIONES-PLAYWRIGHT] E2E del tablero de Integraciones
+- **Tipo:** tests
+- **Estado verificado:** sin spec en `e2e/`.
+- **Qué hay que hacer:** filtrar por "requieren atención", abrir detalle, volver.
+- **Dónde:** `apps/web/e2e/`.
+
+#### [INTEGRACIONES-VERIFICAR] Incidencias del tablero con datos reales
+- **Tipo:** verificación manual
+- **Estado verificado:** incidencias derivan de columnas mayormente vacías.
+- **Qué hay que hacer:** conectar VTurb/Hyros/WebinarJam con key inválida y ver que la tarjeta pase a "Con error" con texto accionable.
+- **Dónde:** `/integrations`.
+
+#### [LAYOUT-CAJONES] Revisar cuatro cajones laterales tras el arreglo de `transform`
+- **Tipo:** verificación manual
+- **Estado verificado:** sin registro de verificación.
+- **Qué hay que hacer:** abrir retrospectiva de sprint, versiones de SOP, leads de UTM y llamadas del cliente.
+- **Dónde:** workboard, SOPs, UTMs, ficha de cliente.
+
+### Plataforma · P3
+
+#### [WAITLIST-HUERFANO] `/api/waitlist` sin llamador (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** ningún componente llama `/api/waitlist` (la landing se borró); sigue pública en `public-paths.ts`.
+- **Qué hay que hacer:** borrar la ruta o documentar quién la usa (¿formularios externos?).
+- **Dónde:** `apps/web/app/api/waitlist/route.ts`.
+
+#### [DISCORD-STUB-MESSAGE] `/api/discord/message` es un stub sin uso (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** devuelve `{ ok: true }` tras autenticar; el bot no lo llama.
+- **Qué hay que hacer:** borrarlo.
+- **Dónde:** `apps/web/app/api/discord/message/route.ts`.
+
+#### [UI-CODIGO-MUERTO] Componentes sin uso (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** `components/marketing/marketing-subnav.tsx` sin importadores; `SidebarShell` sólo en el showcase; selector `button[class*="bg-violet"]` en `globals.css`.
+- **Qué hay que hacer:** borrar.
+- **Dónde:** archivos citados.
+
+#### [DELETION-COMENTARIO-FK] Comentario falso sobre la FK de `profiles` (nuevo)
+- **Tipo:** deuda técnica
+- **Estado verificado:** `lib/super-admin/execute-deletion.ts` dice "`profiles` no tiene ninguna clave foránea a `auth.users`"; la tiene (`20260521000000`, `on delete cascade`) y la auditoría lo confirmó en prod. La lógica (borrar el login aparte) sigue siendo correcta.
+- **Qué hay que hacer:** corregir el comentario.
+- **Dónde:** `apps/web/lib/super-admin/execute-deletion.ts`.
+
+#### [NAV-2] Renombrar `sidebar-modules.ts`
+
+#### [NAV-3] Etiqueta "Fase 1 · Beta"
+
+#### [FOUNDER-AREA] El Área del fundador es sólo el snapshot de Inteligencia
+
+#### [BRAND-B] Licenciar Neue Haas Grotesk
+
+#### [BRAND-C] Validar texto negro sobre naranja
+
+#### [BRAND-D] Borrar la rama `brand-source`
+
+#### [BRAND-E] Dominio
+
+#### [CHART-A] Vista de tabla accesible para gráficos
+
+#### [CHART-B] Embudo con etapas muy dispares
+
+#### [UI-21ST] Componentes de 21st.dev sin decidir
+
+#### [TECH-5] Primitivas con `HTMLAttributes` sin `children` explícito
+
+#### [DISCORD-100-SERVIDORES] Verificación de la app de Discord al pasar 100 servidores
+
+---
+
+## Clientes
+
+Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
+
+### Clientes · P1
+
+#### [PERMISOS-SERVER-ACTIONS/clientes] Los permisos del módulo Clientes no se hacen cumplir en el servidor
+- **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
+- **Tipo:** seguridad
+- **Estado verificado:** `app/(platform)/layout.tsx` corta el render por módulo y `clients-list.tsx` esconde botones con `useModuleAccess("clients") === "full"`, pero ninguna action de `app/clients/*.ts` mira el rol ni el permiso de módulo: sólo `requireOrganizationId()`. Un usuario con Clientes en «Solo lectura» o «Sin acceso» puede invocar `deleteClientAction`, `updateClientAction`, `recordCheckpointAction`, `deleteWinAction`, `saveClientRevenueAction`, etc. Las policies de RLS de todas las tablas del área filtran sólo por org. Sólo el catálogo (campos, recorrido, duración de planes, umbral de silencio) exige founder (`requireFounder()`).
+- **Qué hay que hacer:** helper `requireModuleAccess("clients", "full")` en las actions de escritura del área (es transversal: coordinar con el ítem general de la auditoría §3.1).
+- **Dónde:** `apps/web/app/clients/*.ts`, `apps/web/app/fathom/manual-upload-actions.ts`, `apps/web/lib/auth/`.
+
+#### [CLIENTES-ETAPA-TABLA-VS-FICHA] La tabla ignora la fase manual cuando hay una derivada *(nuevo)*
+- **Tipo:** bug
+- **Estado verificado:** la ficha usa `resolveEffectiveStage` (gana la más avanzada entre manual y derivada: `components/clients/checkpoints/client-journey-section.tsx:139`). La tabla hace `status?.currentStageName ?? manualStageName` (`components/clients/clients-list.tsx:793`): si el cliente tiene cualquier hito registrado, muestra la fase derivada aunque la manual sea más avanzada, y el color y el «n de m» salen siempre de la derivada. El comentario de `getManualStagesAction` dice «para resolver la efectiva en la tabla», pero nadie la resuelve.
+- **Qué hay que hacer:** resolver la fase efectiva en el servidor (`getClientsBoardAction` o `getClientsJourneyStatusAction`) con `resolveEffectiveStage` y que la tabla, los filtros y la revisión semanal lean eso. Agregar un test.
+- **Dónde:** `apps/web/components/clients/clients-list.tsx`, `apps/web/app/clients/clients-board-actions.ts`, `apps/web/lib/checkpoints/effective-stage.ts`.
+
+#### [CLIENTES-IMPORT-EXCEL-MONTOS] El import de Excel inventa montos y fechas *(nuevo; viene de la auditoría §3 «Dinero y datos»)*
+- **Tipo:** bug
+- **Estado verificado:** `lib/clients/excel-parser.ts:69-73`: `resolveAmount` hace `replace(",", ".")` sobre el texto con puntos, así que `"1.500"` → 1,5 y `"1.500,00"` → `NaN` → **0**; cualquier monto ilegible queda en 0. `resolveDate` (líneas 75-95) devuelve **hoy** si la fecha falta o no se entiende. Viola la regla del repo «un cobro cuyo monto no se lee no es un cobro de cero». Además, el dedupe por nombre (`import-actions.ts:182`) lee `clients` sin paginar.
+- **Qué hay que hacer:** parser de montos con separadores es-AR/en-US y error por fila cuando no se entiende; fecha ilegible → error por fila, no hoy. Tests (`[T-3]`).
+- **Dónde:** `apps/web/lib/clients/excel-parser.ts`, `apps/web/app/clients/import-actions.ts`.
+
+#### [CLIENTES-PENDING-CALLS-HUERFANA] «Llamadas sin asociar» no tiene link en la navegación *(nuevo)*
+- **Tipo:** bug
+- **Estado verificado:** `paths.platform.clients.pendingCalls` no se usa en ningún componente; la notch nav y `clients-list.tsx` no linkean a `/clients/pending-calls`. Sólo `components/layout/mobile-nav.tsx` pinta un badge con el conteo sobre «Clientes». El tooltip de «Última 1-1» dice «Confirmalo en Llamadas sin asociar» sin link. Es la pantalla del botón «Cargar identidades desde el CRM», del que depende `[B-SEMBRAR-IDENTIDADES]`.
+- **Qué hay que hacer:** agregar el acceso desde la barra de `/clients` (con el conteo) y linkear el tooltip.
+- **Dónde:** `apps/web/components/clients/clients-list.tsx`, `apps/web/routes/paths.ts`.
+
+#### [CLIENTES-SIN-MAIL] Los clientes viejos no tienen mail
+- **Tipo:** bug + decisión de negocio
+- **Estado verificado:** `clients.email` existe y se hereda del lead al cerrar (`types/clients.ts`). No hay pantalla para completarlo en masa. El CSV (`parse-client-import.ts`) no tiene columna de mail. ⚠️ El Excel **sí la lee** (`excel-parser.ts:172,200`) pero `importClientsFromExcelAction` **no la inserta** (`import-actions.ts`, el `insertPayload` no tiene `email`): el dato se parsea y se tira. El conteo «334 de 335» es de CHANGES; no se re-midió (sería leer datos).
+- **Qué hay que hacer:** agregar `email: row.email ?? null` al insert del Excel (una línea); decidir de dónde se completan los viejos (import, `sales_leads`, pagos). Es la palanca del peldaño determinista del resolvedor.
+- **Dónde:** `apps/web/app/clients/import-actions.ts`, `apps/web/lib/clients/parse-client-import.ts`.
+
+#### [ONBOARDING-CLIENTES-PROBAR] Probar el onboarding de clientes en producción
+- **Tipo:** verificación manual
+- **Estado verificado:** migración aplicada; `client_onboarding_links` y `client_onboarding_submissions` con 0 filas y `field_definitions` con 48 filas en toda la base (las 86 preguntas no se cargaron en ninguna org).
+- **Qué hay que hacer:** bloques A–G de `docs/operacion/verificacion-manual.md` § Clientes (Onboarding). Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`) queda reemplazado; sus respuestas no se importan.
+- **Dónde:** `/clients/campos`, ficha de un growth partner, `/onboarding-cliente/[token]`.
+
+#### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos
+- **Tipo:** verificación manual
+- **Estado verificado:** 10 filas en `client_sub_clients` (alguien ya cargó creadores). El aviso de valores de sección en el growth partner existe (`legacySectionValues`); no hay evidencia de que se hayan movido.
+- **Qué hay que hacer:** bloque «Clientes de clientes» de `docs/operacion/verificacion-manual.md` § Clientes; mover los datos viejos con «Pasarlos a…»; avisar a Optimiza tu Control si deja de ver apartados.
+- **Dónde:** ficha del growth partner.
+
+#### [1A1-MANUALES-SIN-PROBAR] Terminar de probar las 1-1 subidas con un link
+- **Tipo:** verificación manual
+- **Estado verificado:** la subida y la extracción ya corrieron en producción (CHANGES 2026-09-21; 288 filas en `client_tasks`). Falta: pegar el mismo link dos veces (no duplica), subir una llamada ya sincronizada (reusa la fila si `props.call.id` = `recording_id`), y ⭐ el link de una grabación de **otra cuenta** de Fathom (supuesto central).
+- **Qué hay que hacer:** los tres pasos del bloque «Sesiones 1-1» de `docs/operacion/verificacion-manual.md` § Clientes.
+- **Dónde:** ficha → Sesiones 1-1; `apps/web/lib/fathom/share-link.ts`.
+
+### Clientes · P2
+
+#### [FICHA-LENTA] La ficha dispara ~15 server actions
+- **Tipo:** deuda técnica
+- **Estado verificado:** `client-detail.tsx` monta ~15 tarjetas que piden sus datos por separado (overview, recorrido, propuestas, 1-1, tareas, timeline, wins, Discord, campos, sub-clientes, facturación…). No hay action agregada como `getClientsBoardAction`.
+- **Qué hay que hacer:** esqueletos en las tarjetas que devuelven `null` mientras cargan; después una action única para la ficha.
+- **Dónde:** `apps/web/components/clients/client-detail.tsx` y sus tarjetas.
+
+#### [FASE-REFRESCO-CARO] Fijar la fase recarga la lista entera
+- **Tipo:** deuda técnica
+- **Estado verificado:** `client-journey-section.tsx:207` llama `refreshClients()` después de `setClientManualStageAction`.
+- **Qué hay que hacer:** update optimista del cliente en el provider o estado local, con el refresh por detrás.
+- **Dónde:** `apps/web/components/clients/checkpoints/client-journey-section.tsx`, `apps/web/providers/platform-data-provider.tsx`.
+
+#### [FICHA-CUSTOM-EN-LA-LISTA] La lista trae `custom` entero de cada cliente
+- **Tipo:** deuda técnica
+- **Estado verificado:** `listClientsAction` hace `select("*, satisfaction_author:…")` (`app/clients/actions.ts:62`). Viaja al navegador en cada carga de la plataforma. Techo de texto 20.000 por campo.
+- **Qué hay que hacer:** seleccionar columnas explícitas y sólo las claves de `custom` con `show_in_table`; `custom` completo, en la ficha.
+- **Dónde:** `apps/web/app/clients/actions.ts`.
+
+#### [CLIENTES-TECHO-1000] Lecturas del área sin paginar *(nuevo; instancia de la auditoría §3 Confiabilidad 2)*
+- **Tipo:** deuda técnica
+- **Estado verificado:** sin `fetchAllRows`: `listClientsAction` (y con ella la ficha, que da 404 si el cliente no vino en la lista), `getClientsJourneyStatusAction` (clientes y **todos** los eventos de la org), `loadNextTaskByClient`, `lastCheckpointEventByClient`, `listWinsAction`, dedupe del import. Hoy: 337 clientes, 30 eventos, 288 tareas: no rompe todavía; `client_tasks` es la más cercana.
+- **Qué hay que hacer:** `fetchAllRows` o agregación en SQL.
+- **Dónde:** `apps/web/app/clients/*.ts`.
+
+#### [CUSTOM-ERRORES-PRIMERO] Wins y checkpoints informan sólo el primer campo inválido
+- **Tipo:** bug
+- **Estado verificado:** `app/clients/checkpoint-event-actions.ts:159` y `app/clients/win-actions.ts:626` usan `Object.values(validation.errors)[0]`. Ficha y sub-clientes ya juntan todos.
+- **Qué hay que hacer:** `Object.values(validation.errors).join(" · ")` en los dos.
+- **Dónde:** los dos archivos citados.
+
+#### [FACTURACION-MONEDAS] La facturación compara USD con ARS
+- **Tipo:** bug
+- **Estado verificado:** `summarizeRevenue` (`lib/clients/revenue.ts:81-97`) calcula `changePct` y `best` sin mirar `currency`. 21 filas en producción.
+- **Qué hay que hacer:** mínimo, `changePct = null` y `best` por moneda cuando difieren; lo correcto requiere cotizaciones (no existen en el repo).
+- **Dónde:** `apps/web/lib/clients/revenue.ts`.
+
+#### [FASE-MANUAL-SIN-PLAZOS] + [C3-TRABADO-SIN-PRIMER-HITO] Sin hito anterior no hay «trabado»
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `deriveClientJourneyStatus` (caso 3, `lib/checkpoints/stalled.ts`) devuelve sin vencimiento si el hito anterior no está registrado. `manual_stage_set_at` se escribe (`stage-actions.ts:54`) y nadie lo lee. Un cliente que nunca arrancó o con fase fijada a mano nunca figura trabado.
+- **Qué hay que hacer:** decidir el ancla (alta del cliente / `manual_stage_set_at`) y aplicarla en el caso 3, con tests.
+- **Dónde:** `apps/web/lib/checkpoints/stalled.ts`.
+
+#### [C3-ORIGEN-PROPUESTA] Un hito aceptado desde una propuesta queda como `manual` *(nuevo)*
+- **Tipo:** bug
+- **Estado verificado:** `acceptCheckpointProposalAction` llama `recordCheckpointAction`, que escribe `source: "manual"` fijo (`checkpoint-event-actions.ts:174`). La columna `source` admite `discord`/`fathom` para esto, y la propuesta queda `accepted`, pero el evento pierde el origen (y `recorded_by` es quien aceptó).
+- **Qué hay que hacer:** que `recordCheckpointAction` acepte un `source` interno (no expuesto al cliente) y pasarlo desde la aceptación.
+- **Dónde:** `apps/web/app/clients/checkpoint-event-actions.ts`, `checkpoint-derived-actions.ts`.
+
+#### [PROPUESTAS-CALIDAD-SIN-VER] Medir aceptadas vs descartadas del matcher de hitos
+- **Tipo:** verificación manual
+- **Estado verificado:** el cron `/api/cron/daily-signals` (07:20 UTC) corre y hay 9 filas en `client_checkpoint_proposals` → el matcher ya produjo propuestas. Nadie midió la tasa. `MIN_MATCH_CONFIDENCE = 0.7`.
+- **Qué hay que hacer:** contar `status` de las propuestas tras dos semanas; >50% rechazadas → subir el piso o ajustar el prompt.
+- **Dónde:** `apps/web/lib/checkpoints/match-proposal.ts`.
+
+#### [1A1-EDITAR-DETALLE] El detalle de una tarea no se puede editar
+- **Tipo:** feature
+- **Estado verificado:** `updateClientTaskAction` existe (`app/clients/task-actions.ts:118`) y ningún componente la importa.
+- **Qué hay que hacer:** fila editable en `client-tasks-section.tsx`.
+- **Dónde:** `apps/web/components/clients/client-tasks-section.tsx`.
+
+#### [OBJETIVO-DOS-LUGARES] Dos «objetivos» con el mismo nombre
+- **Tipo:** decisión de negocio
+- **Estado verificado:** campo configurable «Objetivo general» (`clients.custom`) y `goal_text` + `goal_metric_*` (diálogo de baseline, usado por el dashboard de wins).
+- **Qué hay que hacer:** renombrar el de baseline a «Meta medible» o retirarlo (revisar `deriveClientCase` y la tarjeta de objetivo).
+- **Dónde:** `apps/web/components/clients/wins/client-baseline-dialog.tsx`, `apps/web/lib/wins/derive-case.ts`.
+
+#### [TRACKERS-PERMISOS-VACIOS] Los wins viejos quedaron «sin preguntar»
+- **Tipo:** decisión de negocio
+- **Estado verificado:** default `consent_status = 'not_asked'`; hay 4 wins en producción y 3 usos registrados, así que al menos uno se usó en material sin permiso cargado.
+- **Qué hay que hacer:** cargar el permiso real de los wins ya usados.
+- **Dónde:** `/clients/wins`.
+
+#### [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo
+- **Tipo:** verificación manual
+- **Estado verificado:** `clients-list.tsx:216` muestra la barra con `useModuleAccess("clients") === "full"`. Los botones hoy son: Nuevo cliente, Cargar clientes, Revisión semanal, Wins, Recorrido, Campos («Crear planes» se fue a Cobros).
+- **Qué hay que hacer:** entrar con un miembro con Clientes en «full», confirmar los botones y guardar un cliente de prueba; con «read», que no aparezcan.
+- **Dónde:** `/clients`.
+
+#### [AVISO-Y-SATISFACCION-SIN-PROBAR], [C0-PROBAR-PANTALLA], [C1-PROBAR-PANTALLA], [C2-PROBAR-FICHA], [TRACKERS-PROBAR-CON-SESION], [CLIENTES-VER-CON-DATOS], [FICHA-VER-CON-DATOS] Pasadas por pantalla con sesión real
+- **Tipo:** verificación manual
+- **Estado verificado:** hay uso real en producción (11 fases, 18 checkpoints, 30 eventos, 48 definiciones de campo, 4 wins, 21 meses de facturación) y la ficha se probó contra el preview con datos reales el 2026-09-21 (CHANGES). Nadie documentó la pasada de los pasos de seguridad (operator sin botones), el «n de m» contra la ficha, archivar opción en uso, ni el aviso por fecha.
+- **Qué hay que hacer:** los bloques C0–C3, Wins, Revisión y Ficha de `docs/operacion/verificacion-manual.md` § Clientes.
+- **Dónde:** `/clients/*`.
+
+#### [A-PROBAR-CAPTURAS] Terminar la vuelta de las capturas de wins
+- **Tipo:** verificación manual
+- **Estado verificado:** 1 fila en `win_attachments` → subir funcionó al menos una vez. No verificado: que borrar el win borre el archivo del bucket (`deleteWinAction` borra con admin antes de borrar la fila; si el `remove` falla, lo ignora).
+- **Qué hay que hacer:** borrar un win con captura y confirmar que el objeto desaparece de `client-wins`.
+- **Dónde:** `apps/web/app/clients/win-actions.ts:351`.
+
+### Clientes · P3
+
+#### [C0-JOURNEY-STAGES-UI] `options_source = 'journey_stages'` no se puede elegir (de `[C0-PENDIENTES]`)
+- **Tipo:** feature
+- **Estado verificado:** `resolve.ts` lo soporta y la lista lo muestra como insignia, pero toda creación escribe `options_source: "inline"` (`custom-field-actions.ts:220`).
+- **Qué hay que hacer:** opción en `field-definition-dialog.tsx` para campos de lista.
+- **Dónde:** `apps/web/components/clients/custom-fields/field-definition-dialog.tsx`, `apps/web/app/clients/custom-field-actions.ts`.
+
+#### [A-ENGANCHES-W3] Wins propuestos desde llamadas de Fathom
+- **Tipo:** feature
+- **Estado verificado:** la mitad de Discord está hecha (`createWinFromTestimonialAction`, solapa Candidatos). Nada crea wins ni candidatos con `source='fathom'`.
+- **Qué hay que hacer:** candidato a win desde el resumen de llamadas de entrega, mismo criterio (propone, alguien acepta).
+- **Dónde:** `apps/web/lib/fathom/`, `apps/web/components/clients/wins/win-candidates.tsx`.
+
+#### [WINS-BORRADORES-HUERFANOS] Capturas de wins que nunca se guardaron *(nuevo)*
+- **Tipo:** deuda técnica
+- **Estado verificado:** `prepareWinAttachmentUploadAction` + `finalizeWinAttachmentAction` con `draftId` crean objeto y fila antes del win; si el formulario se abandona, nada los limpia (sólo `lib/super-admin/execute-deletion.ts` borra `drafts/` al dar de baja la org).
+- **Qué hay que hacer:** cron que borre `win_attachments` con `draft_id` y `created_at` > 24 h, y su objeto.
+- **Dónde:** `apps/web/app/clients/win-actions.ts`.
+
+#### [PROPUESTAS-FATHOM-SIN-RESUMEN] Una llamada sin resumen se marca evaluada igual *(nuevo, a confirmar)*
+- **Tipo:** bug
+- **Estado verificado:** `proposeCheckpointsFromCallsForOrg` marca `checkpoint_checked_at` en **todas** las filas leídas, incluidas las que no tenían `summary` ni `ai_situation_summary` (`lib/fathom/propose-checkpoints.ts:82-88`). El comentario asume que el resumen nunca llega después; si una llamada queda `purpose='delivery'` con cliente antes de procesarse, se pierde para siempre.
+- **Qué hay que hacer:** confirmar el orden clasificación/procesamiento; si puede pasar, marcar sólo las evaluadas.
+- **Dónde:** `apps/web/lib/fathom/propose-checkpoints.ts`.
+
+#### [CLIENTES-SEÑALES-DOS-SILENCIOS] Dos definiciones de «sin novedades» *(nuevo)*
+- **Tipo:** decisión de negocio
+- **Estado verificado:** revisión semanal: 30 días fijos desde el último win o hito (`lib/clients/weekly-review.ts`, `SILENCE_DAYS`). Lista (add-on): `organizations.client_silence_days` sobre 8 fuentes (RPC `client_last_activity`).
+- **Qué hay que hacer:** unificar criterio o nombrarlos distinto.
+- **Dónde:** los dos archivos + `apps/web/app/clients/signals-actions.ts`.
+
+#### [ONBOARDING-CLIENTES-RESTO] Lo que quedó afuera del onboarding
+- **Tipo:** feature
+- **Estado verificado:** no hay aviso al completar (sólo bandeja y timeline); `onb_team_members` es texto; `showIf`/audio no editables en `field-definition-dialog.tsx`; la ficha no muestra «sin novedades».
+- **Qué hay que hacer:** decidir canal de aviso (Discord/Resend/nada) y el resto a demanda.
+- **Dónde:** `apps/web/app/onboarding-cliente/actions.ts`, `apps/web/lib/client-onboarding/`.
+
+#### [TRACKERS-EGRESO-MANUAL] La fecha de egreso no se calcula del plan
+- **Tipo:** feature
+- **Estado verificado:** `exit_date` sólo se escribe en `updateClientTrackingAction`; nada lo deriva de `plan_durations` (1 fila en prod; `plans` con 0).
+- **Qué hay que hacer:** proponer la fecha desde la duración del plan, editable.
+- **Dónde:** `apps/web/app/clients/tracking-actions.ts`.
+
+#### [TRACKERS-RIESGO-PAGOS] «Pago atrasado» sólo mira `clients.installments`
+- **Tipo:** deuda técnica
+- **Estado verificado:** `hasOverduePayment` (`tracking-actions.ts:313`) no mira `client_payments` ni Cobros.
+- **Qué hay que hacer:** leer el adeudado de la misma fuente que Cobros (coordinar con Ventas).
+- **Dónde:** `apps/web/app/clients/tracking-actions.ts`.
+
+#### [TRACKERS-RECOMENDACIONES-6-10] Recomendaciones 6–10 de `docs/specs/TRACKERS_EXCEL_VS_LIMITLESS.md`
+- **Tipo:** feature
+- **Estado verificado:** no existen ficha de caso (creencias, restricciones, proceso), checklist de contenido por caso, revisión mensual, caso de éxito curado ni responsable por cliente (no hay columna de responsable en `clients`).
+- **Qué hay que hacer:** producto nuevo; priorizar con Santiago.
+- **Dónde:** —
+
+---
+
+## Ventas
+
+Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
+
+### Ventas · P0
+
+#### [LLAMADAS-EMBED-ROTO] `/sales/llamadas` no muestra ninguna llamada
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo. `getSalesCallsAction` (`app/fathom/actions.ts:337-349`) hace `.from("fathom_calls").select("…, call_analyses(…)")`. `call_analyses.fathom_call_id` es `TEXT` sin FK (`20260614100000_call_analysis_deep.sql:18`) y en producción la tabla sólo tiene FKs a `organizations` y `profiles`. PostgREST no puede embeber sin relación y responde error; el `catch` devuelve `[]`, así que la pantalla siempre dice que no hay llamadas.
+- **Qué hay que hacer:** consultar `call_analyses` aparte por `fathom_call_id in (…)` y unir en JS (o agregar `fathom_calls.id` como FK en `call_analyses`). Loguear el error en vez de tragarlo.
+- **Dónde:** `apps/web/app/fathom/actions.ts`, `apps/web/components/sales/sales-calls-list.tsx`.
+
+#### [CLOSING-LIST-1000] El calendario y la lista de Closing pierden los turnos más recientes
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo (misma familia que el punto 5 de `[AUDITORIA-ABIERTOS]`). `listClosingCallsAction` (`app/closing/actions.ts:70-74`) hace `select("*")…order("scheduled_at", { ascending: true })` sin `.range()` ni `fetchAllRows`. PostgREST corta en 1.000 (lo documenta el propio `lead-actions.ts`). Producción tiene 1.455 `closing_calls`: si una org supera 1.000, quedan afuera los **más nuevos**, que son los que el closer necesita. Falta confirmar el conteo por organización.
+- **Qué hay que hacer:** paginar con `fetchAllRows` u ordenar descendente con un rango de fechas; agregar `.eq("organization_id", organizationId)` (hoy depende sólo de RLS, ver `[CLOSING-HOLDING-MEZCLA]`).
+- **Dónde:** `apps/web/app/closing/actions.ts`, `apps/web/providers/platform-data-provider.tsx`.
+
+### Ventas · P1
+
+#### [CLOSER-AMOUNT-CLOSED] La pestaña Equipo de Closing siempre sale vacía
+- **Tipo:** bug
+- **Estado verificado:** `[AUDITORIA-ABIERTOS]` punto 8 / auditoría §3 "Dinero y datos". `getCloserMetricsAction` (`app/sales/closer-actions.ts:151`) selecciona `closing_calls.amount_closed`, que no existe en ninguna migración ni en producción; el error devuelve `[]`. Lo consume `components/closing/closers-ranking.tsx`.
+- **Qué hay que hacer:** decidir de dónde sale la facturación por closer (`outcome.revenue`, `clients.total_amount` vía `clients.closing_call_id`, o `client_payments`) y reescribir la agregación.
+- **Dónde:** `apps/web/app/sales/closer-actions.ts`.
+
+#### [CALENDLY-CLOSER-SIN-LEAD] Los turnos del Calendly de cada closer no entran al seguimiento
+- **Tipo:** bug
+- **Estado verificado:** auditoría §3 "Salud del código" 2. `lib/calendly/closer-sync.ts:217-229` inserta sin `lead_id` y el update tampoco lo completa; no llama `resolveLeadId` (sí lo hacen `sync-events.ts:90` y `ghl/sync-appointments.ts:204`). `listLeadsTableAction` sólo ve turnos colgados de un `sales_leads`.
+- **Qué hay que hacer:** resolver el lead en `closer-sync` igual que `sync-events`; idealmente unificar las dos syncs en una con `closer_id` opcional. Backfill de `lead_id` para turnos con `lead_email`.
+- **Dónde:** `apps/web/lib/calendly/closer-sync.ts`, `apps/web/lib/calendly/sync-events.ts`.
+
+#### [CALENDLY-CRONS-SUPERPUESTOS] `calendly-sync` y `calendly-sync-closers` corren a la misma hora
+- **Tipo:** bug
+- **Estado verificado:** auditoría §3 "Confiabilidad" 3. `vercel.json`: los dos con `0 * * * *`. Ambos insertan por `calendly_event_id`; si compiten, el índice único rechaza el batch entero. Además N+1 por evento (`resolveLeadId` en loop) y `.in()` con URIs largas.
+- **Qué hay que hacer:** unificar (ver ítem anterior) o desfasar el schedule; insertar con upsert `onConflict` en vez de insert en batch.
+- **Dónde:** `apps/web/vercel.json`, `apps/web/lib/calendly/*`.
+
+#### [FATHOM-DEEP-ANALISIS-ALCANCE] El análisis de venta corre sobre las llamadas equivocadas
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo. El análisis profundo (`generateDeepCallAnalysis` → `call_analyses`) sólo se dispara desde `finalizeAssociatedCall` (`lib/fathom/process-call.ts:470-512`), que corre cuando la grabación quedó vinculada a un **cliente**, sin mirar `purpose`: una 1-1 de entrega de ≥10 min se analiza como venta (costo de Sonnet y ruido en ranking/objeciones), y una venta con un lead nunca se analiza. Además no se pasa `closerName` ni `closer_id`: `call_analyses.closer_name` queda null y `getTeamRankingAction` agrupa todo en "Sin nombre". Busca `form_answers` por `ilike lead_name` en vez de usar `closing_call_id`.
+- **Qué hay que hacer:** disparar el análisis cuando `purpose = 'sales'` (con o sin cliente), usar `closing_call_id` para `form_answers` y `closing_calls.closer_id` para el closer.
+- **Dónde:** `apps/web/lib/fathom/process-call.ts`, `apps/web/lib/fathom/deep-call-analysis.ts`.
+
+#### [CLOSING-CIERRE-ATOMICO] Cerrar una venta son cinco escrituras encadenadas desde el navegador
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo. `markCallClosed` (`providers/platform-data-provider.tsx:595-680`) hace desde el cliente: update del turno → tag en `conversations` → `createClientAction` → `linkLeadToClientAction` → `recordClientPaymentAction`. Si falla a mitad (red, validación del pago), queda un turno `closed` sin cliente o un cliente sin pago, y el guard "ya tiene cliente vinculado" impide reintentar limpio.
+- **Qué hay que hacer:** una server action única (o RPC) que haga el cierre completo y sea idempotente por `callId`.
+- **Dónde:** `apps/web/providers/platform-data-provider.tsx`, `apps/web/app/closing/actions.ts`.
+
+#### [FATHOM-CLIENTID-SIN-VALIDAR] `associateFathomCallAction` acepta un cliente de otra org
+- **Tipo:** seguridad
+- **Estado verificado:** auditoría §3 "Seguridad" 5. `app/fathom/actions.ts:161-200` valida que la llamada sea de la org, pero el `clientId` recibido va directo a `finalizeAssociatedCall` con `createAdminClient()` (bypass RLS): escribe timeline, problemas y `fathom_calls.client_id` apuntando a un cliente ajeno.
+- **Qué hay que hacer:** verificar `clients.id = clientId and organization_id = org` antes de finalizar.
+- **Dónde:** `apps/web/app/fathom/actions.ts`.
+
+#### [CLOSING-HOLDING-MEZCLA] En modo holding, Closing mezcla turnos de varios negocios
+- **Tipo:** seguridad
+- **Estado verificado:** ítem nuevo, a confirmar con una sesión holding. `listClosingCallsAction` no filtra por `organization_id`; la policy `holding_reads_portfolio_closing_calls` (`20260630100000_holding_portfolio_rls.sql:42`) deja leer los turnos de todos los negocios del portfolio, y `get_my_organization_id()` devuelve la org del perfil, no el negocio activo. Las escrituras (`updateClosingCallAction`, `lead-actions`) filtran por el negocio activo pero pasan por RLS de la org del perfil, así que probablemente fallan para el holding.
+- **Qué hay que hacer:** filtrar explícitamente por `requireOrganizationId()` en todas las lecturas del área; probar Closing y Seguimiento con un holding.
+- **Dónde:** `apps/web/app/closing/actions.ts`, `apps/web/app/sales/lead-actions.ts`.
+
+#### [PERMISOS-SERVER-ACTIONS/ventas] (parte Ventas) Las actions del área no miran el rol
+- **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
+- **Tipo:** seguridad
+- **Estado verificado:** sigue abierto; ninguna action de `app/sales`, `app/closing`, `app/fathom` verifica permiso de módulo. `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`) no tiene llamador y deja a cualquier miembro fijar la comisión de cualquier perfil de la org.
+- **Qué hay que hacer:** borrar `updateCloserCommissionAction` (sin uso) y aplicar el guard por módulo que se diseñe en el ítem general.
+- **Dónde:** `apps/web/app/sales/*.ts`, `apps/web/app/closing/actions.ts`, `apps/web/app/fathom/*.ts`.
+
+#### [B-SEMBRAR-IDENTIDADES] / [1-1-SEMBRAR-Y-MEDIR] `client_identities` sigue vacía
+- **Tipo:** verificación manual
+- **Estado verificado:** `client_identities` tiene **0 filas** en producción (2026-09-23). El botón existe (`components/clients/pending-fathom-calls.tsx` → `seedClientIdentitiesAction`). Sin siembra el resolvedor sólo resuelve por mail de invitado.
+- **Qué hay que hacer:** apretar "Cargar identidades desde el CRM" en `/clients/pending-calls`, dejar correr el cron y medir `purpose`/`resolution_method`. Medir falsos positivos del peldaño de nombre.
+- **Dónde:** `apps/web/lib/fathom/identities.ts`, `apps/web/lib/fathom/seed-identities.ts`.
+
+#### [B-FATHOM-NUNCA-PROBADO] Keys de Fathom por miembro nunca probadas contra Fathom
+- **Tipo:** verificación manual
+- **Estado verificado:** el código existe (`app/fathom/member-actions.ts`, `lib/fathom/webhooks.ts`, `app/api/integrations/fathom/webhook/[token]/route.ts`). La firma se asume HMAC-SHA256 con tres headers posibles. CHANGES.md no registra una prueba real.
+- **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Fathom por miembro").
+- **Dónde:** idem.
+
+#### [LLAMADAS-VERIFICAR-FATHOM] Cruce grabación ↔ turno con datos reales
+- **Tipo:** verificación manual
+- **Estado verificado:** `lib/fathom/match-appointment.ts` (ventanas de 12 h por mail y 45 min sólo horario) sin medición real.
+- **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Cruce con agenda").
+- **Dónde:** `apps/web/lib/fathom/match-appointment.ts`, `resolve-sales-call.ts`.
+
+#### [COBROS-PROBAR] Cobros nunca se dibujó con una sesión real
+- **Tipo:** verificación manual
+- **Estado verificado:** `client_payments` tiene 7 filas en prod pero no hay registro de prueba de la pantalla nueva en CHANGES.md.
+- **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Cobros").
+- **Dónde:** `apps/web/components/sales/cobros-page.tsx`, `client-payments-section.tsx`, `app/sales/payment-actions.ts`.
+
+#### [COBROS-AVISAR-PERMISOS] Quien no tiene Ventas deja de ver montos en Clientes
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `useModuleAccess("sales") !== "none"` gatea los cobros en `components/clients/clients-list.tsx:218` y `client-detail.tsx:56`.
+- **Qué hay que hacer:** repasar roles configurados y decidir quién necesita `sales`.
+- **Dónde:** `team_roles.permissions`.
+
+### Ventas · P2
+
+#### [FATHOM-CRUCE-AGENDA-DESCONECTADO] El peldaño "cruce con agenda" del resolvedor nunca se activa
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo. `processSingleFathomCall` llama `classifyRecording({ hasCalendarCrossing, calendarLeadId: null })` (`lib/fathom/process-call.ts:188-193`) y no pasa `calendarClientId`; el peldaño 4 de `resolveCounterparty` (`resolve-counterparty.ts:210`) exige uno de los dos. Además el peldaño 5 (nada resolvió) devuelve `purpose: "sales"`, así que cualquier externo desconocido cuenta como venta aunque no haya cruzado turno — contradice la regla "sólo es venta si cruza un turno".
+- **Qué hay que hacer:** pasar el `lead_id`/cliente del turno cruzado (`salesCall.appointmentId` → `closing_calls.lead_id`) y decidir si el peldaño 5 debe dejar `purpose` en null.
+- **Dónde:** `apps/web/lib/fathom/process-call.ts`, `apps/web/lib/fathom/resolve-counterparty.ts`.
+
+#### [FATHOM-PRIVACIDAD-LEAD] Una grabación vinculada a un lead sigue siendo privada
+- **Tipo:** decisión de negocio
+- **Estado verificado:** ítem nuevo. La policy de `fathom_calls` (`20260903100000_fathom_member_keys.sql:76-90`) sólo abre la fila si `client_id is not null`; el comentario dice "vinculada a un cliente **ni a un lead**". Una venta grabada por un closer con su key y cruzada a un lead no la ve el founder.
+- **Qué hay que hacer:** decidir si `counterparty_lead_id is not null` o `closing_call_id is not null` también la hace de la org, y ajustar la policy.
+- **Dónde:** migración nueva sobre `fathom_calls`.
+
+#### [METRICAS-SHOW-RATE] El show rate cuenta turnos cancelados en el denominador
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo. `showRate = asistencias / totalAgendas` y `totalAgendas = callRows.length` (`app/sales/metrics-actions.ts:95-140`), incluye `cancelled`, que según `call-status.ts` son llamadas que nunca ocurrieron.
+- **Qué hay que hacer:** usar `callOccurred`/excluir `cancelled` del denominador (definir con el negocio).
+- **Dónde:** `apps/web/app/sales/metrics-actions.ts`.
+
+#### [METRICAS-SNAPSHOT-FALLBACK] Con datos en cero, Métricas muestra el último Excel sin importar el rango
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo. `sales-metrics-redesign.tsx:74-110` usa `importedSnapshots[0]` cuando todo el período da 0, sin cruzar el `period_start` con el rango elegido ni avisar de qué mes es.
+- **Qué hay que hacer:** elegir el snapshot del período o mostrar vacío con aviso explícito de la fuente.
+- **Dónde:** `apps/web/components/sales/sales-metrics-redesign.tsx`.
+
+#### [LEGACY-INBOX-BORRAR] Inbox legacy (ManyChat / Unipile / Instagram DMs) todavía vivo
+- **Tipo:** deuda técnica
+- **Estado verificado:** auditoría §3 "Salud del código" 1. `conversations` 0 filas, `instagram_*` 0, `manychat_events` 0. Sin embargo: ManyChat sigue `listed: true` (`lib/integrations/registry.ts:173`), crons `instagram/poll` (`*/5`) e `instagram/sync` en `vercel.json`, `PlatformDataProvider` carga `listConversationsAction` + canal Realtime en cada pantalla, `listClosingCallsAction` corre `repairClosingConversationLinks` (escribe) en cada lectura. ~7.600 líneas (detalle en `docs/areas/ventas.md` § Legacy). Incluye la race del array `conversations.messages` (auditoría §3 Confiabilidad 7) y "Instagram legacy queda afuera ante un error" (9).
+- **Qué hay que hacer:** decidir el borrado; orden: provider/métricas → deslistar ManyChat → crons → código → migración que suelte `closing_calls.conversation_id` y las tablas.
+- **Dónde:** ver doc de área.
+
+#### [LLAMADAS-FASE-2-PULIR] Calificación previa sin UI
+- **Tipo:** feature
+- **Estado verificado:** `setLeadQualificationAction` acepta `moment: "pre"` (`app/sales/lead-actions.ts:532-551`) pero ningún componente la llama con `pre`; el drawer sólo la muestra. El resto del ítem (responsable) está resuelto.
+- **Qué hay que hacer:** exponer la calificación previa en el drawer del turno.
+- **Dónde:** `apps/web/components/closing/lead-detail-drawer.tsx`.
+
+#### [SEGUIMIENTO-ESCALA] El estado del lead se deriva en memoria con techo de 2.000
+- **Tipo:** deuda técnica
+- **Estado verificado:** `MAX_LEADS = 2000` y `fetchAllRows` en `app/sales/lead-actions.ts:136-200`. Producción: 1.252 `sales_leads` (era 964 el 09-03).
+- **Qué hay que hacer:** antes de ~1.800 leads, derivar el estado en SQL (vista/función), sin persistirlo.
+- **Dónde:** `apps/web/app/sales/lead-actions.ts`, `apps/web/lib/sales/lead-thread.ts`.
+
+#### [LLAMADAS-CANCELED-BY] `cancelled_by` siempre `unknown`
+- **Tipo:** feature
+- **Estado verificado:** `lib/calendly/sync-events.ts:108` y `closer-sync.ts:227` escriben `unknown`; `cancellation.canceled_by` no se lee.
+- **Qué hay que hacer:** leer `cancellation.canceled_by` del evento/invitee de Calendly y mapear a `lead`/`closer`.
+- **Dónde:** `apps/web/lib/calendly/fetch-scheduled-events.ts`, `sync-events.ts`, `closer-sync.ts`.
+
+#### [ZERNIO-ANALISIS-UNTRUSTED] El análisis de DMs confía en lo que manda el navegador
+- **Tipo:** seguridad
+- **Estado verificado:** auditoría §3 "Seguridad" 6. `analyzeZernioConversationAction` (`app/integrations/zernio/actions.ts:493-628`) recibe los mensajes desde el cliente (no los relee de Zernio), los mete en el prompt sin `wrapUntrustedContent`, hace spread del JSON del modelo en el upsert y registra lead magnets a partir de ese texto.
+- **Qué hay que hacer:** releer los mensajes server-side con `getMessages`, envolverlos con `wrapUntrustedContent`, whitelistear los campos del resultado.
+- **Dónde:** `apps/web/app/integrations/zernio/actions.ts`.
+
+#### [TOKENS-TEXTO-PLANO] (parte Ventas) Tokens de Calendly, Fathom org y ManyChat sin cifrar
+- **Tipo:** seguridad
+- **Estado verificado:** auditoría §3 "Seguridad" 2. `calendly_integrations.access_token/refresh_token` (`lib/calendly/oauth-token.ts`), `fathom_integrations.api_key` (`lib/fathom/process-call.ts:143`) en claro; RLS cerrado. La key por miembro sí se cifra.
+- **Qué hay que hacer:** cifrar al escribir con `lib/security/encryption` y migrar lo guardado.
+- **Dónde:** `apps/web/lib/calendly/*`, `apps/web/lib/fathom/connect.ts`.
+
+#### [CALENDLY-WEBHOOK-REPLAY] El webhook de Calendly no valida la ventana de tiempo
+- **Tipo:** seguridad
+- **Estado verificado:** auditoría §3 "Seguridad" 4. `parseCalendlySignature` lee `t` pero `verifyCalendlySignature` (`app/api/integrations/calendly/webhook/route.ts:11-35`) no la compara contra el reloj.
+- **Qué hay que hacer:** rechazar `t` con más de 5 min de diferencia.
+- **Dónde:** `apps/web/app/api/integrations/calendly/webhook/route.ts`.
+
+#### [API-TIMEOUTS] (parte Ventas) Sin timeout en Calendly, Fathom y Zernio
+- **Tipo:** deuda técnica
+- **Estado verificado:** auditoría §3 "Confiabilidad" 1. Ningún `AbortSignal.timeout` en `lib/calendly`, `lib/fathom`, `lib/zernio`.
+- **Qué hay que hacer:** agregar timeout en cada fetch.
+- **Dónde:** esos directorios.
+
+#### [SALES-ACTIONS-SIN-USO] Server actions exportadas sin llamador
+- **Tipo:** deuda técnica
+- **Estado verificado:** ítem nuevo. Sin llamadores: `getCallAnalysesAction`, `getMockCallAnalysisKeysAction` (`app/sales/actions.ts`), `getCloserCallsAction`, `updateCloserCommissionAction`, `getClosersWithCalendlyStatusAction` (`closer-actions.ts`), `getLeadThreadAction` (`lead-actions.ts`), `getConversationIdByExternalRef` (`app/conversations/actions.ts`), todo `app/unipile/actions.ts` y `app/instagram/actions.ts`. Cada export `"use server"` es un endpoint.
+- **Qué hay que hacer:** borrarlas.
+- **Dónde:** esos archivos.
+
+#### [CALENDLY-TESTS] `lib/calendly` sin tests
+- **Tipo:** tests
+- **Estado verificado:** auditoría §3 "Salud del código" 4; no hay `lib/calendly/__tests__`. Tampoco `lib/sales/resolve-lead.ts` ni `lib/fathom/process-call.ts`.
+- **Qué hay que hacer:** tests del mapeo de estados y de `syncMayOverwriteStatus` aplicado en las dos syncs; de `resolveLeadId` con mocks.
+- **Dónde:** `apps/web/lib/calendly/`, `apps/web/lib/sales/`.
+
+### Ventas · P3
+
+#### [VENTAS-E2E] Ninguna pantalla de Ventas tiene Playwright
+- **Tipo:** tests
+- **Estado verificado:** `apps/web/e2e/` sólo tiene `auth.setup.ts` y `holding.spec.ts`. Incluye la tabla de seguimiento de `[LLAMADAS-FASE-2-PULIR]`.
+- **Qué hay que hacer:** smoke de Closing (seguimiento, editar celda) y Cobros (registrar cuota).
+- **Dónde:** `apps/web/e2e/`.
+
+#### [ZERNIO-EMOJIS-JSX] Emojis como íconos en la bandeja
+- **Tipo:** deuda técnica
+- **Estado verificado:** `TAG_CONFIG` en `components/sales/zernio-inbox-panel.tsx:39-48` usa emojis en las etiquetas, contra la regla de UI.
+- **Qué hay que hacer:** reemplazar por íconos Lucide.
+- **Dónde:** idem.
+
+#### [CLOSING-FATHOM-PREVIEW] "Vista previa" de Fathom es un placeholder
+- **Tipo:** feature
+- **Estado verificado:** `components/closing/closing-overview.tsx:604-606` muestra un recuadro gris con el texto "Vista previa". Tampoco muestra el análisis de la llamada vinculada (`fathom_calls.closing_call_id` existe).
+- **Qué hay que hacer:** sacar el placeholder o mostrar el resumen/score de la grabación cruzada.
+- **Dónde:** idem.
+
+#### [RANKING-TREND-FIJO] El ranking de closers siempre dice tendencia estable
+- **Tipo:** feature
+- **Estado verificado:** `app/sales/actions.ts:152` → `trend: "stable" as const`.
+- **Qué hay que hacer:** calcular contra el período anterior o quitar el indicador.
+- **Dónde:** `apps/web/app/sales/actions.ts`.
+
+#### [METRICAS-SENA] No se distingue la seña
+- **Tipo:** feature
+- **Estado verificado:** TODO en `app/sales/metrics-actions.ts:112`; se aproxima con `outcome.paymentType === "upfront_fee"`.
+- **Qué hay que hacer:** decidir si "seña" es un estado propio.
+- **Dónde:** idem.
+
+#### [ERRORES-INTERNOS-AL-CLIENTE] (parte Ventas) Webhooks devuelven el error interno
+- **Tipo:** seguridad
+- **Estado verificado:** auditoría §3 "Seguridad" 8. `app/api/integrations/manychat/webhook/[token]/route.ts:52-56` devuelve `e.message`; lo mismo en el webhook de Calendly.
+- **Qué hay que hacer:** responder un mensaje genérico y loguear el detalle.
+- **Dónde:** esas rutas.
+
+---
+
+## Marketing
+
+Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
+
+### Marketing · P0
+
+#### [ZERNIO-KEY-GLOBAL] Una org sin Zernio usa la key global de Zernio
+- **Tipo:** seguridad
+- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. No verifiqué si está seteada en Vercel.
+- **Qué hay que hacer:** confirmar en Vercel si `ZERNIO_API_KEY` existe en Production; quitar el fallback fuera de dev (`NODE_ENV !== "production"`) o borrarlo; filtrar `is_active` en el cron.
+- **Dónde:** `apps/web/lib/zernio/integration.ts`, `apps/web/lib/marketing/ad-metrics-snapshot.ts`
+
+### Marketing · P1
+
+#### [TRIAL-SECRET-EN-URL] `WORKER_AUTH_SECRET` en la URL de QStash y en logs
+- **Tipo:** seguridad
+- **Estado verificado:** `createTrialReelsJobAction` arma `workerUrl = …?workerSecret=<secret>` y loguea `workerUrl` completo en `"[TrialReels] QStash published OK"` (`reel-variation-actions.ts`). Lo mismo en `publishVariationsAction`/`retryVariationAction` (`urlWithSecret`). QStash guarda la URL en su consola. El worker (`apps/reel-worker/src/index.ts`) compara con `===` (no tiempo constante), acepta el query param, y al fallar loguea los 4 primeros caracteres del secret esperado y 20 del header recibido. El payload lleva además el `driveAccessToken` de Google.
+- **Qué hay que hacer:** sacar el secret del query (dejar sólo header o firma QStash con `url`), no loguear URLs con secret, rotar `WORKER_AUTH_SECRET`, usar comparación en tiempo constante en el worker y borrar el log del prefijo.
+- **Dónde:** `apps/web/app/marketing/content/reel-variation-actions.ts`, `apps/reel-worker/src/index.ts`, `apps/web/lib/queue/verify-queue-request.ts`
+
+#### [MKT-HOLDING-ORG] Contenido, Drive y Trial Reels ignoran el negocio activo del holding
+- **Tipo:** bug
+- **Estado verificado:** `content/actions.ts` (`requireProfileOrganizationId`), `sync-actions.ts` (función local `requireOrganizationId` sobre `getCurrentProfile`), `drive-actions.ts`, `reel-variation-actions.ts`, `reel-music-actions.ts` usan `profile.organization_id`. Con el JWT del holding, RLS devuelve el negocio activo y el `.eq("organization_id", holding)` no matchea → biblioteca vacía o sync contra la org equivocada. Es el punto 7 de "Salud del código" de la auditoría.
+- **Qué hay que hacer:** reemplazar por `requireOrganizationId()` de `lib/auth/bootstrap.ts` en los cinco archivos.
+- **Dónde:** `apps/web/app/marketing/content/*.ts`
+
+#### [TRIAL-REELS-MUSICA] La música propia de Trial Reels no se usa ni se puede subir
+- **Tipo:** bug
+- **Estado verificado:** (a) `jobPayloadSchema` del worker (`apps/reel-worker/src/index.ts`) no declara `reelMusicPath`; `safeParse` de zod descarta la clave, así que `processor.ts` nunca la recibe y V3 cae a `luts/background-music.mp3`, que no existe → sale en silencio. (b) `ReelMusicUpload` no se monta en ninguna pantalla (sólo lo exporta su archivo; ni siquiera `trial-reels/index.ts`).
+- **Qué hay que hacer:** agregar `reelMusicPath: z.string().nullable().optional()` al schema y redeployar Fly; montar `ReelMusicUpload` en Marketing → Contenido.
+- **Dónde:** `apps/reel-worker/src/index.ts`, `apps/web/components/marketing/trial-reels/reel-music-upload.tsx`, `apps/web/app/(platform)/marketing/content/page.tsx`
+
+#### [MKT-OVERVIEW-LEGACY] El Overview sale de `content_assets` (legacy)
+- **Tipo:** bug
+- **Estado verificado:** `getMarketingOverviewContextAction` y `buildOverviewMetricsFromAssets` usan `listContentAssetsAction` (`content_assets`, 6 filas en prod, sólo las escribe Instagram Graph). Las 150 `content_pieces` de Zernio sólo entran en el gráfico de distribución. Además cada carga ejecuta `recomputeContentAssetAttribution` (escrituras) y, sin caché caliente, una llamada a Haiku.
+- **Qué hay que hacer:** decidir si el Overview pasa a `content_pieces` (métricas) y cortar el recompute en cada render (moverlo a cron o a la atribución).
+- **Dónde:** `apps/web/app/marketing/actions.ts`, `apps/web/lib/marketing/overview-metrics.ts`, `apps/web/components/marketing/marketing-overview.tsx`
+
+#### [MKT-SALES-CONN-VACIA] Conexión con Ventas depende del inbox legacy
+- **Tipo:** bug
+- **Estado verificado:** `lib/marketing/content-sales-rank.ts` lee `conversations` (0 filas en prod) y resuelve contra `content_assets`; `closed-buyer-journeys.ts` también. La atribución basada en Zernio (`lib/marketing/content-sales-attribution.ts` → `content_pieces.sales_attributed`) existe pero `updateSalesAttributionAction` no tiene callers, así que `sales_attributed` nunca se escribe y `getTopPerformingContentAction` por ventas (herramienta del agente) devuelve ceros. Pantalla oculta del menú.
+- **Qué hay que hacer:** conectar el ranking a `content-sales-attribution` (cron o botón) o sacar la pantalla. Relacionado con `[EMBUDO-PANEL-DMS]`.
+- **Dónde:** `apps/web/lib/marketing/content-sales-rank.ts`, `closed-buyer-journeys.ts`, `content-sales-attribution.ts`, `app/marketing/content/actions.ts`
+
+#### [MKT-FORMS-SIN-RESPUESTAS] 38 formularios y 0 respuestas en producción
+- **Tipo:** verificación manual
+- **Estado verificado:** `list_tables` en prod: `forms` 38 filas, `form_responses` 0, `google_forms_integrations` 3, `typeform_integrations` 0. Google Forms devuelve `permissionDenied` con 401/403 y corta; con otro error hace `continue` sin registrar nada. Puede ser que los forms no tengan respuestas o que la sync falle en silencio.
+- **Qué hay que hacer:** correr `/api/integrations/google-forms/sync?organizationId=` a mano y mirar el resultado; registrar errores por form.
+- **Dónde:** `apps/web/lib/google-forms/sync.ts`
+
+#### [AUDITORIA-ABIERTOS §6] Typeform y Google Forms pierden respuestas > 1000 y `external_response_id` es único global
+- **Tipo:** bug
+- **Estado verificado:** `lib/typeform/sync.ts:192` (`page_size=1000`, sin `before`/paginación) y `lib/google-forms/sync.ts:186` (`pageSize=1000`, ignora `nextPageToken`) avanzan `last_synced_at` igual. `form_responses.external_response_id text not null unique` y los upserts `onConflict: "external_response_id"`: dos orgs con el mismo form se pisan (el upsert reescribe `organization_id`).
+- **Qué hay que hacer:** paginar; índice único `(organization_id, external_response_id)` y `onConflict` acorde.
+- **Dónde:** `apps/web/lib/typeform/sync.ts`, `apps/web/lib/google-forms/sync.ts`, migración nueva
+
+#### [ZERNIO-WEBHOOK-SIN-EVENTOS] El webhook de Zernio no registró nada
+- **Tipo:** verificación manual
+- **Estado verificado:** `zernio_comments` y `zernio_messages` 0 filas en prod con 9 integraciones. El handler exige `ZERNIO_WEBHOOK_SECRET` (503 sin él). El formato de firma (`x-zernio-signature`, hex con o sin `sha256=`) es supuesto, sin doc local de Zernio.
+- **Qué hay que hacer:** confirmar que el webhook está registrado en Zernio y la variable seteada; mandar un evento de prueba.
+- **Dónde:** `apps/web/app/api/integrations/zernio/webhook/route.ts`
+
+### Marketing · P2
+
+#### [AUDITORIA §3 confiabilidad 11] La sync de contenido escribe ceros si el analytics no se reconoce
+- **Tipo:** bug
+- **Estado verificado:** `mapExternalPostToRow` usa `resolvePostAnalytics(post.analytics).metrics` sin mirar `recognized`, y el update de existentes pisa `metrics` y `metrics_updated_at`.
+- **Qué hay que hacer:** si `recognized=false`, no incluir `metrics` en el update (y en el insert, dejar `null`).
+- **Dónde:** `apps/web/app/marketing/content/sync-actions.ts`
+
+#### [TRIAL-CLEANUP-LOOP] `cleanup-trial-reels` reprocesa los mismos jobs siempre
+- **Tipo:** deuda técnica
+- **Estado verificado:** el cron selecciona `done|failed` con `updated_at < 30 días` y nunca marca el job ni vacía `variations`. Auditoría §3 confiabilidad 8.
+- **Qué hay que hacer:** tras borrar, limpiar `storage_path`/`preview_url` o marcar `cleaned_at`.
+- **Dónde:** `apps/web/app/api/cron/cleanup-trial-reels/route.ts`
+
+#### [TRIAL-4] Música por defecto del worker
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `apps/reel-worker/luts/warm.cube` ya está en el repo (LUT "Presetpro - Movie Film", con copyright de Presetpro: confirmar licencia) y el Dockerfile copia `luts/`. Falta `background-music.mp3`. No sé si Fly tiene el deploy con el LUT.
+- **Qué hay que hacer:** conseguir un mp3 libre de derechos (o depender de `[TRIAL-REELS-MUSICA]`), confirmar licencia del LUT y `fly deploy`.
+- **Dónde:** `apps/reel-worker/luts/`
+
+#### [TRIAL-FALLBACK-ROTO] El fallback en la lambda no acepta jobs de Drive
+- **Tipo:** bug
+- **Estado verificado:** sin `REEL_WORKER_URL`, QStash apunta a `/api/queue/process-reel-variations`, cuyo zod exige `sourceStoragePath`; la acción sólo manda `driveFileId`. El job queda `pending`. Además ffmpeg no está en Vercel.
+- **Qué hay que hacer:** borrar el fallback o hacerlo fallar explícito marcando el job `failed`.
+- **Dónde:** `apps/web/app/api/queue/process-reel-variations/route.ts`, `reel-variation-actions.ts` (`getReelWorkerUrl`)
+
+#### [TRIAL-RETRY-GENERACION] Reintentar sólo sirve para fallas de publicación
+- **Tipo:** bug
+- **Estado verificado:** `retryVariationAction` pone la variación en `scheduled` y encola la publicación; si falló en FFmpeg no hay `storage_path` y la publicación vuelve a fallar.
+- **Qué hay que hacer:** deshabilitar el botón cuando no hay `storage_path`, o re-encolar al worker.
+- **Dónde:** `apps/web/app/marketing/content/reel-variation-actions.ts`, `components/marketing/trial-reels/variation-card.tsx`
+
+#### [YT-SIN-CRON] YouTube se sincroniza sólo al conectar
+- **Tipo:** deuda técnica
+- **Estado verificado:** `syncYoutubeChannelAndVideos` sólo se llama desde los callbacks OAuth y `connectYoutubeApiKeyAction` (sin `await`: Vercel puede cortarlo, auditoría §3 confiabilidad 6). El cron de métricas filtra `source='zernio'`. Trae 25 videos. El upsert no revisa `error`. `docs/archivo/INTEGRACIONES_MAPA.md` dice "cron" y `content_assets`: ambos falsos.
+- **Qué hay que hacer:** cron diario de YouTube (o incluir `source='google'` en el cron de métricas), `after()` en la sync inicial, corregir el mapa.
+- **Dónde:** `apps/web/lib/google/sync-youtube.ts`, `apps/web/app/youtube/actions.ts`, `apps/web/vercel.json`
+
+#### [MKT-DRIVE-CARPETA] "Nueva carpeta" en Administrar siempre falla
+- **Tipo:** bug
+- **Estado verificado:** `createDriveFolderAction` tira error siempre (scope `drive.readonly`), y `drive-admin-view.tsx` expone el botón.
+- **Qué hay que hacer:** ocultar el botón o pedir `drive.file`.
+- **Dónde:** `apps/web/app/marketing/content/drive-actions.ts`, `components/marketing/drive-admin-view.tsx`
+
+#### [MKT-SCOPE-YT-UPLOAD] Se pide `youtube.upload` sin usarlo
+- **Tipo:** seguridad
+- **Estado verificado:** `GOOGLE_UNIFIED_SCOPES` incluye `youtube.upload` (y `yt-analytics-monetary.readonly`); ningún código sube videos. Sólo lo menciona `/privacidad`.
+- **Qué hay que hacer:** sacarlo (y de la página de privacidad) salvo que haya un plan de uso; facilita la verificación de la app de Google.
+- **Dónde:** `apps/web/lib/google/scopes.ts`
+
+#### [AUDITORIA §3 seguridad 5] `updateContentPieceAction` sin validación
+- **Tipo:** seguridad
+- **Estado verificado:** pasa `updates` directo a `.update()`; el tipo TS no protege en runtime.
+- **Qué hay que hacer:** zod con whitelist de campos.
+- **Dónde:** `apps/web/app/marketing/content/actions.ts`
+
+#### [AUDITORIA §3 seguridad 9] `content-thumbnails` público con policy de listado
+- **Tipo:** seguridad
+- **Estado verificado:** `20260805200000_content_thumbnails_bucket.sql`: bucket `public=true` y policy `SELECT` para `public` sobre `storage.objects` → se pueden listar las carpetas (org ids) de todas las orgs.
+- **Qué hay que hacer:** borrar la policy de SELECT (las URLs públicas funcionan sin ella).
+- **Dónde:** migración nueva
+
+#### [AUDITORIA §3 confiabilidad 1] Zernio sin timeouts ni defensas uniformes
+- **Tipo:** deuda técnica
+- **Estado verificado:** ningún `fetch` de `lib/zernio/client.ts` usa `AbortSignal.timeout`; `listAccounts`, inbox, `replyToComment`, `hideComment`, `createPost` y los analytics de cuenta no pasan por `zernioFetchJson`.
+- **Qué hay que hacer:** timeout en `zernioFetchJson` y pasar todos los métodos por ahí.
+- **Dónde:** `apps/web/lib/zernio/client.ts`
+
+#### [ZERNIO-DOCS] Zernio no tiene documentación local ni entrada en API_DOCS_PENDIENTES
+- **Tipo:** verificación manual
+- **Estado verificado:** `docs/external-apis/` no tiene Zernio; `/accounts/{id}/instagram/stories`, `/posts/sync-stories`, `/media/presign`, formato de firma del webhook y forma de `/analytics` están implementados por prueba y error.
+- **Qué hay que hacer:** bajar la doc (docs.zernio.com) con `docs/external-apis/tools/regenerar.sh` o registrar los supuestos en `docs/integraciones/apis-sin-documentacion.md`.
+- **Dónde:** `docs/external-apis/`
+
+#### [MKT-LEAD-MAGNETS-CAPTURA] Los lead magnets sólo capturan leads desde el análisis de DMs
+- **Tipo:** feature
+- **Estado verificado:** el único insert en `lead_magnet_leads` es `registerLeadMagnetFromDm`, disparado por `analyzeZernioConversationAction` si un mensaje saliente contiene la URL. Los canales `typeform`, `google_forms`, `landing`, `manychat` no tienen captura. `redirect_url` ("redirección para tracking de clicks") y la tabla `lead_magnet_clicks` no tienen código.
+- **Qué hay que hacer:** decidir qué canales se miden y construir la captura (o sacar los canales del form).
+- **Dónde:** `apps/web/lib/marketing/lead-magnets-internal.ts`, `app/marketing/lead-magnets-actions.ts`
+
+#### [MKT-CODIGO-MUERTO] Componentes y acciones huérfanos
+- **Tipo:** deuda técnica
+- **Estado verificado:** sin imports: `components/marketing/{marketing-subnav,marketing-content-library,marketing-content-detail,youtube-video-performance,marketing-charts,instagram-empty-state}.tsx`, `overview/{conversion-strip,marketing-stat-card,metrics-sections,rate-bar,index}.ts(x)` (metrics-sections todavía cae a `mockMarketingOverview`); por arrastre quedan inalcanzables `cta-minute-input`, `content-label-badge`, `content-platform-metrics` (minuto de CTA + retención real de YouTube y etiqueta manual). Acciones sin caller: `publishVariantAsZernioDraftAction`, `generateVariantCaptionAction`, `getContentBenchmarkAction`, `deleteContentPieceAction`, `updateSalesAttributionAction`, `syncZernioMetricsAction`, `getContentPatternsAnalysisAction`, `getContentLabelDistributionAction`, `getInstagramIntegrationStatusAction`, `getContentAssetByIdAction`, `syncInstagramContentAction`, `syncInstagramMessagesAction`, `searchDriveFilesAction`, `getDriveFolderPathAction`; en `lib/zernio/client.ts` `validateApiKey`, `listPostAnalytics`, `getAccountAnalytics`, `getPostsAnalytics` y todos los `zernio*` exportados. Cada export de un `"use server"` es un endpoint.
+- **Qué hay que hacer:** decidir si se recupera algo (retención/CTA de YouTube, publicar variante a Zernio) y borrar el resto.
+- **Dónde:** los listados
+
+#### [AUDITORIA §3 salud 1] Legacy de Instagram Graph y `content_assets` todavía agendado
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `vercel.json` corre `/api/integrations/instagram/sync` cada hora y `/instagram/poll` cada 5 min; 1 `instagram_integrations` en prod; `content_assets` 6 filas. El Overview y los UTMs (selector de videos) todavía leen `content_assets`.
+- **Qué hay que hacer:** migrar Overview/UTMs a `content_pieces` y después borrar crons, tabla y `lib/instagram`.
+- **Dónde:** `apps/web/vercel.json`, `lib/instagram/*`, `app/marketing/actions.ts`, `app/(platform)/marketing/utms/page.tsx`
+
+#### [MKT-UTM-SELECTOR-VIDEOS] El generador de UTMs lista videos de `content_assets`
+- **Tipo:** bug
+- **Estado verificado:** `utms/page.tsx` filtra `listContentAssetsAction()` por `platform === "youtube"`, pero YouTube ahora escribe `content_pieces` (`source='google'`). Con una conexión nueva el selector queda vacío.
+- **Qué hay que hacer:** leer videos de `content_pieces` `type='youtube'`.
+- **Dónde:** `apps/web/app/(platform)/marketing/utms/page.tsx`, `utm-actions.ts` (`resolveYoutubeVideoExternalId`)
+
+#### [MKT-CONTENT-LIMITE-50] La biblioteca muestra sólo 50 piezas
+- **Tipo:** bug
+- **Estado verificado:** `content/page.tsx` pide `limit: 50` sin paginación (prod: 150 piezas). El promedio de la org del detalle también usa 50.
+- **Qué hay que hacer:** paginar o filtro por tipo/fecha server-side.
+- **Dónde:** `apps/web/app/(platform)/marketing/content/page.tsx`
+
+#### [PERMISOS-SERVER-ACTIONS/marketing] (compartido) Drive del founder y desconexiones abiertas a cualquier miembro
+- **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
+- **Tipo:** seguridad
+- **Estado verificado:** `drive-actions.ts` y `disconnectFormAction` no chequean rol.
+- **Qué hay que hacer:** ver ítem general.
+- **Dónde:** `apps/web/app/marketing/content/drive-actions.ts`, `app/forms/actions.ts`
+
+### Marketing · P3
+
+#### [BUG-1] Historias de Instagram — verificar en producción
+- **Tipo:** verificación manual
+- **Estado verificado:** la estrategia sigue igual (`listInstagramStories` primero). Sin evidencia en CHANGES de prueba con historia real.
+- **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Marketing.
+- **Dónde:** `apps/web/app/marketing/content/sync-actions.ts`
+
+#### [FEAT-1] Secuencias de historias
+- **Tipo:** feature
+- **Estado verificado:** tablas `story_sequences`/`story_frames` en prod (0 filas), sin código.
+- **Qué hay que hacer:** definir con Santiago.
+- **Dónde:** —
+
+#### [FEAT-2] Análisis de competidores
+- **Tipo:** feature
+- **Estado verificado:** tablas `competitors`/`competitor_posts` en prod (0 filas), sin código.
+- **Qué hay que hacer:** definir con Santiago.
+- **Dónde:** —
+
+#### [MKT-TESTS-SYNC-WORKER] Tests del mapeo de sync y del worker
+- **Tipo:** tests
+- **Estado verificado:** `externalPlatformPostId`, `mapZernioType`, `dedupeExternalPosts` (sync-actions, no exportadas) y `apps/reel-worker` sin tests. El bug de `reelMusicPath` lo hubiera atrapado un test del schema.
+- **Dónde:** `apps/web/app/marketing/content/sync-actions.ts`, `apps/reel-worker/src/`
+
+---
+
+## Embudos y Lanzamientos
+
+Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
+
+### Embudos y Lanzamientos · P0
+
+#### [EMBUDOS-WEBHOOK-PERDIDA] Webhooks de pagos y GHL que responden 200 sin haber guardado el evento
+- **Tipo:** bug
+- **Estado verificado:** `app/api/webhooks/{whop,fanbasis,ghl}/route.ts` devuelven `200 { ok: true, ...result }` siempre que la firma sea válida, incluso cuando `ingestPaymentWebhook` / `ingestGHLOpportunityEvent` devuelven `stored: false, status: "error"` (falló el insert del crudo). Whop y GHL sólo reintentan ante no-2xx, así que el evento se pierde. Además, un evento que quedó en `status = 'error'` (falló el upsert después de guardar) no se reintenta nunca: el reintento del proveedor choca con el índice único y vuelve `duplicate` (AUDITORIA_BACKEND §3 Confiabilidad 5, sigue abierto). No existe ninguna herramienta de reproceso de `unmapped`/`error` aunque varios comentarios lo prometen.
+- **Qué hay que hacer:** responder 5xx cuando `stored: false` (salvo Commas, que no reintenta: ahí alertar); en `duplicate`, si la fila previa está en `error`, reprocesarla; construir un reproceso (acción de super-admin o script) para `payment_webhook_events` y `ghl_webhook_events` en `unmapped`/`error`.
+- **Dónde:** `apps/web/app/api/webhooks/{whop,fanbasis,ghl}/route.ts`, `apps/web/lib/payments/ingest.ts`, `apps/web/lib/ghl/ingest-opportunity-event.ts`.
+
+### Embudos y Lanzamientos · P1
+
+#### [EMBUDOS-MEDIDAS-POR-EMBUDO] Dinero y anuncios son de la org entera en todos los embudos
+- **Tipo:** bug / decisión de negocio
+- **Estado verificado:** `resolveOrgMeasures` (`lib/funnels/resolve.ts`) lee `payment_orders`, `payment_transactions`, `ad_metrics_daily` y Hyros filtrando sólo por `organization_id`. `funnel_instances.product_id`, `price_point` y `currency` no se usan para filtrar. Dos embudos de la misma org muestran el mismo spend, revenue, CAC, ROAS, EPL, CPL, AOV y LTV. Contradice la decisión 1 de la spec (varias instancias por oferta). `PLAN_VERIFICACION §12` lo reconoce en una línea ("el spend es de la org entera").
+- **Qué hay que hacer:** decidir cómo se asigna dinero y spend a un embudo (producto de Whop/Commas, campaña/cuenta de Meta, cuenta de Hyros) y agregar esos filtros como config de la instancia; mientras tanto, rotular en la UI que esas cifras son de toda la org.
+- **Dónde:** `apps/web/lib/funnels/resolve.ts`, `apps/web/app/(platform)/funnels/[funnelId]/page.tsx`, `components/funnels/funnel-kpi-panel.tsx`.
+
+#### [EMBUDOS-INSTRUMENTATION-DESACTUALIZADA] Texto visible en /funnels que dice cosas falsas
+- **Tipo:** bug
+- **Estado verificado:** `INSTRUMENTATION_TOOLS` en `lib/funnels/instrumentation.ts` se muestra en `/funnels` (`blockingTools()` → `otcNote`). La nota de `crm_pipeline` dice que GHL "NO consume /opportunities ni /pipelines" (existen `lib/ghl/sync-pipelines.ts` y el webhook). La de `checkout` dice "Cubierto por Stripe y Mercado Pago" con estado `equivalent`, pero el resolver sólo lee Whop/Commas (`payment_orders`): los datos de Stripe/MP no llegan a ningún embudo. También el comentario de `DEFAULT_DM_BINDINGS` dice que no hay fuente de disparadores (existe `zernio_comment_triggers`).
+- **Qué hay que hacer:** corregir `otcStatus`/`otcNote` de GHL y checkout (checkout = `available` vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), actualizar el comentario, y ajustar `instrumentation.test.ts` si fija esos estados.
+- **Dónde:** `apps/web/lib/funnels/instrumentation.ts`, `apps/web/lib/funnels/sources.ts`.
+
+#### [EMBUDOS-CUENTAS-REALES] Conectar las cuentas y correr la verificación 🔴
+- **Tipo:** verificación manual
+- **Estado verificado:** ninguna de las 10 unidades (I-1 a I-10) tiene evidencia en CHANGES.md de haberse probado con una cuenta real. Todas las migraciones están aplicadas en producción.
+- **Qué hay que hacer:** conseguir API key de WebinarJam, cuenta de Hyros con API, sub-cuenta GHL de prueba, cuentas Whop/Commas, VTurb; correr `docs/operacion/verificacion-manual.md` § Embudos y Lanzamientos.
+- **Dónde:** `docs/archivo/PLAN_VERIFICACION.md` §1–12 (condensado en `docs/operacion/verificacion-manual.md` § Embudos).
+
+#### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
+- **Tipo:** verificación manual
+- **Estado verificado:** `app/api/webhooks/ghl/route.ts` acepta firma Ed25519/RSA o secreto por org; el payload del Workflow no está documentado (se buscó en `docs/external-apis/gohighlevel/`). Si el Workflow no manda `type: Opportunity*`, la ruta descarta todo con 200 `ignored` sin guardar nada.
+- **Qué hay que hacer:** armar el Workflow en una sub-cuenta, mirar el crudo, confirmar `type`, id de oportunidad, `pipelineStageId` y `webhookId`. Si no hay `pipelineStageId`, priorizar `[FEAT-GHL-OAUTH]`.
+- **Dónde:** `apps/web/lib/ghl/opportunity-event.ts`, `apps/web/app/api/webhooks/ghl/route.ts`.
+
+#### [WEBINARJAM-API-KEY] Pedir la API key de WebinarJam 🔴
+- **Tipo:** decisión de negocio (trámite externo)
+- **Estado verificado:** integración construida (`lib/webinarjam/*`); sin key no hay datos para 3 pasos del embudo Webinar.
+- **Qué hay que hacer:** pedir la key con `docs/external-apis/webinarjam/15370143-apply-for-an-api-key-for-webinarjam-or-everwebinar.md`; después cargar `pitch_second` por webinar.
+- **Dónde:** `/integrations` → WebinarJam.
+
+#### [EMBUDOS-PAGOS-VERIFICAR] Verificar el mapeo de Whop y Commas contra eventos reales
+- **Tipo:** verificación manual
+- **Estado verificado:** mapeo corregido contra la doc (`lib/payments/normalize.ts`), nunca probado con un evento real.
+- **Qué hay que hacer:** compra de prueba, suscripción con y sin `auto_expire_after_x_periods`, reembolso; confirmar `processed` y montos.
+- **Dónde:** `apps/web/lib/payments/normalize.ts`, `docs/archivo/PLAN_VERIFICACION.md` §3.
+
+#### [EMBUDOS-SYNC-PROGRAMADO] Registrantes de WebinarJam y catálogos sólo se actualizan a mano
+- **Tipo:** feature / deuda técnica
+- **Estado verificado:** `syncWebinarJamRegistrantsForOrg` sólo se llama desde `app/webinarjam/actions.ts`; no hay cron en `apps/web/vercel.json` para WebinarJam, VTurb (players), Hyros (cuentas) ni pipelines de GHL. Los conteos de webinar del embudo quedan congelados en el último click de "sincronizar". El cron `ghl-sync` sólo trae citas.
+- **Qué hay que hacer:** agregar un cron (p. ej. cada 6 h) que sincronice registrantes de WebinarJam y, diario, los catálogos; respetar las cuotas (WebinarJam 20 req/s).
+- **Dónde:** `apps/web/vercel.json`, nuevo `app/api/cron/*`, `lib/webinarjam/sync.ts`.
+
+### Embudos y Lanzamientos · P2
+
+#### [EMBUDOS-SALUD] Habilitar el estado de salud (bandas de la §04) ⏸️
+- **Tipo:** decisión de negocio / feature
+- **Estado verificado:** `applyHealthBand`, `resolveBenchmark`, `CROSS_FUNNEL_BANDS` sólo se usan en tests; la tabla de pasos muestra `benchmarkLabel` como texto. `funnel_benchmarks` sin uso. `diagnoseFunnel()` no existe.
+- **Qué hay que hacer:** cuando Santiago lo habilite, capa de presentación (semáforo en pasos y KPIs), lectura de `funnel_benchmarks` para overrides y `diagnoseFunnel()`.
+- **Dónde:** `apps/web/lib/funnels/health-bands.ts`, `components/funnels/funnel-steps-table.tsx`.
+
+#### [EMBUDOS-GHL-BACKFILL] Poblar la última etapa conocida de las oportunidades preexistentes
+- **Tipo:** feature
+- **Estado verificado:** `searchGHLOpportunities` (`lib/ghl/client.ts`) sigue sin usarse; `deriveTransition` registra como `created` cualquier oportunidad que Limitless ve por primera vez, lo que infla `ghl_opportunities_created` en las primeras semanas.
+- **Qué hay que hacer:** acción que traiga el estado actual y escriba sólo `ghl_opportunities` (nunca transiciones), antes de habilitar el webhook.
+- **Dónde:** `apps/web/lib/ghl/client.ts`, `apps/web/app/ghl/opportunity-actions.ts`.
+
+#### [EMBUDOS-GHL-WON] `ghl_opportunities_won` cuenta cualquier transición con status won
+- **Tipo:** bug
+- **Estado verificado:** `resolve.ts` filtra `ghl_stage_transitions.status = 'won'` sin mirar `kind`. `status` se copia en toda transición, así que una oportunidad ya ganada que cambia de etapa, o que Limitless ve por primera vez ya ganada (`created`), cuenta como ganada en ese período.
+- **Qué hay que hacer:** contar sólo transiciones cuyo estado previo no era `won` (agregar `from_status` o filtrar `kind = 'status_change'` + `created` con status won sólo si es alta real).
+- **Dónde:** `apps/web/lib/funnels/resolve.ts`, `apps/web/lib/ghl/stage-transition.ts`.
+
+#### [EMBUDOS-WJ-SCHEDULE-NULL] Registrantes duplicados si `schedule` viene vacío
+- **Tipo:** bug (condicional)
+- **Estado verificado:** `UNIQUE (organization_id, product, webinar_external_id, schedule_external_id, email)` sin `NULLS NOT DISTINCT`; `normalizeRegistrant` deja `scheduleId` en `null` si falta. Con `null`, el upsert inserta una fila nueva en cada sync y `countWebinarRegistrants` (count de filas) se infla. Además `listWebinarJamRegistrants` corta en 5.000 filas sin avisar.
+- **Qué hay que hacer:** `NULLS NOT DISTINCT` en el índice (Postgres 15+) o coalesce a `''`; registrar en el resultado del sync cuando se toca el tope.
+- **Dónde:** `supabase/migrations/20260830190000_webinarjam.sql` (nueva migración), `lib/webinarjam/{normalize-registrant,client,sync}.ts`.
+
+#### [EMBUDOS-SIGNAL-INCONSISTENTE] Fuentes que devuelven 0 en una org que nunca tuvo datos
+- **Tipo:** bug
+- **Estado verificado:** `countConversationsReplied`, `countConversationsBooked` y `countClientPayments` no pasan por `resolveWithSignal`; en una org sin `conversations` ni `client_payments` devuelven `0`, que el spine muestra como medido. Rompe la regla central §9.1. (El inbox legacy `conversations` quedó vacío al pasar a Zernio, así que el embudo DM por defecto hoy da ceros o `null` mezclados.)
+- **Qué hay que hacer:** envolver las tres con `resolveWithSignal` + `countAllTimeRows`; test en `[T-6]`.
+- **Dónde:** `apps/web/lib/funnels/resolve.ts`.
+
+#### [EMBUDOS-DM-DEFAULTS] Los bindings por defecto del DM apuntan al inbox legacy vacío
+- **Tipo:** decisión de negocio / deuda técnica
+- **Estado verificado:** `DEFAULT_DM_BINDINGS` usa `conversations_*` (tabla del inbox ManyChat/Unipile). El inbox actual es Zernio live y no persiste (mismo problema que `[EMBUDO-PANEL-DMS]` del área Dashboard).
+- **Qué hay que hacer:** decidir la fuente del DM (GHL `ghl_*`, o persistir conteos del inbox Zernio) y cambiar los defaults.
+- **Dónde:** `apps/web/lib/funnels/sources.ts`.
+
+#### [EMBUDOS-TIMEZONE] `reporting_timezone` se guarda pero no se usa
+- **Tipo:** deuda técnica
+- **Estado verificado:** `period.ts` corta en UTC; `reporting_timezone` (default `America/New_York`) sólo se muestra en el header del detalle. VTurb usa su propia `timezone` (default Buenos Aires). La spec §3.7 pide reportar en EST.
+- **Qué hay que hacer:** calcular `periodBounds` en la zona de la instancia y pasar esa zona a VTurb/Hyros, o sacar el dato de la UI.
+- **Dónde:** `apps/web/lib/funnels/period.ts`, `resolve.ts`, `lib/vturb/stats.ts`.
+
+#### [EMBUDOS-MONEDAS] Montos de distintas monedas se suman
+- **Tipo:** bug
+- **Estado verificado:** `aggregatePayments` (`lib/payments/aggregate.ts`) ignora `currency`; `funnel_instances.currency` sólo formatea.
+- **Qué hay que hacer:** filtrar por la moneda del embudo o convertir, y avisar cuando hay montos en otra moneda.
+- **Dónde:** `apps/web/lib/payments/aggregate.ts`, `lib/funnels/resolve.ts`.
+
+#### [EMBUDOS-SNAPSHOTS] Snapshots periódicos y pulso diario (Fase 5)
+- **Tipo:** feature
+- **Estado verificado:** `funnel_period_snapshots` existe en producción sin uso; `REPORTING_CADENCE.daily` dice "Falta el cron de pulso diario". Sin snapshots, los números de fuentes live (Zernio triggers) no tienen historia.
+- **Qué hay que hacer:** cron que resuelva cada instancia activa y guarde el snapshot; decidir si el pulso diario es un reporte o un aviso.
+- **Dónde:** `apps/web/lib/funnels/resolve.ts`, nuevo cron.
+
+#### [EMBUDOS-PERMISOS-ACCIONES] Server actions de embudos e integraciones sin chequeo de permiso
+- **Tipo:** seguridad
+- **Estado verificado:** `app/funnels/actions.ts`, `app/ghl/*`, `app/vturb/actions.ts`, `app/hyros/actions.ts`, `app/webinarjam/actions.ts` sólo usan `requireOrganizationId()`; la página se bloquea por permiso `funnels` en el layout, pero la acción no. Un miembro con acceso "ver" puede crear embudos, cambiar bindings o regenerar el secreto del webhook de GHL (lo que corta la entrega). RLS de `funnel_*` es `FOR ALL` para cualquier miembro. Parte de `[PERMISOS-SERVER-ACTIONS]` (área Permisos).
+- **Qué hay que hacer:** `requireRole()`/permiso de escritura en mutaciones y en conectar/regenerar secretos de integraciones.
+- **Dónde:** archivos citados.
+
+#### [EMBUDOS-GHL-WEBHOOK-HARDENING] Replay y dedupe global del webhook de GHL
+- **Tipo:** seguridad
+- **Estado verificado:** sin validación de timestamp (AUDITORIA §3 Seguridad 4, sigue abierto); el secreto viaja en query string (queda en logs); el índice único de `ghl_webhook_events.external_event_id` no incluye `organization_id`; se sigue aceptando la firma RSA legacy, deprecada por GHL el 2026-09-01.
+- **Qué hay que hacer:** aceptar el secreto por header (`x-otc-webhook-secret` ya se lee) y documentarlo como preferido; índice único `(organization_id, external_event_id)`; quitar la vía RSA.
+- **Dónde:** `apps/web/app/api/webhooks/ghl/route.ts`, `lib/ghl/verify-webhook.ts`, migración nueva.
+
+#### [EMBUDOS-CRON-ERRORES] `ghl-sync` sigue devolviendo ok con ceros cuando falla una org
+- **Tipo:** bug
+- **Estado verificado:** el route devuelve 500 sólo ante excepción no controlada, pero `syncGHLOrganizationSafe` atrapa todo y devuelve ceros; el cron responde `ok: true`. Igual en `capture-ad-metrics` las orgs en error van a `errors` con 200.
+- **Qué hay que hacer:** devolver el error por org y 500/207 si alguna falló, para que el monitor de Vercel lo vea.
+- **Dónde:** `apps/web/lib/ghl/sync-pipeline.ts`, `app/api/cron/{ghl-sync,capture-ad-metrics}/route.ts`.
+
+#### [EMBUDOS-TIMEOUTS] Clientes HTTP sin timeout
+- **Tipo:** deuda técnica
+- **Estado verificado:** ningún `AbortSignal.timeout` en `lib/{ghl,vturb,hyros,webinarjam}/client.ts` (AUDITORIA §3 Confiabilidad 1). La página del embudo espera las respuestas de VTurb y Hyros sin límite de tiempo.
+- **Qué hay que hacer:** timeout en cada `*Fetch`; que un timeout resuelva `null`.
+- **Dónde:** archivos citados.
+
+#### [T-6] [T-6b] [T-6c] [T-6d] [T-6e] [T-7] Tests del IO del módulo
+- **Tipo:** tests
+- **Estado verificado:** no existe ningún test que importe `resolveFunnel`, `ingestGHLOpportunityEvent`, `getVTurbPeriodMeasures`, `syncWebinarJamRegistrantsForOrg`, `getHyrosPeriodMeasures`, `ingestPaymentWebhook` ni las acciones de `app/funnels/actions.ts`. Corrección al backlog viejo: `[T-6]` pedía que `spend/reach/impressions` quedaran en `null` "porque no hay fuente": hoy salen de `ad_metrics_daily` y son `null` sólo sin filas.
+- **Qué hay que hacer:** lo que lista `docs/archivo/TESTING_BACKLOG.md` §2, sumando los casos de `[EMBUDOS-SIGNAL-INCONSISTENTE]` y `[EMBUDOS-GHL-WON]`.
+- **Dónde:** `apps/web/lib/funnels/__tests__/`, `lib/ghl/__tests__/`, etc.
+
+#### [T-8] [T-17] E2E del módulo de embudos
+- **Tipo:** tests
+- **Estado verificado:** `apps/web/e2e/` sólo tiene `holding.spec.ts`.
+- **Qué hay que hacer:** flujo crear → detalle → período → fuentes; snapshot de org sin datos sin ningún `0`.
+- **Dónde:** `apps/web/e2e/`.
+
+### Embudos y Lanzamientos · P3
+
+#### [FEAT-GHL-OAUTH] App del Marketplace de GHL
+- **Tipo:** feature
+- **Estado verificado:** sólo PIT + `location_id` (`ghl-connect-dialog.tsx`); no hay rutas OAuth de GHL.
+- **Qué hay que hacer:** registrar la app, OAuth start/callback, tokens en `ghl_integrations`, webhooks de plataforma.
+- **Dónde:** `apps/web/lib/ghl/`, `components/integrations/ghl-connect-dialog.tsx`.
+
+#### [EMBUDOS-VTURB-PITCH] Configurar el pitch time de los VSL en VTurb
+- **Tipo:** verificación manual (operativa del cliente)
+- **Estado verificado:** `pitch_time = 0` → `vturb_reached_cta` en `null`. El respaldo `configuredPitchTime` de `lib/vturb/stats.ts` nunca recibe valor (el loader de `resolve.ts` no lo pasa y no hay UI).
+- **Qué hay que hacer:** configurar el pitch en VTurb; decidir si se agrega el respaldo en Limitless (como `pitch_second` de WebinarJam) o se borra el parámetro.
+- **Dónde:** `apps/web/lib/vturb/stats.ts`.
+
+#### [EMBUDOS-COMPARAR] Vista comparativa `/funnels/comparar`
+- **Tipo:** feature
+- **Estado verificado:** `paths.platform.funnels.comparar` existe; no hay página (cae en `[funnelId]` → 404).
+- **Qué hay que hacer:** construirla cuando haya varias instancias con datos, o borrar el path.
+- **Dónde:** `apps/web/routes/paths.ts`.
+
+#### [EMBUDOS-GESTION-INSTANCIAS] No se puede renombrar, archivar ni borrar un embudo
+- **Tipo:** feature
+- **Estado verificado:** `app/funnels/actions.ts` no tiene update/delete; `is_active` sólo se lee.
+- **Qué hay que hacer:** acciones de renombrar y archivar (`is_active = false`).
+- **Dónde:** `apps/web/app/funnels/actions.ts`, `app/(platform)/funnels/page.tsx`.
+
+#### [EMBUDOS-CODIGO-MUERTO] Código y tablas sin uso
+- **Tipo:** deuda técnica
+- **Estado verificado:** sin llamadas: `searchGHLOpportunities` (ver backfill), `getVTurbQuotaUsage` (además lee `data.usage` y el spec devuelve `{ quotas: [...] }`), `countHyrosLeadsInPeriod` y el cliente de `/leads/journey` (M07 sin fuente), `REPORTING_CADENCE`, `ATTRIBUTION_STACK`; tablas `funnel_benchmarks`, `funnel_period_snapshots`; `payment_integrations.api_key_encrypted` se guarda y no se usa (backfill de pagos no construido).
+- **Qué hay que hacer:** usar o borrar; corregir `getVTurbQuotaUsage` si se va a usar.
+- **Dónde:** `lib/ghl/client.ts`, `lib/vturb/client.ts`, `lib/hyros/client.ts`, `lib/funnels/instrumentation.ts`.
+
+#### [EMBUDOS-PAGOS-BACKFILL] Backfill de pagos por API
+- **Tipo:** feature
+- **Estado verificado:** la API key de Whop/Commas se guarda pero no hay cliente REST; retención (365 días) necesita historia que los webhooks no traen.
+- **Qué hay que hacer:** backfill con `GET /payments`/`/refunds` (Whop) y `/checkout-sessions/transactions` (Commas).
+- **Dónde:** `apps/web/lib/payments/`.
+
+#### [LANZAMIENTOS-DORMIDO] Decidir qué hacer con Lanzamientos
+- **Tipo:** decisión de negocio
+- **Estado verificado:** páginas "Próximamente", nav `disabled`, `components/lanzamientos/*` sin importar, acciones vivas sólo para el picker del Workboard. OPERATIONAL_NOTES lo describe como CRUD funcionando.
+- **Qué hay que hacer:** reactivarlo (montar los componentes existentes en las páginas) o borrar componentes y acciones sin uso, conservando `launches` para el Workboard. Si se reactiva: el prompt del post-mortem mete `name`/`description` sin `wrapUntrustedContent`.
+- **Dónde:** `apps/web/app/(platform)/lanzamientos/*`, `components/lanzamientos/*`, `app/lanzamientos/actions.ts`.
+
+---
+
+## Agente de negocio e IA
+
+Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
+
+### Agente de negocio e IA · P0
+
+#### [1A1-CLAVE-ANTHROPIC-ROTA] Una organización sin clave válida y sin clave global
+- **Tipo:** verificación manual
+- **Estado verificado:** el código ya marca la clave (`marcarClaveDeOrgComoRechazada` en `lib/ai/credential-resolver.ts`) y deja de usarla. Pero si no hay `ANTHROPIC_API_KEY` global, `executeWithCredentialFallback` no tiene a dónde caer: todo el trabajo IA de esa org (análisis de llamadas, reportes, agente) queda sin hacer. No se puede saber desde el código si la global ya se cargó en Vercel.
+- **Qué hay que hacer:** confirmar si `ANTHROPIC_API_KEY` está en Vercel producción; si no, cargarla o pedirle a la org `997e94be-…` una clave nueva. Confirmar que `claude_api_key_status` de esa org quedó en `invalid` y que la barra roja aparece.
+- **Dónde:** Vercel env; `organizations.claude_api_key_status`; `lib/ai/anthropic.ts`.
+
+### Agente de negocio e IA · P1
+
+#### [PERMISOS-SERVER-ACTIONS/agente-ia] (parte IA) El agente lee todos los módulos sin mirar permisos
+- **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
+- **Tipo:** seguridad
+- **Estado verificado:** `lib/agent/data-reader-handlers.ts` y `agent-tool-handler.ts` no consultan `getCurrentUserPermissions`; sólo RLS por org. Un miembro con permiso `agent` y sin `finance` obtiene finanzas con `get_finance_summary`, clientes con `get_clients_data`, etc. `saveClaudeApiKeyAction` (`app/settings/actions.ts:438`) tampoco exige founder. Además `getRecentOrgMessages` mete en el prompt 20 mensajes de conversaciones de **otros** usuarios de la org.
+- **Qué hay que hacer:** filtrar `AGENT_CHAT_TOOLS` según los módulos del rol antes de mandarlas a Claude (y rechazar en el handler); limitar `getRecentOrgMessages` al usuario actual; exigir founder en `saveClaudeApiKeyAction`/`removeClaudeApiKeyAction`.
+- **Dónde:** `apps/web/lib/agent/stream-agent-message.ts`, `lib/agent/agent-tool-handler.ts`, `app/settings/actions.ts`.
+
+#### [REPORTES-MENSUAL-MES-EQUIVOCADO] (nuevo) El reporte mensual mira el mes que empieza
+- **Tipo:** bug
+- **Estado verificado:** el cron corre `0 13 1 * *`; `monthBounds()` en `lib/executive-reports/generate-monthly.ts:30` usa `new Date()` → mes en curso (el que empieza ese día). Busca semanales con `period_start` en ese mes: el día 1 casi nunca hay ninguno, así que se saltea ("sin reportes semanales en …"). Si hay uno (día 1 lunes), el reporte se titula con el mes nuevo.
+- **Qué hay que hacer:** usar el mes anterior (`monthBounds(fecha del último día del mes previo)`) y agregar un test. Verificar en prod cuántas filas `period = 'monthly'` hay.
+- **Dónde:** `apps/web/lib/executive-reports/generate-monthly.ts`.
+
+#### [INTELIGENCIA-FUENTES-LEGACY] (nuevo) Inteligencia y reportes leen tablas legacy
+- **Tipo:** bug
+- **Estado verificado:** `lib/intelligence/collect-context.ts` lee `conversations` (líneas 128 y 186; 0 filas en prod) y `content_assets` (línea 209; 6 filas) en vez de `sales_leads` (1252) y `content_pieces` (150). `lib/intelligence/memory-chunks.ts` también usa `content_assets`. Los reportes y el snapshot ven marketing y DMs vacíos.
+- **Qué hay que hacer:** pasar a `sales_leads` y `content_pieces` (métricas vía `content_pieces.metrics`), revisar `hasMeaningfulData`.
+- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/intelligence/memory-chunks.ts`, `lib/executive-reports/compute-departments.ts`.
+
+#### [AGENTE-SIN-FALLBACK-CLAVE] (nuevo) El agente SSE no cae a la clave global
+- **Tipo:** bug
+- **Estado verificado:** `streamClaudeAgent` (`lib/agent/stream-claude-agent.ts:204`) usa `resolveCredentialForOrg` directo y ante un error lanza `mapAnthropicCallError`, sin el reintento con la global ni `marcarClaveDeOrgComoRechazada` que tiene `executeWithCredentialFallback`. Una clave que vence entre validaciones rompe el chat.
+- **Qué hay que hacer:** extraer el fallback a una función reusable y aplicarla al stream (reintentar sólo si el 401 llega antes de emitir deltas).
+- **Dónde:** `apps/web/lib/agent/stream-claude-agent.ts`, `lib/ai/anthropic.ts`.
+
+#### [IA-CLAVES-INVALIDAS] Organizaciones con clave vencida que gastan la global
+- **Tipo:** decisión de negocio
+- **Estado verificado:** el fallback a la global está implementado (`lib/ai/anthropic.ts`); la marca `invalid` se escribe. Queda avisar a las orgs.
+- **Qué hay que hacer:** listar orgs con `claude_api_key_status = 'invalid'` y contactarlas; decidir si una org con clave inválida puede seguir consumiendo la clave de Limitless indefinidamente.
+- **Dónde:** `organizations`, logs `[anthropic] La clave propia …`.
+
+#### [IA-CLAVE-DE-CLIENTE-EN-SUPERADMIN] (nuevo) Super-admin usa la clave de una org cliente
+- **Tipo:** seguridad
+- **Estado verificado:** `resolveSuperAdminAnthropicClient` (`app/super-admin/actions.ts:806-830`) cae a la clave BYOK de la org `46cce98c-…` ("Optimiza tu Control") si falta la global, para el Batch API del cerebro. Se factura a un cliente trabajo de plataforma. No registra `token_usage`.
+- **Qué hay que hacer:** usar sólo la global y fallar si no está; registrar el costo en `token_usage` con una org de plataforma o una tabla aparte.
+- **Dónde:** `apps/web/app/super-admin/actions.ts`.
+
+#### [AUDITORIA-ABIERTOS §3.6] Prompt injection: huecos restantes del área
+- **Tipo:** seguridad
+- **Estado verificado:** `wrapUntrustedContent` (`lib/ai/wrap-untrusted-content.ts`) no escapa `</label>`. Sin envolver: resultados de tools del agente (`agent-tool-handler.ts` devuelve JSON crudo con nombres, notas, transcripciones), `pageContext` (`lib/agent/page-context.ts`) y el bloque `org:tone` del JIT (`jit-context.ts:160`), que es texto generado por Claude a partir de transcripts. El texto del modelo puede disparar `[ACTION:CREATE_SOP]`.
+- **Qué hay que hacer:** escapar el tag de cierre en el wrapper; envolver `tool_result` y `pageContext`; envolver el tono.
+- **Dónde:** `apps/web/lib/ai/wrap-untrusted-content.ts`, `lib/agent/*`.
+
+#### [REPORTES-PULSO-DIARIO] Revisar la salida real del pulso diario
+- **Tipo:** verificación manual
+- **Estado verificado:** cron `0 11 * * *` y generador existen (`lib/executive-reports/generate-daily.ts`). Nada en CHANGES dice que se revisó una salida real. Agravante: el pulso recibe los datos de 14 días (`PERIOD_DAYS = 14` en `collect-context.ts`); sólo los estados por departamento usan 1 día.
+- **Qué hay que hacer:** leer 3–5 pulsos reales; si inflan riesgos, ajustar el prompt y la ventana (ver `[REPORTES-VENTANA-FIJA]`).
+- **Dónde:** `executive_reports where period='daily'`, `lib/executive-reports/generate-daily.ts`.
+
+### Agente de negocio e IA · P2
+
+#### [REPORTES-VENTANA-FIJA] (nuevo) Las tres cadencias usan la misma ventana de 14 días
+- **Tipo:** bug
+- **Estado verificado:** `collectIntelligenceData` no recibe ventana; `PERIOD_DAYS = 14` fijo. El pulso "de hoy" y el mensual ven lo mismo.
+- **Qué hay que hacer:** parametrizar `sinceDays` en `collectIntelligenceData` (1 / 7 / mes calendario).
+- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/executive-reports/generate-*.ts`.
+
+#### [REPORTES-SEMANA-ETIQUETA] (nuevo) El semanal se etiqueta con la semana que empieza
+- **Tipo:** bug
+- **Estado verificado:** el cron corre los lunes; `generate-weekly.ts:106` usa `getCurrentWeekStart()` = ese lunes, y el título dice "lunes – domingo" de la semana que empieza, cuando el contenido es de los días previos.
+- **Qué hay que hacer:** usar la semana anterior para `period_start`/label; ojo con el mensual, que agrupa semanales por `period_start`.
+- **Dónde:** `apps/web/lib/executive-reports/generate-weekly.ts`, `lib/operations/weekly-utils.ts`.
+
+#### [REPORTES-DUPLICADOS] (nuevo) Reintentos duplican reportes y snapshots
+- **Tipo:** deuda técnica
+- **Estado verificado:** `executive_reports` e `intelligence_snapshots` sólo tienen índice no único; `saveExecutiveReport` hace `insert`. QStash reintenta (retries 2) y el botón del pipeline también inserta.
+- **Qué hay que hacer:** índice único `(organization_id, period, period_start)` + upsert en reportes; decidir retención de snapshots (hoy 2 por día por org, para siempre).
+- **Dónde:** `apps/web/lib/executive-reports/shared.ts`, `lib/intelligence/generate-snapshot.ts`, nueva migración.
+
+#### [INTELIGENCIA-SIN-REINTENTO] (nuevo) Snapshot y tono no reintentan
+- **Tipo:** bug
+- **Estado verificado:** `generateAndSaveIntelligenceSnapshot` y `generateAndSaveFounderTone` atrapan el error y devuelven `"failed"`; los workers `process-cron-intelligence-snapshot` y `process-cron-founder-tone` responden 200 → QStash no reintenta. El de reportes ejecutivos ya lo resolvió.
+- **Qué hay que hacer:** replicar el `if (result === "failed") → 500` en esos dos workers.
+- **Dónde:** `apps/web/app/api/queue/process-cron-intelligence-snapshot/route.ts`, `process-cron-founder-tone/route.ts`.
+
+#### [CRONS-ORGS-INACTIVAS] (nuevo) Los crons de IA corren sobre orgs dadas de baja
+- **Tipo:** bug
+- **Estado verificado:** `listActiveOrganizationIds()` (`lib/intelligence/generate-snapshot.ts:212`, duplicada en `lib/founder-tone/analyze-tone.ts`) filtra sólo `account_type = 'founder'`, no `status`. Snapshot 2×/día + reportes + tono con Sonnet por cada una.
+- **Qué hay que hacer:** filtrar `status = 'active'` (o equivalente) y unificar la función.
+- **Dónde:** esos dos archivos.
+
+#### [IA-CLAVE-SIN-CREDITOS] (nuevo) Una clave sin créditos no cae a la global
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `decryptApiKeyIfValid` acepta `valid_no_credits`; el 400 `billing_error` no es 401/403, así que no hay fallback: `mapAnthropicCallError` devuelve "tu cuenta de Claude no tiene créditos". Los crons fallan para esa org sin marca visible.
+- **Qué hay que hacer:** decidir si una org sin créditos cae a la global o queda sin IA; en el segundo caso, marcar el estado para que lo vea.
+- **Dónde:** `apps/web/lib/ai/credential-resolver.ts`, `lib/ai/anthropic.ts`, `lib/ai/anthropic-errors.ts`.
+
+#### [IA-COSTOS-INCOMPLETOS] (nuevo) Costos de IA subestimados
+- **Tipo:** deuda técnica
+- **Estado verificado:** `MODEL_PRICING` (`lib/track-token-usage.ts`) pone Haiku 4.5 a 0,80/4 USD por MTok, que es el precio de Haiku 3.5 (Haiku 4.5 lista 1/5 — confirmar en la página de precios). Embeddings de OpenAI y Batch API del cerebro no se registran. El modelo guardado es el lógico `claude-sonnet-4-6` aunque la API recibe 4.5 (mismo precio).
+- **Qué hay que hacer:** corregir precios, registrar embeddings (`lib/rag/embeddings.ts`) y batch.
+- **Dónde:** `apps/web/lib/track-token-usage.ts`, `lib/rag/embeddings.ts`, `app/super-admin/actions.ts`.
+
+#### [IA-SONNET-ALIAS] (nuevo) Sonnet sigue apuntando a 4.5
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `API_MODEL_ALIASES` reescribe `claude-sonnet-4-6` → `claude-sonnet-4-5-20250929` en `lib/ai/anthropic.ts` y, duplicado, en `lib/agent/stream-claude-agent.ts`. El comentario dice "hasta disponibilidad GA".
+- **Qué hay que hacer:** confirmar si el ID real ya está disponible y, si se cambia, hacerlo en los dos archivos (o unificar el resolver).
+- **Dónde:** esos dos archivos.
+
+#### [RAG-SOP-HUERFANO] (nuevo) Un SOP que deja de estar activo sigue en RAG
+- **Tipo:** bug
+- **Estado verificado:** `app/sops/actions.ts` sólo llama `ingestDocument` si el status es `active`; nunca borra el `rag_documents` al pasar a draft/archivado. Mismo caso para productos/frameworks desactivados (el doc `product_context` se regenera, eso sí).
+- **Qué hay que hacer:** borrar `rag_documents`/`rag_chunks` de `source_type = 'sop'` al desactivar.
+- **Dónde:** `apps/web/app/sops/actions.ts`.
+
+#### [RAG-CANVAS-INVISIBLE] (nuevo) Canvas guardado en la base de conocimiento no se ve ni se borra
+- **Tipo:** bug
+- **Estado verificado:** `saveCanvasToKnowledgeBaseAction` (`app/agent/canvas-actions.ts:82`) escribe en `rag_documents` (`source_type = 'canvas'`) sin crear `business_context_documents`. Tampoco usa el pipeline común (`ingestDocument`), sino embeddings uno por uno.
+- **Qué hay que hacer:** crear la nota en `business_context_documents` y pasar por `scheduleBusinessContextRagIndexing`.
+- **Dónde:** `apps/web/app/agent/canvas-actions.ts`.
+
+#### [AGENTE-LINKS-VENCIDOS] (nuevo) Los archivos generados por el agente vencen a la hora
+- **Tipo:** bug
+- **Estado verificado:** `lib/agent/document-storage.ts` firma por 3600 s y la URL se guarda en `agent_messages.attachments`; nada la re-firma al reabrir la conversación.
+- **Qué hay que hacer:** guardar el `storagePath` y firmar al leer.
+- **Dónde:** `apps/web/lib/agent/document-storage.ts`, `lib/agent/stream-agent-message.ts`, `app/agent/actions.ts` (`listAgentMessagesAction`).
+
+#### [AGENTE-CAMINO-LEGACY] (nuevo) Segundo agente sin uso
+- **Tipo:** deuda técnica
+- **Estado verificado:** `sendAgentMessageAction` (`app/agent/actions.ts:681`) sólo lo usa `providers/floating-chat-provider.tsx`, cuyo `FloatingChat` no se renderiza desde 2026-08-26. Duplica tools y prompt, sin compaction ni JIT. Sigue siendo un endpoint de server action invocable.
+- **Qué hay que hacer:** borrar `sendAgentMessageAction`, `FloatingChatProvider` y `components/agent/floating-chat.tsx`, o migrarlos a `/api/agent/send`.
+- **Dónde:** `apps/web/app/agent/actions.ts`, `providers/floating-chat-provider.tsx`, `providers/index.tsx`.
+
+#### [AUDITORIA-ABIERTOS §3.4] `verifyQStashRequest` no valida la URL
+- **Tipo:** seguridad
+- **Estado verificado:** `lib/queue/qstash-verify.ts` llama `receiver.verify({ signature, body })` sin `url`. Sólo aplica cuando no hay `WORKER_AUTH_SECRET`.
+- **Qué hay que hacer:** pasar `url: request.url` (o la URL pública esperada).
+- **Dónde:** `apps/web/lib/queue/qstash-verify.ts`.
+
+#### [AUDITORIA-ABIERTOS §3.8] `/api/rag/ingest` devuelve el error interno
+- **Tipo:** seguridad
+- **Estado verificado:** `app/api/rag/ingest/route.ts` responde `details: String(err)`. Protegido por `CRON_SECRET`, impacto bajo.
+- **Qué hay que hacer:** sacar `details` de la respuesta.
+- **Dónde:** `apps/web/app/api/rag/ingest/route.ts`.
+
+#### [AUDITORIA-ABIERTOS §🟠2] `collect-context` sin paginar ni mirar errores
+- **Tipo:** deuda técnica
+- **Estado verificado:** `lib/intelligence/collect-context.ts:220` hace `clients.select("*")` sin `fetchAllRows` (337 filas hoy; se corta en 1000) y varias lecturas no miran `error`.
+- **Qué hay que hacer:** `fetchAllRows` o agregado en SQL; manejar `error`.
+- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`.
+
+#### [REPORTES-GENERACION-MANUAL] Qué hace el botón del pipeline semanal
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `GenerateWeeklyPipelineButton` sigue en `components/intelligence/intelligence-empty-state.tsx` y `components/operations/operations-report-empty-state.tsx`; `triggerWeeklyPipelineAction` genera el ejecutivo semanal. Corre 3 llamadas a Sonnet en serie dentro de una server action, sin rate limit.
+- **Qué hay que hacer:** decidir si el botón genera el ejecutivo; si sigue, rate limit y moverlo a cola.
+- **Dónde:** `apps/web/app/executive-reports/report-generation-actions.ts`.
+
+#### [AGENTE-COMPACTION-FRAGIL] (nuevo) Si falla la compaction, falla el mensaje
+- **Tipo:** bug
+- **Estado verificado:** `compactConversationMessages` no está en try/catch en `stream-agent-message.ts`; `callClaudeText` lanza ante errores distintos de "sin credencial". El título de la conversación es fire-and-forget después del `done` (Vercel puede cortarlo).
+- **Qué hay que hacer:** try/catch con fallback a los últimos N mensajes; `after()` para el título.
+- **Dónde:** `apps/web/lib/agent/stream-agent-message.ts`, `lib/agent/compact-conversation.ts`.
+
+### Agente de negocio e IA · P3
+
+#### [T-14] Tests de `lib/agent/compact-conversation.ts`
+- **Tipo:** tests
+- **Estado verificado:** no existe `lib/agent/__tests__`.
+- **Qué hay que hacer:** test de umbrales (20 mensajes / 40K tokens / mantener 6) y de que no toca la DB.
+- **Dónde:** `apps/web/lib/agent/compact-conversation.ts`.
+
+#### [IA-TESTS] (nuevo, amplía AUDITORIA ⚪4) Sin tests de la capa IA
+- **Tipo:** tests
+- **Estado verificado:** el único test del área es `lib/executive-reports/__tests__/cadences.test.ts`. Sin tests: `detectAgentComplexity`, `resolveAgentFlags`, `parseAgentActions`, `parseSseBuffer`, `credential-resolver` + fallback, `computeTokenCostUsd`, `chunkText`, `mapAnthropicCallError`, `monthBounds`.
+- **Qué hay que hacer:** tests unitarios con mocks del SDK para el fallback; puros para el resto.
+- **Dónde:** `apps/web/lib/{agent,ai,rag,queue,intelligence}`.
+
+#### [IA-OAUTH-COLUMNAS] (nuevo) Columnas OAuth de Claude sin uso
+- **Tipo:** deuda técnica
+- **Estado verificado:** `claude_oauth_*` y `claude_credential_mode` en `organizations` y en la vista `organization_claude_status`; el código no las lee (`loadOrgCredentialRow` pide sólo las dos columnas BYOK).
+- **Qué hay que hacer:** migración que las borre y rehaga la vista.
+- **Dónde:** `supabase/migrations/20260711180000_org_ai_credentials.sql`, `20260922110000_*`.
+
+#### [RAG-IVFFLAT-FILTRO] (nuevo) Búsqueda vectorial filtra por org después del índice
+- **Tipo:** deuda técnica
+- **Estado verificado:** `search_rag_chunks` ordena por distancia con índice `ivfflat (lists=100)` y filtra `organization_id` en el WHERE; con `probes` por defecto puede devolver menos de `match_count` resultados de la org cuando haya muchas orgs. Con 2010 chunks hoy el planner probablemente hace seq scan; no se midió.
+- **Qué hay que hacer:** medir con `EXPLAIN`; evaluar HNSW o subir `ivfflat.probes` dentro de la función.
+- **Dónde:** `supabase/migrations/20260617100000_rag_infrastructure.sql`.
+
+#### [AGENTE-CACHE-INEFECTIVO] (nuevo) El prompt caching del agente casi no pega
+- **Tipo:** deuda técnica
+- **Estado verificado:** el bloque cacheado es el contexto elegido por Haiku para cada mensaje (`buildJitOrgContextText`), distinto en cada turno; los turnos post-tool van con `usePromptCaching: false`.
+- **Qué hay que hacer:** cachear un prefijo estable (system prompt fijo + tools) y dejar lo dinámico después.
+- **Dónde:** `apps/web/lib/agent/stream-agent-message.ts`, `stream-claude-agent.ts`.
+
+#### [PENDING-FEATURES: ruta intelligence sub-páginas] Sub-rutas de inteligencia son redirects
+- **Tipo:** feature
+- **Estado verificado:** `app/(platform)/intelligence/*/page.tsx` redirigen a anchors. Funciona; sólo es deuda de rutas en `routes/paths.ts`.
+- **Qué hay que hacer:** borrar las sub-rutas y sus paths si nadie linkea.
+- **Dónde:** `apps/web/app/(platform)/intelligence/*`, `routes/paths.ts`.
+
+---
+
+## Operaciones, Finanzas y Producto
+
+Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
+
+### Operaciones, Finanzas y Producto · P0
+
+#### [EQUIPO-DESACTIVAR-NO-BLOQUEA] Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo]
+- **Tipo:** seguridad
+- **Estado verificado:** `deactivateMemberAction` y `updateMemberRoleAction` (`app/team/actions.ts`) sólo ponen
+  `profiles.is_active = false`. Nada lo lee: no está en `lib/supabase/middleware.ts` (que sí lee
+  `must_change_password`), ni en `lib/auth/bootstrap.ts`, ni en `get_my_organization_id()`, ni en ninguna policy.
+  El único lector es `app/fathom/member-actions.ts` y `lib/super-admin/queries.ts`. `docs/archivo/OPERATIONAL_NOTES.md`
+  afirma lo contrario ("Un miembro desactivado no puede iniciar sesión").
+- **Qué hay que hacer:** al desactivar, banear el usuario en Auth (`auth.admin.updateUserById(id, { ban_duration })`)
+  o revocar sesiones, y además cortar en el middleware si `is_active = false`. Idealmente que
+  `get_my_organization_id()` devuelva null para inactivos.
+- **Dónde:** `apps/web/app/team/actions.ts`, `apps/web/lib/supabase/middleware.ts`, migración nueva.
+
+### Operaciones, Finanzas y Producto · P1
+
+#### [PERMISOS-SERVER-ACTIONS/ops-fin-prod] Las actions y la RLS de estas áreas no miran el rol [transversal]
+- **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
+- **Tipo:** seguridad
+- **Estado verificado:** sigue abierto como dice PENDIENTES. Específico de estas áreas: `app/finance/actions.ts`
+  (gastos, suscripciones, compensación, liquidación: sólo `requireOrganizationId`; plataformas sí piden founder),
+  `app/product/actions.ts` (ningún chequeo; `canEdit` siempre `true`), `app/workboard/*`, `app/sops/*`,
+  `app/operations/actions.ts` (`generateWeeklyReportAction` gasta IA con cualquier miembro). Además el nivel
+  `view` **no se aplica en ningún lado**: `app/(platform)/layout.tsx` sólo compara contra `none`, y no hay otro
+  uso de `"view"` en componentes ni actions.
+- **Qué hay que hacer:** helper `requireModuleAccess(moduleId, "full")` sobre `requireOrganizationId()` y
+  aplicarlo primero a Finanzas y Equipo; decidir si `view` significa "no puede editar" y ocultar controles.
+- **Dónde:** `apps/web/lib/auth/get-current-permissions.ts`, las actions citadas.
+
+#### [EQUIPO-CUSTOM-ROLE-ORG] `customRoleId` no se valida contra la organización [Operaciones y equipo]
+- **Tipo:** seguridad
+- **Estado verificado:** `inviteTeamMemberAction` inserta `custom_role_id: customRoleId` con admin client sin
+  comprobar que el rol sea de la org; `updateMemberRoleAction` tampoco (ahí la RLS de `profiles` no mira el FK).
+  Mencionado en `docs/historial/AUDITORIA_BACKEND_2026-09-22.md` §3.5.
+- **Qué hay que hacer:** antes de escribir, `select id from team_roles where id = $1 and organization_id = $org`.
+- **Dónde:** `apps/web/app/team/actions.ts`.
+
+#### [WORKBOARD-ASIGNACION-AGENTE] El agente, Fathom y "mandar al tablero" no mantienen `assignee_ids` [Operaciones y equipo]
+- **Tipo:** bug
+- **Estado verificado:** `app/agent/workboard-actions.ts` (`createWorkboardTasksAction`, `updateWorkboardTaskAction`)
+  escribe sólo `assignee_id`. El mapper (`lib/workboard/mapper.ts`) prefiere `assignee_ids` cuando no está vacío:
+  si el agente reasigna una tarea que ya tenía lista, el cambio no se ve. Tampoco setea `completed_by/at` al
+  pasar a `done`.
+- **Qué hay que hacer:** que los dos caminos compartan la normalización (`normalizarResponsables`) y la lógica de
+  cierre; idealmente una sola función de escritura.
+- **Dónde:** `apps/web/app/agent/workboard-actions.ts`, `apps/web/app/workboard/actions.ts`.
+
+#### [D-SOPS-VIDEO-NUNCA-CORRIO] Probar el flujo entero de SOP desde video [Operaciones y equipo]
+- **Tipo:** verificación manual
+- **Estado verificado:** CHANGES no registra ninguna corrida. En producción hay **1 fila** en
+  `sop_generation_jobs` (no se leyó su estado): alguien lo intentó al menos una vez. Riesgos del código:
+  ffmpeg en la lambda, `maxDuration = 800`, `ESTIMATED_BYTES_PER_SECOND` estimado, calidad del prompt.
+- **Qué hay que hacer:** correr el bloque de verificación (ver `docs/operacion/verificacion-manual.md` § Operaciones, Finanzas y Producto (1)) y mirar el
+  estado/`error` de ese job.
+- **Dónde:** `apps/web/app/api/queue/process-sop-video/route.ts`, `apps/web/lib/sops/*`.
+
+#### [OPS-SOP-VIDEO-MEMORIA] El worker mete el video entero en memoria y en `/tmp` [Operaciones y equipo]
+- **Tipo:** bug
+- **Estado verificado:** `process-sop-video/route.ts` hace `Buffer.from(await file.arrayBuffer())` y
+  `writeFile` en `tmpdir()`; el bucket acepta hasta 1 GB (`20260903110000`) y el límite de subida es
+  `SOP_VIDEO_MAX_BYTES` (env). `/tmp` de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande
+  falla antes de ffmpeg. `probeDurationSeconds` decodifica el video completo (`-f null -`) sólo para leer la
+  duración. Si la duración sale 0, `computeAudioChunks(0)` manda todo el audio en un pedido (límite de 25 MB de Whisper).
+- **Qué hay que hacer:** bajar por stream a disco (o pasar a ffmpeg una URL firmada como input), leer la
+  duración con `-i` sin decodificar, y alinear `SOP_VIDEO_MAX_BYTES` con lo que la lambda aguanta. Si la duración
+  no se puede leer, fallar con mensaje en vez de mandar un solo pedido.
+- **Dónde:** `apps/web/app/api/queue/process-sop-video/route.ts`, `apps/web/lib/sops/constants.ts`.
+
+#### [CLICKUP-MONTOS] El import de ClickUp lee mal los montos [Clientes / Integraciones]
+- **Tipo:** bug
+- **Estado verificado:** `coerceFieldValue` en `app/integrations/clickup/import-actions.ts:218`:
+  `parseFloat(s.replace(/[^0-9.,]/g, "").replace(",", "."))` → `"1.500"` da 1,5 y `"$2,500.00"` da 2,5.
+  Listado en `AUDITORIA_BACKEND` §3 "Dinero y datos". El importador crea `clients`, no tareas.
+- **Qué hay que hacer:** reusar el parser de montos que se arregle para el Excel (o uno común con tests para
+  formatos es-AR y en-US) y no importar un monto ambiguo.
+- **Dónde:** `apps/web/app/integrations/clickup/import-actions.ts`.
+
+#### [OPS-STORAGE-BUCKETS] Confirmar que `sop-attachments` y `workboard-task-attachments` son privados [Operaciones y equipo]
+- **Tipo:** verificación manual
+- **Estado verificado:** ninguna migración los crea (`grep storage.buckets`); el código los usa con URLs
+  firmadas. `list_tables` muestra 13 buckets en prod pero no sus nombres. Parte de `AUDITORIA_BACKEND` §3.9.
+- **Qué hay que hacer:** mirar en el dashboard que existan y sean privados; pasarlos a una migración
+  (`insert into storage.buckets ... on conflict do nothing`) con límite de tamaño y MIME.
+- **Dónde:** `supabase/migrations/` (nueva), `apps/web/lib/{sops,workboard}/constants.ts`.
+
+### Operaciones, Finanzas y Producto · P2
+
+#### [OPS-SOP-VIDEO-NO-SE-BORRA] Los videos de SOP quedan para siempre en el bucket [Operaciones y equipo]
+- **Tipo:** deuda técnica
+- **Estado verificado:** la migración `20260903110000` dice "El worker lo lee con el admin client y lo borra al
+  terminar"; el worker no llama `remove` en ningún camino. Son grabaciones internas del negocio.
+- **Qué hay que hacer:** borrar `video_path` al pasar a `ready` (el transcript ya queda guardado) o con un cron de
+  limpieza; decidir si en `failed` se conserva para reintentar.
+- **Dónde:** `apps/web/app/api/queue/process-sop-video/route.ts`.
+
+#### [SOPS-EDITAR] Un SOP guardado no se puede editar ni borrar [Operaciones y equipo]
+- **Tipo:** feature
+- **Estado verificado:** `updateSOPAction` (con versionado) no tiene ningún llamador; no existe action de borrado.
+  `/sops/[id]` es solo lectura. En prod: 3 SOPs y **0** `sop_versions`, aunque `saveSOPAction` inserta la v1 sin
+  mirar el error: o los 3 son anteriores al versionado o ese insert falla en silencio.
+- **Qué hay que hacer:** editor en el detalle (reusar el creador) + borrar/archivar (`outdated`); chequear el
+  error del insert de `sop_versions`.
+- **Dónde:** `apps/web/app/sops/actions.ts`, `apps/web/app/(platform)/sops/[id]/page.tsx`.
+
+#### [OPS-INPUT-RAPIDO-PISA] El input rápido pisa el input semanal del mismo departamento [Operaciones y equipo]
+- **Tipo:** bug
+- **Estado verificado:** los dos tabs de `/operations/inputs` llaman `saveWeeklyInputAction`, que hace upsert por
+  `(organization_id, week_start, department, submitted_by)`. Un input rápido en "Ventas" reemplaza el contenido y
+  el rating que la misma persona cargó para Ventas esa semana.
+- **Qué hay que hacer:** decidir si el input rápido es otra cosa (tipo distinto, varias filas) o si concatena.
+- **Dónde:** `apps/web/components/operations/team-input-form.tsx`, `apps/web/app/operations/actions.ts`.
+
+#### [FIN-PAYROLL-BASES] La liquidación y "Gastos de equipo" calculan distinto [Finanzas]
+- **Tipo:** bug
+- **Estado verificado:** `computeTeamPayrollAction` (`app/finance/actions.ts`) cubre cinco bases; 
+  `enrichTeamCompensationWithCommissions` sólo `per_deal`/`custom`. `per_booking` multiplica **todas** las
+  `conversations` `booked` de la org (no las del setter; y `conversations` tiene 0 filas: el inbox legacy no se
+  usa). `monthly_revenue` usa `clients.total_amount` de activos como "MRR". `custom` en la liquidación es
+  `estimated_this_month − fijo`, que a su vez sale del enrich.
+- **Qué hay que hacer:** una sola función pura por base (con tests), atribución por miembro para bookings (de
+  dónde sale: Calendly/GHL), y definir qué es MRR.
+- **Dónde:** `apps/web/app/finance/actions.ts`, `apps/web/lib/metrics/enrich-team-compensation.ts`.
+
+#### [FINANZAS-BASELINE-CASH-ESTIMADO] Cash collected inventado cuando se usa el Excel importado [Finanzas]
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `providers/finance-data-provider.tsx`: sin facturación en vivo y con `metrics_snapshots`,
+  si el snapshot no trae `cash_collected` se muestra `max(0, facturación − gastos)` como "Cash collected", y la serie
+  mensual pinta el último mes igual. Va contra la regla de CLAUDE.md de no inventar valores.
+- **Qué hay que hacer:** mostrar "sin dato" y rotular que la facturación viene del import.
+- **Dónde:** `apps/web/providers/finance-data-provider.tsx`.
+
+#### [FIN-MONEDAS] Finanzas suma montos de monedas distintas [Finanzas]
+- **Tipo:** bug
+- **Estado verificado:** `fixed_expenses`, `subscriptions` y `payment_platforms` guardan `currency`, y los totales
+  (`compute-expenses-summary`, `derive-finance-summary`) suman sin convertir. Misma familia que `[FACTURACION-MONEDAS]`
+  (que es de Clientes).
+- **Qué hay que hacer:** como mínimo agrupar por moneda o avisar cuando hay más de una; la conversión requiere
+  decidir fuente de cotización.
+- **Dónde:** `apps/web/lib/metrics/compute-expenses-summary.ts`, `derive-finance-summary.ts`.
+
+#### [FIN-MESES-UTC] La liquidación arma el mes en UTC [Finanzas]
+- **Tipo:** bug
+- **Estado verificado:** `computeTeamPayrollAction` usa `new Date(y, m, 1)` en el servidor. Un cierre del 31 a
+  las 22 h ART cae en el mes siguiente. `AUDITORIA_BACKEND` §3 Confiabilidad.10.
+- **Qué hay que hacer:** límites de mes en `America/Argentina/Buenos_Aires` (o la zona de la org).
+- **Dónde:** `apps/web/app/finance/actions.ts`.
+
+#### [FIN-MP-WEBHOOK] El webhook de Mercado Pago toca todas las orgs y acepta replays [Finanzas]
+- **Tipo:** bug / seguridad
+- **Estado verificado:** con `topic = payment` hace `update mercadopago_integrations set last_sync_at` filtrando
+  sólo `status = 'active'`, sin org ni `mp_user_id`. No valida la antigüedad de `ts` (`AUDITORIA_BACKEND` §3.4).
+  No persiste el pago.
+- **Qué hay que hacer:** si MP sigue, filtrar por `user_id` del payload y validar `ts`; si no, ver
+  `[FIN-STRIPE-MP-DECIDIR]`.
+- **Dónde:** `apps/web/app/api/webhooks/mercadopago/route.ts`, `apps/web/lib/mercadopago/webhook-verify.ts`.
+
+#### [FIN-STRIPE-MP-DECIDIR] Stripe y Mercado Pago: conectables, sin uso, con código muerto [Finanzas]
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `listed: false` en `lib/integrations/registry.ts`, 0 filas en ambas tablas.
+  `app/stripe/actions.ts` y `app/mercadopago/actions.ts` no tienen consumidores. El registro declara que
+  alimentan `payments` por webhook, lo que no es cierto. `stripe_integrations.access_token` está en **texto
+  plano** (`AUDITORIA_BACKEND` §3.2). El "balance" de MP es la suma de los últimos 100 pagos (§3 Dinero). Sigue
+  corriendo el cron diario de refresh de MP (sin filas, no hace nada).
+- **Qué hay que hacer:** decidir: (a) borrar las dos integraciones, sus rutas, el cron y las actions; o (b)
+  terminarlas (cifrar Stripe, persistir cobros, corregir el registro). Mientras tanto, corregir `dataFlows`.
+- **Dónde:** `apps/web/lib/{stripe,mercadopago}/`, `apps/web/app/{stripe,mercadopago}/`,
+  `apps/web/app/api/integrations/{stripe,mercadopago}/`, `apps/web/vercel.json`.
+
+#### [PRODUCTO-METRICAS] Las stats de oferta dicen cosas que no son [Producto]
+- **Tipo:** bug
+- **Estado verificado:** `lib/product/offer-metrics.ts` + `lib/product/queries.ts`: `closeRate` es el global de
+  la org; `topObjection` / `aiInsight` dependen de `topOrgObjection`, que `loadProductMetricsInput` nunca carga
+  (salen "Sin datos"); `mainObjection`/`objectionHandler` se fuerzan a `""`; el match cliente↔oferta es por nombre;
+  las lecturas no paginan (`closing_calls` ~1.450 filas en prod, techo de 1000).
+- **Qué hay que hacer:** o calcular por oferta de verdad (llamadas con oferta asociada, objeciones de
+  `call_analyses`) o sacar los campos que no se pueden calcular. Paginar con `fetchAllRows`.
+- **Dónde:** `apps/web/lib/product/{offer-metrics,queries}.ts`.
+
+#### [PRODUCTO-GATE-OFERTA-DUP] Reintentar el paso de oferta del onboarding duplica el producto [Producto]
+- **Tipo:** bug
+- **Estado verificado:** `saveGateOfferAction` (`app/onboarding/actions.ts`) llama `saveProductAction` sin id; el
+  avatar tiene `replacePrimary` para este caso, la oferta no.
+- **Qué hay que hacer:** un `replaceCoreOffer` análogo (pisar el producto `is_core_offer`).
+- **Dónde:** `apps/web/app/onboarding/actions.ts`, `apps/web/app/product/actions.ts`.
+
+#### [WORKBOARD-CARGA-DUPLICADA] El tablero lee las tareas dos veces por carga [Operaciones y equipo]
+- **Tipo:** deuda técnica
+- **Estado verificado:** `loadWorkboardPageDataAction` corre en paralelo `listWorkboardTasksAction`,
+  `listWorkboardMembersAction` y `getSprintsAction`; esta última vuelve a llamar `listWorkboardTasksAction`
+  (que a su vez lee miembros y links). `createWorkboardTaskAction` también lee todas las tareas para calcular
+  `position`. Sin paginar (126 tareas hoy).
+- **Qué hay que hacer:** pasar las tareas ya cargadas a `rowToSprint`; `position` con `max()` en SQL.
+- **Dónde:** `apps/web/app/workboard/actions.ts`.
+
+#### [TESTS-OPS-FIN-PROD] Lógica pura sin tests en las tres áreas [transversal]
+- **Tipo:** tests
+- **Estado verificado:** sin `__tests__` en `lib/{operations,team,expenses,mercadopago,stripe,product}`;
+  `parseVideoSopResponse` y `lib/workboard/{mapper,sprint,time-report}` sin cubrir. Incluye `[T-22]`.
+- **Qué hay que hacer:** prioridad: verificación de firma de MP (si MP sigue), bases de comisión, mapper de
+  responsables del tablero, `parseVideoSopResponse`, `lib/product/mapper.ts`.
+- **Dónde:** carpetas citadas.
+
+### Operaciones, Finanzas y Producto · P3
+
+#### [EQUIPO-INVITE-LEGADO] Invitaciones por token sin productor [Operaciones y equipo]
+- **Tipo:** deuda técnica
+- **Estado verificado:** nada inserta en `team_invitations` (0 filas en prod). Siguen vivos `/invite`,
+  `/api/invite/validate` (que además devuelve `error.message` interno, `AUDITORIA_BACKEND` §3.8),
+  `acceptInvitationAction`, `completeInvitationForCurrentUserAction`, `revokeInvitationAction` y la lista de
+  pendientes en Equipo.
+- **Qué hay que hacer:** borrarlos (y la tabla) o volver a ofrecer invitación por link.
+- **Dónde:** `apps/web/app/invite/`, `apps/web/app/api/invite/validate/route.ts`, `apps/web/app/team/actions.ts`.
+
+#### [PRODUCTO-VALUE-LADDER-TABLA] `value_ladder` es una tabla sin productor [Producto]
+- **Tipo:** deuda técnica
+- **Estado verificado:** 0 filas; ningún insert en el código. `buildProductData` la prefiere si tuviera filas.
+- **Qué hay que hacer:** borrar la tabla y las lecturas/updates, o documentar quién la llena.
+- **Dónde:** `apps/web/lib/product/{mapper,queries}.ts`, `apps/web/app/product/actions.ts`.
+
+#### [PRODUCTO-GRAFO-NOMBRE] El nodo raíz del grafo lee una columna inexistente [Producto]
+- **Tipo:** bug
+- **Estado verificado:** `lib/product/queries.ts` hace `profiles.select("org_name")`; la columna no existe en
+  ninguna migración. El nodo se llama siempre "Mi negocio".
+- **Qué hay que hacer:** leer `organizations.name`.
+- **Dónde:** `apps/web/lib/product/queries.ts`.
+
+#### [PRODUCTO-UNICIDAD] Avatar principal y core offer sin garantía en la base [Producto]
+- **Tipo:** deuda técnica
+- **Estado verificado:** se desmarcan todos y se marca uno en dos updates sin transacción ni índice parcial.
+- **Qué hay que hacer:** `create unique index ... where is_primary` / `where is_core_offer`, o una RPC.
+- **Dónde:** `apps/web/app/product/actions.ts`, migración nueva.
+
+#### [OPS-ADDONS-SOLO-MENU] Los add-ons `operaciones` y `producto` esconden el menú, no la ruta [Operaciones y equipo]
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `buildPlatformRootItems` filtra el menú; ni el layout ni las páginas miran el add-on.
+- **Qué hay que hacer:** decidir si el add-on es de venta (entonces bloquear la ruta) o sólo de orden visual.
+- **Dónde:** `apps/web/lib/navigation/sidebar-modules.ts`, `apps/web/app/(platform)/layout.tsx`.
+
+#### [WORKBOARD-TIEMPO-PRIMER-RESPONSABLE] El tiempo de una tarea compartida se le carga al primero [Operaciones y equipo]
+- **Tipo:** decisión de negocio
+- **Estado verificado:** la vista `workboard_time_by_member` agrupa por `assignee_id`; `time_entries.logged_by`
+  existe pero no se usa en el reporte.
+- **Qué hay que hacer:** decidir si el tiempo se atribuye a quien lo cargó.
+- **Dónde:** `supabase/migrations/20260616100000_workboard_time_tracking.sql`, `apps/web/lib/workboard/time-report.ts`.
+
+#### [OPS-LIMPIEZA] Rutas y componentes sobrantes [Operaciones y equipo · Finanzas]
+- **Tipo:** deuda técnica
+- **Estado verificado:** `/sops` (`app/(platform)/sops/page.tsx`) duplica `/operations/sops` sin sugerencias y sin
+  constante en `paths.ts`; `components/finance/payment-platforms-section.tsx` no se importa en ningún lado;
+  `timer_started_at`/`timer_running` en `workboard_tasks` sin uso.
+- **Qué hay que hacer:** redirect de `/sops` a `/operations/sops` y borrar el componente.
+- **Dónde:** rutas citadas.
+
+#### [EQUIPO-ADMIN] El rol `admin` no puede gestionar el equipo [Operaciones y equipo]
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `canManageTeam` = `role === 'founder'`; en cambio `setMemberHourlyRateAction` y la
+  policy/trigger de `profiles` sí habilitan a `admin`.
+- **Qué hay que hacer:** decidir y alinear.
+- **Dónde:** `apps/web/app/team/actions.ts`.
+
+#### [OPS-SEMANA-UTC] La semana de los inputs se calcula en UTC [Operaciones y equipo]
+- **Tipo:** bug
+- **Estado verificado:** `getCurrentWeekStart` usa el reloj del servidor; el domingo después de las 21 h ART ya es
+  la semana siguiente.
+- **Qué hay que hacer:** calcular en la zona de la org.
+- **Dónde:** `apps/web/lib/operations/weekly-utils.ts`.
+
+---
+
+## Infraestructura, seguridad y tests (transversal)
+
+Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md)
+
+### Infraestructura, seguridad y tests (transversal) · P0
+
+#### [PERMISOS-SERVER-ACTIONS/infra] Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1)
+- **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
+- **Tipo:** seguridad
+- **Estado verificado:** ninguna policy RLS filtra por rol (todas por `organization_id`); no existe ningún helper `requireRole`/`requirePermission` en `app/` ni `lib/` (grep vacío). El único bloqueo es el render en `app/(platform)/layout.tsx` (`<SinAcceso/>`). Un viewer puede, vía PostgREST con su JWT, escribir `team_roles.permissions`, tablas de finanzas y lo que tenga policy `FOR ALL` por org (`discord_integrations`, `unipile_integrations`); vía actions, `saveClaudeApiKeyAction`, los `disconnect*Action`, el Drive del founder y `updateCloserCommissionAction`. `organizations` ya está protegido por grants por columna.
+- **Qué hay que hacer:** (1) helper `requireRole(minRole | modulo, nivel)` sobre `requireOrganizationId()` y aplicarlo primero en actions de plata, equipo, integraciones y BYOK; (2) policies de escritura por rol en `team_roles`, finanzas y `*_integrations` editables (función SQL `current_user_role()` o similar); (3) test que recorra los exports críticos.
+- **Dónde:** `apps/web/lib/auth/`, `app/settings/actions.ts`, `app/sales/closer-actions.ts`, `app/finance/actions.ts`, `app/team/actions.ts`, `app/integrations/**`, `app/marketing/content/drive-actions.ts`, migración nueva.
+
+### Infraestructura, seguridad y tests (transversal) · P1
+
+#### [ENV-ANTHROPIC-VERCEL] `ANTHROPIC_API_KEY` no figura en las variables del proyecto de Vercel
+- **Tipo:** verificación manual
+- **Estado verificado:** el listado de env del proyecto `otc-plaform` (Production y Preview) no tiene `ANTHROPIC_API_KEY`; el código la usa como fallback global cuando la org no tiene BYOK (`lib/ai/credential-resolver.ts:35`, `lib/ai/anthropic.ts`). Puede venir de una variable compartida del team (no visible en ese listado). Si no está, toda org sin key propia falla en cualquier función de IA.
+- **Qué hay que hacer:** confirmar en Vercel → Settings → Environment Variables (incluidas las Shared del team) y en los logs de un pipeline de IA de una org sin BYOK. Si falta y es a propósito (todas BYOK), documentarlo; si no, cargarla.
+- **Dónde:** Vercel; `apps/web/lib/ai/credential-resolver.ts`.
+
+#### [ENV-ZERNIO-WEBHOOK-SECRET] El webhook de Zernio responde 503 en producción
+- **Tipo:** bug
+- **Estado verificado:** `app/api/integrations/zernio/webhook/route.ts:64-72` rechaza con 503 si falta `ZERNIO_WEBHOOK_SECRET`; la variable no está en Vercel ni en `.env.example`. Coherente con `zernio_messages` y `zernio_comments` en 0 filas en prod con 9 integraciones de Zernio conectadas.
+- **Qué hay que hacer:** decidir si el webhook se usa (el inbox es live-fetch). Si sí: generar el secreto, cargarlo en Vercel y en el panel de Zernio, sumarlo a `.env.example`. Si no: sacar la ruta y las tablas.
+- **Dónde:** `apps/web/app/api/integrations/zernio/webhook/route.ts`, `.env.example`, Vercel.
+
+#### [AUD-SEG-2] Tokens OAuth y API keys guardados en texto plano
+- **Tipo:** seguridad
+- **Estado verificado:** `encrypt(` sólo se usa para BYOK, Zernio, GHL, Hyros, VTurb, WebinarJam, Fathom por miembro, pagos y Mercado Pago. Quedan en claro (protegidos sólo por RLS cerrado + service role): `calendly_integrations`, `stripe_integrations`, `instagram_integrations`, `typeform_integrations`, `google_forms_integrations`/`youtube_integrations`, `super_admin_google_tokens`, `fathom_integrations.api_key`, `manychat_integrations.api_token`.
+- **Qué hay que hacer:** cifrar al escribir con `lib/security/encryption.ts`, descifrar al leer, y una migración de datos (script con service role) que cifre lo existente. Empezar por Calendly, Google y Fathom (las que tienen filas en prod).
+- **Dónde:** `apps/web/lib/{calendly,stripe,instagram,typeform,google,fathom,manychat}/`, `app/api/integrations/*/callback`.
+
+#### [AUD-SEG-4] Ventanas de replay y firma QStash sin URL
+- **Tipo:** seguridad
+- **Estado verificado:** Calendly (`calendly/webhook/route.ts`) firma `t.body` pero no compara `t` contra el reloj; Mercado Pago (`lib/mercadopago/webhook-verify.ts`) no valida `ts` y la firma sólo cubre `data.id`; GHL (`lib/ghl/verify-webhook.ts`) sin timestamp; `verifyQStashRequest` (`lib/queue/qstash-verify.ts`) llama `receiver.verify({ signature, body })` sin `url`, así que un cuerpo firmado para un worker vale para otro.
+- **Qué hay que hacer:** tolerancia de 5 min en Calendly y MP (como `WEBHOOK_TOLERANCE_SECONDS` de pagos); pasar `url` al `Receiver`; en GHL apoyarse en el dedupe por `webhookId`.
+- **Dónde:** archivos citados.
+
+#### [SEG-REEL-WORKER-AUTH] Autenticación débil del worker de Fly.io
+- **Tipo:** seguridad
+- **Estado verificado:** `apps/reel-worker/src/index.ts:67-130`: compara `WORKER_AUTH_SECRET` con `===` (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de IPs `10.*`/`172.*` o si `NODE_ENV` no contiene `prod`. `fly.toml` y el README del worker no listan `WORKER_AUTH_SECRET` entre los secrets.
+- **Qué hay que hacer:** comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar `WORKER_AUTH_SECRET` a `fly.toml`/README y confirmar con `fly secrets list` que está cargado.
+- **Dónde:** `apps/reel-worker/src/index.ts`, `apps/reel-worker/fly.toml`, `apps/reel-worker/README.md`.
+
+#### [AUD-SEG-9] Buckets de Storage fuera de las migraciones
+- **Tipo:** verificación manual
+- **Estado verificado:** el código usa `client-payment-receipts`, `business-context-documents`, `sop-attachments`, `workboard-task-attachments` y `ai-brain-documents`; ninguna migración los crea (las que tocan `storage.buckets` crean `avatars`, `agent-documents`, `content-thumbnails`, `trial-reels`, `client-wins`, `sop-videos`, `discord-bot-avatars`). `content-thumbnails` es público con policy pública de listado (`20260805200000`).
+- **Qué hay que hacer:** confirmar en el dashboard que los cinco son privados; escribir una migración idempotente que los declare con sus policies; decidir si `content-thumbnails` necesita listado público.
+- **Dónde:** Supabase Storage; migración nueva.
+
+#### [AUD-CONF-1] Sin timeouts en los clientes de APIs externas
+- **Tipo:** deuda técnica
+- **Estado verificado:** `AbortSignal.timeout`/`signal:` sólo aparece en `lib/discord/api.ts`, `lib/agent/*`, `lib/fathom/share-link.ts` y `lib/marketing/story-thumbnail-storage.ts`. Ninguno en `lib/zernio/client.ts`, `lib/ghl/client.ts`, `lib/hyros/client.ts`, Stripe, Mercado Pago, Calendly, Typeform. Un proveedor colgado retiene la lambda hasta `maxDuration`.
+- **Qué hay que hacer:** `signal: AbortSignal.timeout(15_000)` (o similar) en cada `*Fetch` de cliente de proveedor.
+- **Dónde:** `apps/web/lib/<proveedor>/client.ts`.
+
+#### [AUD-CONF-3] Crons de Calendly que se pisan
+- **Tipo:** bug
+- **Estado verificado:** `vercel.json`: `/api/cron/calendly-sync` y `/api/cron/calendly-sync-closers` ambos en `0 * * * *`. La sync hace N+1 por evento sobre 120 días y `.in()` con URIs largas puede pasarse del largo de URL (no re-medido).
+- **Qué hay que hacer:** desfasar los horarios (p. ej. `:15`), unificar `sync-events.ts` y `closer-sync.ts` (ver `[AUD-SALUD-2]`), batch de lecturas.
+- **Dónde:** `apps/web/vercel.json`, `apps/web/lib/calendly/`.
+
+#### [AUD-CONF-4] Typeform pierde respuestas y colisiona entre orgs
+- **Tipo:** bug
+- **Estado verificado:** `lib/typeform/sync.ts:192` pide `page_size=1000` con `since` y no pagina; `form_responses.external_response_id` es `unique` global (`20260522000000_phase11_integrations.sql:223`). Hoy hay 0 integraciones de Typeform en prod.
+- **Qué hay que hacer:** paginar con `before`/`after` hasta agotar; índice único `(organization_id, external_response_id)`.
+- **Dónde:** `apps/web/lib/typeform/sync.ts`, migración nueva.
+
+#### [AUD-CONF-5] Dedupe de webhooks que descarta reintentos legítimos
+- **Tipo:** bug
+- **Estado verificado:** `payment_webhook_events` tiene índice único `(provider, external_event_id)` sin `organization_id` (`20260829200000_payments_whop_fanbasis.sql:115`); un evento que quedó en `error` hace que el reintento del proveedor choque y se descarte. Mismo patrón en `ghl_webhook_events`.
+- **Qué hay que hacer:** en conflicto, re-procesar si el estado previo es `error`; sumar `organization_id` al índice de pagos.
+- **Dónde:** `apps/web/lib/payments/ingest.ts`, `apps/web/lib/ghl/ingest-opportunity-event.ts`, migración nueva.
+
+#### [AUD-CONF-6] Trabajo sin `await` después de responder
+- **Tipo:** bug
+- **Estado verificado:** no hay ningún uso de `after()` de `next/server` en `apps/web`. Según la auditoría, embeddings RAG, scoring de leads, sync inicial de YouTube, mails de waitlist y eventos de Meta se disparan sin `await` y Vercel puede cortarlos.
+- **Qué hay que hacer:** envolver esos disparos en `after(() => …)`.
+- **Dónde:** `app/api/waitlist/route.ts`, `app/api/integrations/youtube/oauth/callback/route.ts`, `lib/business-context/`, scoring de ManyChat.
+
+#### [ENV-LIMPIEZA] Variables de entorno desalineadas entre código, `.env.example`, `turbo.json` y Vercel
+- **Tipo:** deuda técnica
+- **Estado verificado:** faltan en `.env.example` y el código las usa: `WORKER_AUTH_SECRET`, `ZERNIO_WEBHOOK_SECRET`, `ZERNIO_BASE_URL`, `CALENDLY_CLOSER_REDIRECT_URI`, `SUPER_ADMIN_GOOGLE_REDIRECT_URI`, `GHL_API_BASE`, `HYROS_API_BASE`, `VTURB_API_BASE`, `WEBINARJAM_API_BASE`, `SENTRY_*`, `NEXT_PUBLIC_SOP_VIDEO_MAX_MB`. Sobra `NEXT_PUBLIC_VSL_URL`. `.env.example` dice que `CRON_SECRET` es "opcional" (es obligatoria). En Vercel sobran `NEXT_PUBLIC_VSL_URL`, `NEXT_PUBLIC_NAV_STYLE`, `REDIS_URL`, `QSTASH_URL`, `GOOGLE_REDIRECT_URI`, `FATHOM_REDIRECT_URI`; faltan `LIMITLESS_WEBHOOK_SECRET` (está `OTC_`), `FATHOM_WEBHOOK_SECRET`, `NEXT_PUBLIC_UTM_ORGANIZATION_ID`. `turbo.json` `build.env` no declara la mayoría de las nuevas y sigue listando `OTC_WEBHOOK_SECRET`.
+- **Qué hay que hacer:** actualizar `.env.example` y `turbo.json` con la tabla de `docs/operacion/entorno-y-deploy.md`; limpiar Vercel; renombrar `OTC_WEBHOOK_SECRET` → `LIMITLESS_WEBHOOK_SECRET` en Vercel y Railway y después borrar el respaldo.
+- **Dónde:** `.env.example`, `turbo.json`, Vercel, Railway, `apps/web/lib/discord/webhook-auth.ts`, `apps/discord-bot/src/lib/limitless-api.ts`.
+
+#### [AUD-SALUD-4 / T-14 / T-BYOK] Sin tests en agente, IA, RAG, auth y colas
+- **Tipo:** tests
+- **Estado verificado:** no hay `__tests__` en `lib/agent`, `lib/ai`, `lib/rag`, `lib/auth`, `lib/holding`, `lib/queue`, `lib/calendly`, `lib/typeform`, `lib/mercadopago`. CLAUDE.md declara invariantes testeables (la compaction no muta el historial; BYOK cae al global).
+- **Qué hay que hacer:** empezar por `compact-conversation.ts` (no muta la entrada, conserva los últimos 6), `credential-resolver.ts`/`executeWithCredentialFallback` (orden BYOK → global), `verify-queue-request.ts` (secreto vs firma) y `resolveEffectiveOrganizationId` del holding.
+- **Dónde:** `apps/web/lib/{agent,ai,queue,auth,holding}/__tests__/`.
+
+#### [T-1] Tests de `derive-finance-summary.ts` y `derive-monthly-series.ts`
+- **Tipo:** tests
+- **Estado verificado:** `lib/metrics/__tests__/` sólo tiene `build-sales-funnel-stages` y `match-closer`.
+- **Qué hay que hacer:** agrupación por mes (ART vs UTC), meses vacíos, `deriveCloserBreakdown` con 0/1 closer y sin `closed_by_name`, reembolsos y `null`.
+- **Dónde:** `apps/web/lib/metrics/`.
+
+#### [T-2] Tests de `revenue-period.ts` y `revenue-events.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** bordes de período, cuotas entre meses, pago sin fecha.
+- **Dónde:** `apps/web/lib/metrics/`.
+
+#### [T-3] Tests de `parse-client-import.ts` y `excel-parser.ts`
+- **Tipo:** tests
+- **Estado verificado:** `lib/clients/__tests__/` no cubre los parsers. El bug de montos sigue (`lib/metrics/excel-parser.ts:67` borra todos los puntos), ver `[AUD-DIN-1]`.
+- **Qué hay que hacer:** título fusionado, filas vacías, `pickBestSheet`, `sheetName` explícito, montos con punto decimal; workbooks armados en memoria.
+- **Dónde:** `apps/web/lib/clients/`, `apps/web/lib/metrics/excel-parser.ts`.
+
+#### [T-4] Tests de `lib/clients/payment-utils.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** pago único, cuotas, payload incompleto en `getPaidAmountFromClosePayload`, `installmentNumberForClosePayload`, `getPaymentDateFromClosePayload`.
+- **Dónde:** `apps/web/lib/clients/payment-utils.ts`.
+
+#### [T-5] Tests de `lib/utm/`
+- **Tipo:** tests
+- **Estado verificado:** `lib/utm/` no tiene `__tests__`.
+- **Qué hay que hacer:** match por email vs identificador, ventana, dos links candidatos, lead sin UTM.
+- **Dónde:** `apps/web/lib/utm/`.
+
+### Infraestructura, seguridad y tests (transversal) · P2
+
+#### [AUD-SEG-3] El portfolio del holding no mira el rol
+- **Tipo:** seguridad
+- **Estado verificado:** policies `holding_reads_*` en `20260630100000_holding_portfolio_rls.sql` sólo usan `get_my_holding_business_org_ids()`, que no filtra por rol: cualquier miembro de la org holding lee `clients`, `closing_calls`, `conversations` y `organizations` de todos los negocios.
+- **Qué hay que hacer:** restringir la función a founder/`is_holding_admin` o sumar la condición en las policies.
+- **Dónde:** migración nueva.
+
+#### [AUD-SEG-5] Mass assignment e ids ajenos
+- **Tipo:** seguridad
+- **Estado verificado:** `updateContentPieceAction` (`app/marketing/content/actions.ts:148`) hace `.update(updates)` sin zod; `customRoleId` en invitaciones (`app/team/actions.ts:242-289`) y `clientId` en `associateFathomCallAction` (`app/fathom/actions.ts:162`) no se validan contra la org.
+- **Qué hay que hacer:** schema zod con campos editables; verificar que `custom_role_id` y `client_id` pertenezcan a la org antes de escribir.
+- **Dónde:** archivos citados.
+
+#### [AUD-SEG-6] Prompt injection: el wrapper no escapa y hay fuentes sin envolver
+- **Tipo:** seguridad
+- **Estado verificado:** `lib/ai/wrap-untrusted-content.ts` interpola `content` tal cual: un `</label>` dentro cierra la etiqueta. Según la auditoría quedan sin envolver DMs de Zernio (`app/integrations/zernio/actions.ts`), respuestas de formularios, ManyChat, labeling de contenido, clasificador de Discord y resultados de tools del agente (no re-verificado caso por caso).
+- **Qué hay que hacer:** escapar el tag de cierre (o usar un delimitador aleatorio por llamada) y envolver las fuentes listadas.
+- **Dónde:** `apps/web/lib/ai/wrap-untrusted-content.ts` y los call sites.
+
+#### [AUD-SEG-7] Rate limit de login por email
+- **Tipo:** seguridad
+- **Estado verificado:** `app/auth/actions.ts:119` usa `authRateLimit(\`signin:${email}\`)`: cualquiera bloquea a otro 15 min con 5 intentos, y el spraying (muchos emails, una contraseña) no tiene límite.
+- **Qué hay que hacer:** clave por IP + email y un límite por IP; evaluar captcha.
+- **Dónde:** `apps/web/app/auth/actions.ts`, `apps/web/lib/rate-limit.ts`.
+
+#### [AUD-SEG-8] Errores internos devueltos al cliente
+- **Tipo:** seguridad
+- **Estado verificado:** `app/api/invite/validate/route.ts` devuelve `error.message` de Supabase con 500; según la auditoría también Calendly webhook/callback, `rag/ingest`, ManyChat y Unipile; Whop y Commas revelan si la org tiene la integración.
+- **Qué hay que hacer:** mensaje genérico + log/Sentry del detalle; respuesta uniforme en webhooks de pagos.
+- **Dónde:** rutas citadas.
+
+#### [AUD-SEG-10] Auto-vínculo de Discord por nombre parecido
+- **Tipo:** seguridad
+- **Estado verificado:** `apps/discord-bot/src/handlers/link-handler.ts:149` vincula solo con `confidence > 0.85` sobre un nombre que controla el usuario de Discord.
+- **Qué hay que hacer:** pasar el auto-vínculo a propuesta que confirma el equipo (ya existe el flujo de pendientes).
+- **Dónde:** `apps/discord-bot/src/handlers/link-handler.ts`.
+
+#### [SEG-WORKER-SECRET-QUERY] `WORKER_AUTH_SECRET` viaja en la query string
+- **Tipo:** seguridad
+- **Estado verificado:** `app/marketing/content/reel-variation-actions.ts:138-145, 379-384, 581-584` agrega `?workerSecret=` a la URL publicada en QStash; queda en los logs de QStash, de Fly y de Vercel. `verifyQueueRequest` y el worker lo aceptan por query.
+- **Qué hay que hacer:** usar sólo el header `x-worker-secret` (QStash lo reenvía con `headers`), o sólo la firma QStash con `url`; dejar de aceptar el query param.
+- **Dónde:** `reel-variation-actions.ts`, `lib/sops/enqueue-video-job.ts`, `lib/queue/verify-queue-request.ts`, `apps/reel-worker/src/index.ts`.
+
+#### [SEG-HEADERS] Sin headers de seguridad HTTP
+- **Tipo:** seguridad
+- **Estado verificado:** ni `vercel.json` ni `next.config.ts` definen CSP, `frame-ancestors`/`X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` ni `X-Content-Type-Options`.
+- **Qué hay que hacer:** `headers()` en `next.config.ts` con lo básico (empezar por `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`); CSP en modo report-only primero.
+- **Dónde:** `apps/web/next.config.ts`.
+
+#### [DB-ORGS-SELECT-COLUMNAS] SELECT de tabla entera sobre `organizations` en prod
+- **Tipo:** seguridad
+- **Estado verificado:** según `docs/historial/DB_DIFF_PRODUCCION_2026-09-22.md`, en prod `authenticated` tiene SELECT de tabla sobre `organizations` (en el repo es por columna), así que un miembro lee el ciphertext de la key de Claude de su org. Inofensivo sin `ENCRYPTION_MASTER_KEY`.
+- **Qué hay que hacer:** relevar qué `select("*")` de `organizations` hace la app con cliente de usuario, pasarlos a columnas explícitas y alinear el grant de prod con el repo.
+- **Dónde:** `apps/web/app/**` (grep `from("organizations")`), migración nueva.
+
+#### [AUD-CONF-2] Techo de 1000 filas y lecturas que no miran `error`
+- **Tipo:** bug
+- **Estado verificado:** `fetchAllRows` existe (`lib/supabase/fetch-all-rows.ts`) y se aplicó en leads, costos y llamadas; la auditoría marca `lib/intelligence/collect-context.ts:220` y `lib/super-admin/client-health.ts` como candidatos. El conteo de 290 lecturas sin `error` no se re-midió.
+- **Qué hay que hacer:** toda suma/conteo en JS pasa por `fetchAllRows` o se hace en SQL; revisar los dos candidatos.
+- **Dónde:** archivos citados.
+
+#### [AUD-CONF-7] Inbox legacy pierde mensajes concurrentes
+- **Tipo:** bug
+- **Estado verificado:** según la auditoría, el inbox legacy lee y reescribe `conversations.messages` completo. `conversations` tiene 0 filas en prod, así que hoy no pasa.
+- **Qué hay que hacer:** si el inbox legacy se mantiene, append atómico en SQL; si no, borrarlo (`[AUD-SALUD-1]`).
+- **Dónde:** `apps/web/lib/sales/upsert-inbound-conversation.ts`, `lib/unipile/`, `lib/manychat/`.
+
+#### [AUD-CONF-8] `cleanup-trial-reels` reprocesa los mismos jobs para siempre
+- **Tipo:** bug
+- **Estado verificado:** `app/api/cron/cleanup-trial-reels/route.ts` selecciona `reel_variation_jobs` `done`/`failed` con `updated_at` > 30 días y no marca el job como limpiado.
+- **Qué hay que hacer:** columna `storage_cleaned_at` (o estado) y filtrar por ella.
+- **Dónde:** ruta citada, migración nueva.
+
+#### [AUD-CONF-9] Instagram legacy queda fuera de la sync tras un error transitorio
+- **Tipo:** bug
+- **Estado verificado:** hallazgo de la auditoría, no re-verificado línea por línea; hay 1 integración de Instagram en prod.
+- **Qué hay que hacer:** resolver junto con la decisión de `[AUD-SALUD-1]`.
+- **Dónde:** `apps/web/lib/instagram/sync.ts`, `poll-conversations.ts`.
+
+#### [AUD-CONF-10] Meses en UTC y no en ART en payroll y client-health
+- **Tipo:** bug
+- **Estado verificado:** `computeTeamPayrollAction` (`app/finance/actions.ts:482-484`) arma el mes con `new Date(y, m, 1)` en la zona del servidor (UTC en Vercel). Misma familia que BUG-3.
+- **Qué hay que hacer:** usar el helper de límites de mes en ART que ya existe para BUG-3.
+- **Dónde:** `apps/web/app/finance/actions.ts`, `apps/web/lib/super-admin/client-health.ts`.
+
+#### [AUD-CONF-11] La sync de contenido de Zernio escribe ceros cuando no reconoce el analytics
+- **Tipo:** bug
+- **Estado verificado:** según la auditoría; el cron diario ya no lo hace. Pertenece a Marketing: ver el backlog del área.
+- **Qué hay que hacer:** no pisar `metrics` si `resolvePostAnalytics` devuelve vacío.
+- **Dónde:** `apps/web/app/marketing/content/sync-actions.ts`.
+
+#### [AUD-DIN-1…5] Dinero y datos (derivados a sus áreas)
+- **Tipo:** bug
+- **Estado verificado:** `lib/metrics/excel-parser.ts:67` borra todos los puntos (`"1250.50"` → 125050); `app/sales/closer-actions.ts:151,218` lee `closing_calls.amount_closed`, que no existe en ninguna migración; ClickUp import, moneda USD por defecto y "balance" de Mercado Pago según la auditoría.
+- **Qué hay que hacer:** cada uno en su área (Clientes: parsers e import; Ventas: facturación por closer; Finanzas: monedas y MP). Listados acá para que no se pierdan.
+- **Dónde:** archivos citados.
+
+#### [AUD-SALUD-1] Legacy todavía agendado
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `vercel.json` corre `/api/integrations/instagram/poll` cada 5 min y `/instagram/sync` cada hora con 1 integración en prod; ManyChat, Unipile (6 filas) e Instagram Graph están `listed: false` o sin datos (`conversations` 0 filas).
+- **Qué hay que hacer:** decidir si se borran Instagram Graph, Unipile, ManyChat y `content_assets`; como mínimo sacar los dos crons de Instagram.
+- **Dónde:** `apps/web/vercel.json`, `lib/instagram/`, `lib/unipile/`, `lib/manychat/`.
+
+#### [AUD-SALUD-2] Sync de Calendly duplicada
+- **Tipo:** deuda técnica
+- **Estado verificado:** `lib/calendly/sync-events.ts` y `lib/calendly/closer-sync.ts` coexisten; según la auditoría `closer-sync` nunca setea `lead_id`.
+- **Qué hay que hacer:** una sola sync parametrizada por credencial.
+- **Dónde:** `apps/web/lib/calendly/`.
+
+#### [AUD-SALUD-3] Los crons no siguen un patrón común
+- **Tipo:** deuda técnica
+- **Estado verificado:** 6 crons hacen fan-out por QStash, el resto corre en serie; aislamiento de errores por org desparejo; ningún lock.
+- **Qué hay que hacer:** helper `runPerOrg()` con aislamiento de errores, lock (fila en tabla o advisory lock) y resultado uniforme.
+- **Dónde:** `apps/web/app/api/cron/*`, `apps/web/lib/queue/`.
+
+#### [AUD-SALUD-5 / CI-COBERTURA] El CI no corre build, e2e ni el reel-worker
+- **Tipo:** deuda técnica
+- **Estado verificado:** `.github/workflows/ci.yml` corre typecheck, lint, test y migraciones (el chequeo de migraciones ya está). No corre `next build`, Playwright ni nada de `apps/reel-worker` (sin script `typecheck`).
+- **Qué hay que hacer:** agregar `typecheck` al reel-worker; job de `next build` (o confiar en el preview de Vercel y documentarlo); decidir E2E en CI (`[T-INFRA-E2E-CI]`).
+- **Dónde:** `.github/workflows/ci.yml`, `apps/reel-worker/package.json`.
+
+#### [AUD-SALUD-6] Helpers exportados desde archivos `"use server"`
+- **Tipo:** seguridad
+- **Estado verificado:** siguen exportados `getConversationIdByExternalRef` (`app/conversations/actions.ts:29`), `loadTaskLinksBundle` (`app/workboard/task-link-actions.ts:47`), `getProductContextForOrg` (`app/product/actions.ts:673`). Cada export es un endpoint.
+- **Qué hay que hacer:** moverlos a `lib/` y relevar el resto con un grep de exports sin sufijo `Action`.
+- **Dónde:** archivos citados.
+
+#### [AUD-SALUD-ORG-HOLDING] Acciones que ignoran el negocio activo del holding (AUD-SALUD-7)
+- **Tipo:** bug
+- **Estado verificado:** usan `profile.organization_id` en vez de `requireOrganizationId()`: `app/marketing/content/{actions,sync-actions,drive-actions,reel-variation-actions,reel-music-actions}.ts`, `app/workboard/actions.ts`, `app/sales/closer-actions.ts`, `app/team/actions.ts`, `app/profile/actions.ts`, `app/api/integrations/calendly/closer/start/route.ts`. Algunos pueden ser a propósito (perfil, equipo).
+- **Qué hay que hacer:** revisar uno por uno; los de datos del negocio pasan a `requireOrganizationId()`.
+- **Dónde:** archivos citados.
+
+#### [DB-TABLAS-HUERFANAS] Tablas sin ningún uso en el código
+- **Tipo:** decisión de negocio
+- **Estado verificado:** sin referencias en `apps/`: `agent_projects`, `competitors`, `competitor_posts`, `story_sequences`, `story_frames`, `funnel_benchmarks`, `funnel_period_snapshots`, `lead_magnet_clicks`.
+- **Qué hay que hacer:** decidir por cada una (FEAT-1/FEAT-2/EMBUDOS-SALUD las reservan); borrar con migración las que no tengan futuro.
+- **Dónde:** migración nueva.
+
+#### [INTEGRACIONES-REGISTRO-DESALINEADO] El registro describe flujos que el código no hace
+- **Tipo:** bug
+- **Estado verificado:** `lib/integrations/registry.ts` dice YouTube `transport: "cron"` → `content_assets`, pero no hay cron y `lib/google/sync-youtube.ts:139` escribe `content_pieces`; Stripe y Mercado Pago dicen `lands: "payments"` (esa tabla no existe) por `webhook` (Stripe no tiene ruta de webhook); Discord dice `webhook` cuando el bot escribe directo. La pantalla muestra esto al usuario.
+- **Qué hay que hacer:** corregir las entradas del registro.
+- **Dónde:** `apps/web/lib/integrations/registry.ts`.
+
+#### [MOCK-DATA-AUDIT] Código de producción que todavía importa `@/mocks`
+- **Tipo:** deuda técnica
+- **Estado verificado:** 10 archivos: `app/sales/actions.ts`, `app/finance/actions.ts`, `app/(platform)/operations/overview/page.tsx`, `components/workboard/workboard-time-report.tsx`, `components/finance/payment-platforms-section.tsx`, `components/marketing-insights/lead-journey-timeline.tsx`, `components/marketing/overview/metrics-sections.tsx`, `providers/finance-data-provider.tsx`, `providers/platform-data-provider.tsx`, `lib/metrics/frequent-objections.ts`.
+- **Qué hay que hacer:** cada área decide si es fallback de modo demo (aceptable) o dato falso mostrado como real (quitar). `docs/archivo/mock-data-audit.md` (2026-07-03) está desactualizado.
+- **Dónde:** archivos citados.
+
+#### [REBRAND-EXTERNO] Nombres externos que siguen diciendo OTC
+- **Tipo:** deuda técnica
+- **Estado verificado:** Vercel `otc-plaform`, Supabase `OTC`, Fly `otc-reel-worker`, Railway `otc-discord-bot`, verify token `otc_instagram_webhook_2024` (en `.env.example`), fallback `https://otc-plaform.vercel.app` en `lib/email/welcome-email.ts:6` y `components/super-admin/infrastructure-page.tsx:52`, cookie `otc_active_org` leída como respaldo (`lib/holding/constants.ts:12`), `OTC_WEBHOOK_SECRET`/`OTC_API_URL` leídas como respaldo, holding sembrado `'Limitless Portfolio'`.
+- **Qué hay que hacer:** coordinar el renombre externo; borrar los respaldos de cookie (ya pasaron más de 24 h del cambio) y de variables una vez cargadas las nuevas (`[ENV-LIMPIEZA]`).
+- **Dónde:** archivos citados; Vercel, Fly, Railway, Meta.
+
+#### [REPO-RENOMBRADO-DEPLOYS] Railway tras el renombre del repo
+- **Tipo:** verificación manual
+- **Estado verificado:** Vercel **sí** sigue: los tres últimos deploys de producción (incluido `038caca`) salen de `santiagozurbrigk/limitless-system`. Railway no se puede ver desde acá.
+- **Qué hay que hacer:** Railway → servicio del bot → Settings → Source: repo `limitless-system` y `Root Directory = apps/discord-bot`; actualizar remotes locales.
+- **Dónde:** Railway.
+
+#### [T-INFRA-SUPABASE-MOCK] Helper de mock de Supabase
+- **Tipo:** tests
+- **Estado verificado:** no existe `lib/__tests__/helpers/`; ningún test usa `vi.mock`.
+- **Qué hay que hacer:** stub encadenable (`from().select().eq()…` → `{ data, error, count }`) reutilizable; lo necesitan T-6/T-6b (Embudos) y T-10.
+- **Dónde:** `apps/web/lib/__tests__/helpers/supabase-mock.ts`.
+
+#### [T-9] `lib/sales/lead-journey.ts`
+- **Tipo:** tests
+- **Estado verificado:** `lib/sales/__tests__/` tiene `follow-up-options` y `lead-thread`, no `lead-journey`.
+- **Qué hay que hacer:** dedupe multicanal, orden del timeline, lead sin llamadas.
+- **Dónde:** `apps/web/lib/sales/lead-journey.ts`.
+
+#### [T-10] `lib/sales/upsert-inbound-conversation.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** idempotencia del mismo mensaje entrante (necesita `[T-INFRA-SUPABASE-MOCK]`).
+- **Dónde:** archivo citado.
+
+#### [T-11] `lib/zernio/resolve-analytics.ts`
+- **Tipo:** tests
+- **Estado verificado:** `lib/zernio/__tests__/` sólo tiene `triggers.test.ts`.
+- **Qué hay que hacer:** vacío/inválido → ceros; plano; anidado (`{instagram}` y `{platforms:{instagram}}`) suma; campos faltantes.
+- **Dónde:** archivo citado.
+
+#### [T-12] `lib/marketing/overview-metrics.ts`
+- **Tipo:** tests
+- **Estado verificado:** `lib/marketing/__tests__/` sólo tiene `ad-metrics-snapshot`.
+- **Qué hay que hacer:** `trendPct` con previo cero, bordes de `isInDaysRange`, engagement con alcance cero.
+- **Dónde:** archivo citado.
+
+#### [T-13] `lib/metrics/derive-dashboard-data.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** MRR y clientes nuevos con org vacía.
+- **Dónde:** archivo citado.
+
+#### [T-15] `lib/metrics/frequent-objections.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests; además importa `@/mocks` como fallback.
+- **Qué hay que hacer:** agrupación, tendencia y cadena de fallback.
+- **Dónde:** archivo citado.
+
+#### [T-16] `lib/validations.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** esquemas usados en actions con input de usuario: válidos, inválidos, borde.
+- **Dónde:** archivo citado.
+
+#### [T-18] E2E del wizard de importación
+- **Tipo:** tests
+- **Estado verificado:** `e2e/` sólo tiene `holding.spec.ts`.
+- **Qué hay que hacer:** Excel multi-hoja → hoja → mapeo → importar → aparecen en `/clients`.
+- **Dónde:** `apps/web/e2e/`.
+
+#### [T-19] E2E de permisos por rol
+- **Tipo:** tests
+- **Estado verificado:** sin cobertura.
+- **Qué hay que hacer:** viewer con módulos limitados: no los ve en la nav y por URL ve `<SinAcceso/>`.
+- **Dónde:** `apps/web/e2e/`.
+
+#### [T-INFRA-E2E-CI] Correr Playwright en CI
+- **Tipo:** decisión de negocio
+- **Estado verificado:** `playwright.config.ts` tiene rama de CI; el workflow no lo invoca; necesita una cuenta de test y una base.
+- **Qué hay que hacer:** decidir cuenta/base de test (proyecto Supabase aparte) y agregar el job.
+- **Dónde:** `.github/workflows/ci.yml`.
+
+### Infraestructura, seguridad y tests (transversal) · P3
+
+#### [T-17] E2E del flujo de embudos
+- **Tipo:** tests
+- **Estado verificado:** sin spec. (Coordinar con el backlog de Embudos, que tiene T-6…T-8.)
+- **Qué hay que hacer:** crear embudo DM, 7 etapas, "Sin fuente" no es cero, período en la URL, empty state.
+- **Dónde:** `apps/web/e2e/`.
+
+#### [T-20] `lib/navigation/sidebar-modules.ts`
+- **Tipo:** tests
+- **Estado verificado:** los tests de navegación cubren `module-for-path` y `page-meta`, no `buildPlatformRootItems` ni `getParentFromPath`.
+- **Qué hay que hacer:** combinaciones de add-ons; rutas anidadas.
+- **Dónde:** archivo citado.
+
+#### [T-21] `lib/format.ts` y `lib/locale/`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** moneda y fechas es-AR.
+- **Dónde:** archivos citados.
+
+#### [T-22] `lib/product/mapper.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** mapeo de filas a tipos.
+- **Dónde:** archivo citado.
+
+#### [T-23] `lib/rate-limit.ts`
+- **Tipo:** tests
+- **Estado verificado:** sin tests.
+- **Qué hay que hacer:** contador en memoria (ventana, expiración) y fail-open cuando la RPC falla (con el cliente mockeado).
+- **Dónde:** archivo citado.
+
+#### [T-24] `lib/sanitize.ts` y `wrap-untrusted-content.ts`
+- **Tipo:** tests
+- **Estado verificado:** `lib/security/__tests__/` cubre cifrado y `safeEqual`; `sanitize` y el wrapper no tienen tests.
+- **Qué hay que hacer:** caracteres de control, techo de largo, escapado; y el caso del tag de cierre de `[AUD-SEG-6]` como `it.fails` hasta arreglarlo.
+- **Dónde:** archivos citados.
+
+#### [T-INFRA-COVERAGE] Medir cobertura
+- **Tipo:** tests
+- **Estado verificado:** `@vitest/coverage-v8` no está instalado ni configurado.
+- **Qué hay que hacer:** sumarlo sin umbral; poner umbral cuando la cobertura sea significativa.
+- **Dónde:** `apps/web/vitest.config.ts`.
+
+#### [PACKAGES-RESERVADOS] Cuatro paquetes vacíos
+- **Tipo:** deuda técnica
+- **Estado verificado:** `packages/{ai,database,integrations,queue}` sólo exportan una constante `*_RESERVED`; `apps/web/api/` y `apps/web/server/` son carpetas vacías con `.gitkeep`; `apps/web/workspaces/` es un placeholder sin funcionalidad.
+- **Qué hay que hacer:** borrarlos o documentar que no se van a usar; hoy confunden a quien lee la estructura.
+- **Dónde:** `packages/`, `apps/web/{api,server,workspaces}`.

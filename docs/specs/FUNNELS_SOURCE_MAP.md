@@ -264,7 +264,7 @@ nada.
 > Ed25519 de la plataforma (para cuando exista la app) y un secreto compartido por
 > organización (para eventos entregados por un Workflow de la sub-cuenta, que
 > funciona hoy). El payload de esa segunda vía no está documentado — ver
-> `docs/API_DOCS_PENDIENTES.md` §3.
+> `docs/integraciones/apis-sin-documentacion.md`.
 
 ### Whop / Fanbasis — dinero
 
