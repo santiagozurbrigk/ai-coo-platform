@@ -25,7 +25,8 @@ Nunca se saltea, aunque el cambio sea de una línea.
 |---|---|
 | Cualquier cosa | Entrada nueva **arriba** en `CHANGES.md` (formato al principio de ese archivo) |
 | Cómo funciona un área (tablas, flujos, reglas de negocio, rutas) | El doc del área en `docs/areas/` — tiene que seguir describiendo el código de hoy |
-| Algo quedó abierto, o cerraste un pendiente | `PENDIENTES.md`: agregar el ítem en su área, o **borrarlo** y nombrar su ID en la entrada de `CHANGES.md` |
+| Qué puede hacer el usuario (se agrega, saca o arregla una funcionalidad) | Su fila en [`docs/FUNCIONAL.md`](./docs/FUNCIONAL.md): estado y pendientes |
+| Algo quedó abierto, o cerraste un pendiente | `PENDIENTES.md`: agregar el ítem en su área (un P0/P1 lleva **Criterio de aceptación**), o **borrarlo** y nombrar su ID en la entrada de `CHANGES.md`. Después, `python3 docs/backlog/pendientes_a_jira.py` |
 | Algo que no se pudo probar (falta cuenta, credencial o doc) | Bloque en [`docs/operacion/verificacion-manual.md`](./docs/operacion/verificacion-manual.md) |
 | Una variable de entorno, un cron, un webhook, una tabla | `docs/operacion/entorno-y-deploy.md`, `docs/arquitectura/jobs-webhooks-y-colas.md`, `docs/arquitectura/base-de-datos.md` |
 
@@ -98,7 +99,7 @@ pnpm test                                                        # vitest vía t
 - [ ] Server Actions con `requireOrganizationId()`
 - [ ] Rutas nuevas en `paths.ts` + `sidebar-modules.ts` si son navegables
 - [ ] Sin secretos en código ni logs
-- [ ] `CHANGES.md`, `PENDIENTES.md` y el doc del área actualizados
+- [ ] `CHANGES.md`, `PENDIENTES.md`, el doc del área y `docs/FUNCIONAL.md` actualizados
 
 ## Mapa rápido
 

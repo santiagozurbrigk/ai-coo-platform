@@ -38,7 +38,7 @@ sprint, al refinarlo.
 4. Si el proyecto no tiene los tipos `Bug`/`Story`/`Task` con esos nombres (por ejemplo, está en castellano),
    mapear los valores en el paso de "valores de campo" del asistente.
 
-Sugerencia: importar primero sólo P0 y P1 (las primeras 89 filas) para armar los dos primeros sprints, y el
+Sugerencia: importar primero sólo P0 y P1 (las primeras 90 filas) para armar los dos primeros sprints, y el
 resto después.
 
 ## Épicas

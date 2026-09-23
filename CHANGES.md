@@ -34,6 +34,58 @@ al terminar cada bloque de trabajo, aunque sea chico.
 
 ---
 
+### 2026-09-23 — Documento funcional, criterios de aceptación y backlog exportable a Jira
+
+**Rama:** `claude/loving-pascal-yui3l1` (sobre `claude/sharp-shannon-4o38ys`)
+**Commit(s):** los de esta rama
+**Módulo(s) afectado(s):** documentación: `docs/FUNCIONAL.md`, `docs/ESTADO_PARA_EQUIPO.md`, `docs/backlog/`,
+`PENDIENTES.md`, `docs/README.md`, `CLAUDE.md`, `docs/areas/{clientes,ventas,operaciones}.md`. No se tocó código.
+
+**Qué se hizo:**
+- `docs/FUNCIONAL.md`: 228 funcionalidades en 10 áreas, redactadas como las ve el usuario. Cada una trae
+  estado (110 funcionan, 60 con fallas, 11 no funcionan, 21 a medias, 26 sin verificar), los IDs de
+  `PENDIENTES.md` que la afectan, un link al doc técnico y una columna "Octubre" vacía para Agustín. Cada área
+  cierra con "Prometido y no existe" (specs viejas contra el código) y "Legacy visible". Cada fila "Funciona"
+  se chequeó en el código: la página existe y llama a la action o lib que dice.
+- Criterio de aceptación en los 90 ítems P0/P1 de `PENDIENTES.md` (nuevo campo `- **Criterio de aceptación:**`).
+- `docs/backlog/pendientes_a_jira.py` genera `docs/backlog/jira-import.csv` (314 filas: Summary `[ID] Título`,
+  Issue Type, Priority P0–P3 → Highest–Low, Labels de área/prioridad/tipo, Description en wiki de Jira).
+  `--check` falla si hay ID repetido o un P0/P1 sin criterio. Los conteos por área que calcula coinciden con el
+  índice de `PENDIENTES.md`.
+- `docs/ESTADO_PARA_EQUIPO.md`: resumen de una página para Agustín, Fernando y Martín.
+- Ítems nuevos: `[AUTH-RECUPERAR-PASSWORD]` (P1: "¿Olvidaste tu contraseña?" es `href="#"`, nada llama a
+  `resetPasswordForEmail`), `[NOTIFICACIONES-EMAIL-SIN-ENVIO]`, `[DISCORD-DESCONECTAR-SIN-UI]`,
+  `[EQUIPO-TARIFA-SIN-UI]` (P2) e `[INVESTIGAR-LIBRERIAS-CRM]` (P3, pedido de Agustín). Nuevo tipo `investigación`.
+- Precisiones: `[EMBUDOS-INSTRUMENTATION-DESACTUALIZADA]` (hoy en pantalla sólo se ve la nota de GHL),
+  `[INTELIGENCIA-FUENTES-LEGACY]` (también `lib/founder-tone/collect-sources.ts`), `[PERMISOS-SERVER-ACTIONS]`
+  (suma `saveGeneralOrganizationSettingsAction`). Se sacaron referencias al scratchpad en `clientes.md` y
+  `ventas.md`, y `operaciones.md` ya no dice que `/team` muestra la tarifa por hora.
+- `CLAUDE.md`, `docs/README.md` y el encabezado de `PENDIENTES.md`: la regla de actualizar la fila de
+  `FUNCIONAL.md` y de regenerar el CSV.
+
+**Por qué / finalidad:** pedido de Fernando (dev senior y Scrum Master) en la reunión del 2026-09-23: un
+documento de requerimientos alineado con el código, que Martín pase a historias de usuario en Jira,
+priorizando deuda técnica antes que features nuevas.
+
+**Decisiones de diseño relevantes:**
+- `PENDIENTES.md` sigue siendo la única fuente; el CSV es derivado y se regenera. Se descartó un CSV editado a
+  mano porque se desincronizaría en días.
+- Los criterios de aceptación sólo en P0/P1: el resto se refina al entrar a un sprint.
+- Para que la columna de estado distinga algo, el P0 de permisos marca "Con fallas" sólo la fila de permisos de
+  cada área (y las de plata en Finanzas); en las demás filas está citado sin bajar el estado.
+- "Sin verificar" incluye también lo que nunca se usó en producción (onboarding por link).
+- Los IDs alias de encabezados con varios IDs se reemplazaron por el principal en `FUNCIONAL.md`.
+- Tipos Jira: `Bug` (bug y seguridad), `Story` (feature), `Task` (el resto). No se crean épicas desde el CSV.
+
+**Riesgos / deuda técnica pendiente:**
+- Una vez en Jira, hay que decidir si manda Jira o `PENDIENTES.md`; mientras tanto, cerrar en los dos.
+- Los estados salen de leer el código, no de probar en pantalla. Las filas que dependen de pasos de
+  `verificacion-manual.md` pueden cambiar al probarlas.
+- La columna Octubre y las 7 decisiones de negocio P1 dependen de Agustín.
+- No se corrió typecheck ni tests: no se tocó código.
+
+---
+
 ### 2026-09-23 — 📚 Documentación reorganizada por área y verificada contra el código
 
 **Rama:** `claude/sharp-shannon-4o38ys`

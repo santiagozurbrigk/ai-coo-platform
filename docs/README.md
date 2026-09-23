@@ -13,6 +13,14 @@ Reorganizada el 2026-09-23: cada documento de esta carpeta se verificó contra e
    tablas por área.
 4. El doc del área que vayas a tocar (tabla de abajo) y su sección en [`../PENDIENTES.md`](../PENDIENTES.md).
 
+## Producto y backlog (sin leer código)
+
+| Doc | Qué cubre |
+|---|---|
+| [`FUNCIONAL.md`](./FUNCIONAL.md) | **Documento funcional**: qué puede hacer el usuario en cada área y si funciona hoy, con sus pendientes. Base del backlog |
+| [`ESTADO_PARA_EQUIPO.md`](./ESTADO_PARA_EQUIPO.md) | Resumen de una página: estado por área, problemas graves y decisiones pendientes |
+| [`backlog/`](./backlog/README.md) | `PENDIENTES.md` exportado a CSV para importar a Jira, y el script que lo genera |
+
 ## Áreas del producto
 
 Cada doc sigue la misma estructura: qué es, pantallas y rutas, modelo de datos, cómo fluye el dato,
@@ -90,6 +98,7 @@ actualizan en el lugar.
 
 ## Mantener esto vivo
 
-- Si cambiás cómo funciona un área, actualizá su doc en el mismo PR.
+- Si cambiás cómo funciona un área, actualizá su doc en el mismo PR, y su fila en `FUNCIONAL.md` si cambia lo que el usuario puede hacer.
+- Si cambia `PENDIENTES.md`, regenerá el CSV: `python3 docs/backlog/pendientes_a_jira.py` (falla si un P0/P1 no tiene criterio de aceptación).
 - Lo abierto va a `PENDIENTES.md`; lo que no se puede probar va a `operacion/verificacion-manual.md`.
 - Un doc nuevo va en la carpeta de su tipo y se agrega a este índice.
