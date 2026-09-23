@@ -11,7 +11,8 @@
   de `CHANGES.md`. No hay sección de "completados".
 - Un ítem nuevo va en la sección de su área, en su prioridad, con el formato de hallazgo de abajo. Los P0 y
   P1 llevan todos los campos; los P2/P3, como mínimo Tipo, Estado verificado, Qué hay que hacer y Dónde.
-- Después de tocar este archivo, regenerá el CSV de Jira: `python3 docs/backlog/pendientes_a_jira.py`
+- Después de tocar este archivo: `python3 docs/backlog/pendientes_a_jira.py --actualizar-indices` (recalcula la
+  tabla de P0 y el índice por área, valida y regenera el CSV de Jira)
   (ver [`docs/backlog/`](./docs/backlog/README.md)). Falla si a un P0/P1 le falta un campo obligatorio, si hay
   un ID repetido o si el índice por área no coincide con los ítems.
 - Las funcionalidades a las que afecta cada ítem están en [`docs/FUNCIONAL.md`](./docs/FUNCIONAL.md).
@@ -59,17 +60,18 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 
 ## P0 — lo que rompe o arriesga plata, datos o seguridad
 
-| ID | Área | Qué |
-|---|---|---|
-| `[PERMISOS-SERVER-ACTIONS]` | Plataforma | Los permisos por módulo no protegen datos, sólo pantallas |
-| `[AUTH-CALLBACK-NEXT]` | Plataforma | Open redirect en `/auth/callback` (nuevo) |
-| `[LLAMADAS-EMBED-ROTO]` | Ventas | `/sales/llamadas` no muestra ninguna llamada |
-| `[CLOSING-LIST-1000]` | Ventas | El calendario y la lista de Closing pierden los turnos más recientes |
-| `[ZERNIO-KEY-GLOBAL]` | Marketing | Una org sin Zernio usa la key global de Zernio |
-| `[EMBUDOS-WEBHOOK-PERDIDA]` | Embudos y Lanzamientos | Webhooks de pagos y GHL que responden 200 sin haber guardado el evento |
-| `[1A1-CLAVE-ANTHROPIC-ROTA]` | Agente de negocio e IA | Una organización sin clave válida y sin clave global |
-| `[EQUIPO-DESACTIVAR-NO-BLOQUEA]` | Operaciones, Finanzas y Producto | Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo] |
-| `[PERMISOS-SERVER-ACTIONS/infra]` | Infraestructura, seguridad y tests (transversal) | Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1) |
+| ID | Área | Severidad | Qué |
+|---|---|---|---|
+| `[PERMISOS-SERVER-ACTIONS]` | Plataforma | Alta | Los permisos por módulo no protegen datos, sólo pantallas |
+| `[AUTH-CALLBACK-NEXT]` | Plataforma | Media | Open redirect en `/auth/callback` (nuevo) |
+| `[LLAMADAS-EMBED-ROTO]` | Ventas | Alta | `/sales/llamadas` no muestra ninguna llamada |
+| `[CLOSING-LIST-1000]` | Ventas | Alta | El calendario y la lista de Closing pierden los turnos más recientes |
+| `[ZERNIO-KEY-GLOBAL]` | Marketing | Crítica | Una org sin Zernio usa la key global de Zernio |
+| `[EMBUDOS-WEBHOOK-PERDIDA]` | Embudos y Lanzamientos | Crítica | Webhooks de pagos y GHL que responden 200 sin haber guardado el evento |
+| `[1A1-CLAVE-ANTHROPIC-ROTA]` | Agente de negocio e IA | Alta | Una organización sin clave válida y sin clave global |
+| `[EQUIPO-DESACTIVAR-NO-BLOQUEA]` | Operaciones, Finanzas y Producto | Crítica | Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo] |
+| `[SEG-BUCKET-IMPORT-FILES]` | Infraestructura, seguridad y tests (transversal) | Crítica | El bucket `import-files` deja leer y borrar archivos de cualquier organización |
+| `[PERMISOS-SERVER-ACTIONS/infra]` | Infraestructura, seguridad y tests (transversal) | Alta | Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1) |
 
 ## Índice por área
 
@@ -82,7 +84,7 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
 | [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 18 | 7 |
 | [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 15 | 10 |
-| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 1 | 18 | 38 | 8 |
+| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 2 | 18 | 38 | 8 |
 
 ---
 
@@ -94,14 +96,20 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 
 #### [PERMISOS-SERVER-ACTIONS] Los permisos por módulo no protegen datos, sólo pantallas
 - **Tipo:** seguridad
-- **Estado verificado:** `getCurrentUserPermissions` sólo se usa en `app/(platform)/layout.tsx` y en componentes de navegación. Ninguna server action consulta `modules`. Ninguna policy RLS mira `role` (todas `organization_id = get_my_organization_id()`). Confirmado sin guard: `saveClaudeApiKeyAction` (`app/settings/actions.ts:438`), `saveGeneralOrganizationSettingsAction` (nombre, web, moneda y zona horaria de la org), `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`), los `disconnect*Action`, todas las de `app/discord/actions.ts`. `team_roles` tiene policies de insert/update/delete para cualquier miembro (`20260616400000_team_roles_permissions.sql`): un member puede editar los permisos de su propio rol por PostgREST.
+- **Severidad:** Alta
+- **Estado verificado:** `getCurrentUserPermissions` sólo se usa en `app/(platform)/layout.tsx` y en componentes de navegación. Ninguna server action consulta `modules`. Ninguna policy RLS de datos de negocio mira `role` (todas `organization_id = get_my_organization_id()`); la excepción es `profiles`, cuyo UPDATE exige founder/admin para editar a otros y cuyo trigger `protect_profile_columns` impide cambiar el propio `role`/`organization_id`. Confirmado sin guard: `saveClaudeApiKeyAction` (`app/settings/actions.ts:438`), `saveGeneralOrganizationSettingsAction` (nombre, web, moneda y zona horaria de la org), `updateCloserCommissionAction` (`app/sales/closer-actions.ts:275`; sin guard en el código, pero usa `createClient()` y la policy de UPDATE de `profiles` + el trigger la frenan), los `disconnect*Action`, todas las de `app/discord/actions.ts`. `team_roles` tiene policies de insert/update/delete para cualquier miembro (`20260616400000_team_roles_permissions.sql`): un member puede editar los permisos de su propio rol por PostgREST.
+- **Riesgo:** Si un member con un rol limitado quiere más acceso, entonces le alcanza con su JWT para hacer un PATCH a team_roles y darse todos los módulos, o para cambiar la clave de Claude, el nombre/moneda de la org o las comisiones de closers llamando la action. Es fácil para alguien con nociones técnicas y no deja rastro en la UI.
+- **Impacto:** Toda organización con miembros que no son founder/admin: el esquema de roles no protege datos ni configuración. Confirmado en producción: team_roles, team_invitations y organizations tienen policies de escritura sólo por organization_id; profiles sí está protegido (trigger protect_profile_columns), así que no puede cambiarse su propio role ni su organización.
 - **Qué hay que hacer:** helper `requireModuleAccess(moduleId, level)` sobre `requireOrganizationId()` y aplicarlo primero en plata, equipo, BYOK e integraciones; policies de escritura por rol en `team_roles`, `team_invitations`, `organizations`, finanzas y tablas de integraciones.
 - **Criterio de aceptación:** Con un member cuyo rol tiene Finanzas, Integraciones y Ajustes en "sin acceso", invocar desde la consola saveClaudeApiKeyAction, un disconnect*Action, updateCloserCommissionAction y una acción de app/discord/actions.ts devuelve error de permiso y no cambia nada en la base; con su JWT, un PATCH a /rest/v1/team_roles sobre su propio rol es rechazado (y lo mismo para escrituras en team_invitations, organizations, finanzas y tablas de integraciones), mientras el founder sigue pudiendo hacerlo; hay un test unitario de requireModuleAccess con los niveles none/view/full
 - **Dónde:** `apps/web/lib/auth/get-current-permissions.ts`, `apps/web/app/**/actions.ts`, `supabase/migrations/`.
 
 #### [AUTH-CALLBACK-NEXT] Open redirect en `/auth/callback` (nuevo)
 - **Tipo:** seguridad
-- **Estado verificado:** `apps/web/app/auth/callback/route.ts` hace `NextResponse.redirect(`${origin}${next}`)` con `next = searchParams.get("next")` sin validar. `next=.evil.com` → `https://app.com.evil.com`; `next=@evil.com` → host `evil.com`. Es la ruta de vuelta de login OAuth y recuperación de contraseña.
+- **Severidad:** Media
+- **Estado verificado:** `apps/web/app/auth/callback/route.ts` hace `NextResponse.redirect(`${origin}${next}`)` con `next = searchParams.get("next")` sin validar. `next=.evil.com` → `https://app.com.evil.com`; `next=@evil.com` → host `evil.com`. Es la ruta de vuelta de la confirmación de alta (y de recuperación, cuya rama ignora `next`). Hoy ningún link generado por la app lleva `next` al callback y el redirect sólo ocurre tras canjear un `code` PKCE válido, así que no hay un camino práctico de explotación; queda latente para cualquier flujo futuro (magic link, OAuth, plantilla de mail) que propague `next`.
+- **Riesgo:** Si algún flujo llega a /auth/callback con un code válido y un next armado por un atacante, entonces el usuario recién logueado termina en un dominio ajeno que puede imitar el login y pedirle la contraseña. Hoy es difícil: la app no genera ningún link con next hacia el callback y el code (PKCE) sólo se canjea en el navegador que inició el flujo.
+- **Impacto:** Usuarios de la app expuestos a phishing sólo si se agrega un flujo (magic link, OAuth, plantilla de mail de Supabase) que propague next; no expone datos de la base.
 - **Qué hay que hacer:** aceptar sólo paths que empiecen con `/` y no con `//`; si no, `/dashboard`. Test unitario.
 - **Criterio de aceptación:** Un login con next=//evil.com, next=.evil.com o next=@evil.com termina en /dashboard dentro de la app; un next=/clients válido sigue funcionando; hay un test unitario con esos casos
 - **Dónde:** `apps/web/app/auth/callback/route.ts`.
@@ -110,84 +118,120 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 
 #### [AUTH-RECUPERAR-PASSWORD] (nuevo) "¿Olvidaste tu contraseña?" no hace nada
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** el link de `components/auth/supabase-login-form.tsx` (y `login-screen.tsx`) es `href="#"` con `preventDefault`. `resetPasswordForEmail` no aparece en el código: existen `/auth/recover` y `/auth/update-password`, pero nada manda el mail de recuperación.
+- **Riesgo:** Si un usuario olvida su contraseña, entonces no tiene forma de recuperarla solo y queda afuera hasta que alguien le resetee el acceso a mano. Pasa seguro cada vez que alguien la olvida.
+- **Impacto:** Cualquier usuario de cualquier org; hay workaround (el founder o el super admin le asignan una contraseña temporal) pero genera soporte manual y bloquea al founder si es él quien la olvida.
 - **Qué hay que hacer:** pantalla o modal que pida el mail y llame a `supabase.auth.resetPasswordForEmail` con `redirectTo` a `/auth/callback?next=/auth/update-password`; mensaje neutro (no revelar si el mail existe).
 - **Criterio de aceptación:** Desde /login, "¿Olvidaste tu contraseña?" pide un mail y muestra un mensaje neutro exista o no la cuenta; el mail llega y su link lleva a /auth/update-password, donde la nueva contraseña queda guardada y permite entrar; un mail inexistente no revela que no existe.
 - **Dónde:** `apps/web/components/auth/supabase-login-form.tsx`, `apps/web/app/auth/`.
 
 #### [PERMISOS-LAYOUT-NAV-SUAVE] El bloqueo por módulo vive en un layout que no se re-renderiza al navegar (nuevo)
 - **Tipo:** seguridad / verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** el chequeo `sinAcceso` está en `app/(platform)/layout.tsx` leyendo `x-pathname`. En App Router los layouts compartidos no se re-renderizan en navegaciones cliente; la paleta ⌘K (`routes/navigation.ts` → `buildPlatformNavigation()`) lista todos los módulos sin filtrar permisos ni add-ons. Muy probable que `Cmd+K → Finanzas` muestre la pantalla a un rol sin acceso.
+- **Riesgo:** Si un member sin acceso a un módulo usa ⌘K o un link interno, entonces muy probablemente ve la pantalla completa (por ejemplo Finanzas) sin ningún conocimiento técnico. Es el camino más fácil de todos los de permisos.
+- **Impacto:** Todas las orgs que usan roles con módulos en «sin acceso»: la restricción se saltea desde la propia interfaz; no cruza organizaciones.
 - **Qué hay que hacer:** verificar en navegador; si se confirma, mover el chequeo a cada `page.tsx` (o a un layout por módulo) y filtrar la paleta con `canSeeNavItem`.
 - **Criterio de aceptación:** Se ejecutó el paso 5 del bloque «Permisos por módulo» de verificacion-manual.md con un member sin acceso a Finanzas y el resultado quedó anotado; si falló, abrir Finanzas desde ⌘K o desde un link interno estando en /dashboard muestra «No tenés acceso» igual que tipeando la URL; la paleta ⌘K de ese member no lista Finanzas
 - **Dónde:** `apps/web/app/(platform)/layout.tsx`, `apps/web/components/navigation/command-palette.tsx`, `apps/web/routes/navigation.ts`.
 
 #### [PERMISOS-FOUNDER-AREA] `/founder` no pasa por el bloqueo de permisos (nuevo)
 - **Tipo:** seguridad
+- **Severidad:** Media
 - **Estado verificado:** `module-for-path.ts` mapea `/founder` → `operations`, pero la ruta vive en `app/(founder)/`, cuyo layout (`layouts/founder-layout.tsx`) no chequea nada. El test de `module-for-path` sólo recorre `app/(platform)`.
+- **Riesgo:** Si un member sin acceso a Operaciones abre /founder, entonces ve el resumen de inteligencia del negocio (snapshot de métricas) pensado para el founder. Basta tipear la URL.
+- **Impacto:** Miembros de cualquier org con roles limitados; es una sola pantalla de lectura y esos datos ya son legibles por RLS, por eso el daño adicional es acotado.
 - **Qué hay que hacer:** mover `/founder` bajo `(platform)` o replicar el chequeo en `app/(founder)/layout.tsx`; extender el test a `(founder)`.
 - **Criterio de aceptación:** Un member sin acceso a Operaciones que abre /founder ve la pantalla de «No tenés acceso»; el founder sigue viendo /founder; el test de module-for-path recorre también las rutas de app/(founder) y pasa
 - **Dónde:** `apps/web/app/(founder)/`, `apps/web/lib/navigation/module-for-path.ts`.
 
 #### [HOLDING-PORTFOLIO-ROL] El portfolio del holding no mira el rol
 - **Tipo:** seguridad
-- **Estado verificado:** policies `holding_reads_portfolio_*` (`20260630100000`) sin rol; `resolveEffectiveOrganizationId` valida la cookie/header contra `holding_businesses` pero no contra `canManageHolding`, así que cualquier miembro del holding que setee la cookie a mano opera sobre un negocio.
+- **Severidad:** Crítica
+- **Estado verificado:** policies `holding_reads_portfolio_*` (`20260630100000`) sin rol; `resolveEffectiveOrganizationId` valida la cookie/header contra `holding_businesses` pero no contra `canManageHolding`, así que cualquier miembro del holding que setee la cookie a mano ve pantallas del negocio (las lecturas de `clients`, `closing_calls`, `conversations` y `organizations` pasan por las policies de portfolio; las escrituras con `createClient()` las rechaza RLS porque el claim `active_business_org_id` sólo lo setea `enterBusinessAction`, que sí exige `canManageHolding`). Esas mismas lecturas se pueden hacer por PostgREST sólo con el JWT, sin cookie.
+- **Riesgo:** Si un holding tiene cualquier miembro que no es founder ni is_holding_admin, entonces ese miembro puede leer por PostgREST, sólo con su JWT y sin tocar cookies, los clientes, llamadas de cierre, conversaciones y datos de organización de todos los negocios activos del portfolio (policies de producción con get_my_holding_business_org_ids(), que no mira rol). Con la cookie seteada a mano además ve esas pantallas de los negocios.
+- **Impacto:** Datos personales de clientes y conversaciones de las organizaciones de negocio expuestos a personas que esas organizaciones no autorizaron; alcance: cada holding con miembros no administradores (no se contó en producción por la regla de no leer filas).
 - **Qué hay que hacer:** exigir `canManageHolding` en `resolveEffectiveOrganizationId` y en `get_my_holding_business_org_ids()`.
 - **Criterio de aceptación:** Un miembro del holding que no es founder ni is_holding_admin, con la cookie limitless_active_org seteada a mano a un negocio, sigue viendo los datos del holding y no los del negocio; con su JWT no puede leer por PostgREST clientes, llamadas ni conversaciones de los negocios del portfolio; el founder del holding sigue entrando y leyendo el portfolio como antes
 - **Dónde:** `apps/web/lib/holding/resolve-org.ts`, migración nueva.
 
 #### [DISCORD-VINCULAR-EMAIL-AJENO] `!vincular` acepta el email de otro alumno (nuevo, amplía auditoría §3.10)
 - **Tipo:** seguridad
+- **Severidad:** Media
 - **Estado verificado:** `apps/discord-bot/src/handlers/link-handler.ts` vincula con cualquier email exacto de un cliente de la org, sin confirmar que la persona sea dueña. Con el bot hablando, además auto-vincula por nombre visible >0.85 (dato que controla el usuario).
+- **Riesgo:** Si un alumno escribe !vincular con el email de otro alumno de la misma org (o con el bot hablando pone un nombre visible parecido), entonces sus mensajes y testimonios se atribuyen a ese otro cliente, y con el bot hablando le responde con el nombre del cliente. Requiere conocer el email exacto o imitar el nombre.
+- **Impacto:** Clientes de las orgs con el bot de Discord instalado: actividad, testimonios y señales de salud atribuidos a la persona equivocada; el bot no devuelve datos del cliente más allá del nombre y no cruza organizaciones.
 - **Qué hay que hacer:** mandar el match por email también al buzón (o confirmar por mail); quitar el auto-vínculo por nombre.
 - **Criterio de aceptación:** Escribir !vincular <email de otro cliente> desde una cuenta de Discord cualquiera no crea el vínculo: queda en el buzón de vinculaciones pendientes (o pendiente de confirmación por mail); un nombre visible parecido al de un cliente ya no vincula automáticamente con el bot hablando; hay un test del árbol de decisión de !vincular con esos casos
 - **Dónde:** `apps/discord-bot/src/handlers/link-handler.ts`.
 
 #### [DISCORD-VINCULO-SIN-REATRIBUIR] Resolver el buzón no reasigna los mensajes viejos (nuevo)
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `linkDiscordClientManuallyAction` (`app/discord/actions.ts:1227`) hace upsert en `discord_client_links` sin llamar `recalcularAtribucion`; `linkDiscordPersonAction` sí (línea 908). El `!vincular` del bot tampoco reatribuye. La actividad de la ficha filtra por `discord_messages.client_id`, así que los mensajes previos no aparecen.
+- **Riesgo:** Si una vinculación se resuelve desde el buzón o con !vincular, entonces los mensajes previos de esa persona siguen sin cliente y no aparecen en su ficha. Pasa en cada vinculación posterior a la primera actividad.
+- **Impacto:** Historial de Discord incompleto en la ficha del cliente (y en lo que se calcule sobre él) en las orgs con el bot; hay workaround: vincular desde la pantalla de personas, que sí reatribuye.
 - **Qué hay que hacer:** llamar `recalcularAtribucion(supabase, org, { discordUserId })` en `linkDiscordClientManuallyAction`; para el bot, reatribuir en `saveClientLink` o en un paso del cron.
 - **Criterio de aceptación:** Resolver una vinculación desde el buzón hace que en la ficha del cliente aparezcan los mensajes que esa persona escribió antes del vínculo; lo mismo después de un !vincular exitoso en el bot (en el momento o tras el cron); se ejecutó el paso 6 del bloque «Discord — canales y personas» de verificacion-manual.md y quedó anotado
 - **Dónde:** `apps/web/app/discord/actions.ts`, `apps/discord-bot/src/lib/supabase.ts`.
 
 #### [E-RETENCION] Retención de mensajes de terceros en Discord
 - **Tipo:** decisión de negocio
+- **Severidad:** Media
 - **Estado verificado:** no hay borrado ni TTL sobre `discord_messages`; no hay aviso en el servidor.
+- **Riesgo:** Si el bot se instala en el servidor de un cliente sin plazo de retención ni aviso, entonces se guardan indefinidamente mensajes de terceros que no saben que se almacenan, con exposición legal (Ley 25.326 / GDPR si hay miembros en la UE) y más volumen expuesto ante cualquier fuga.
+- **Impacto:** Miembros de los servidores de Discord donde esté el bot y la org cliente como responsable del dato; alcance actual depende de en cuántos servidores está instalado (no verificado).
 - **Qué hay que hacer:** decidir plazo y aviso antes de instalar el bot en el servidor de un cliente; implementar un cron de purga.
 - **Criterio de aceptación:** Agustín decidió el plazo de retención de los mensajes de Discord y el aviso a mostrar en el servidor, y la decisión quedó registrada en docs/areas/discord.md; existe un cron que borra de discord_messages los mensajes más viejos que ese plazo y, corrido en una org de prueba, deja sólo los mensajes dentro del plazo
 - **Dónde:** `discord_messages`, `apps/web/app/api/cron/`.
 
 #### [SIGNUP-PUBLICO] Cualquiera puede crearse una org founder (nuevo)
 - **Tipo:** decisión de negocio / seguridad
+- **Severidad:** Alta
 - **Estado verificado:** `/login` tiene toggle "Crear cuenta" → `signUpAction` → `ensureUserBootstrap` crea org + founder. Esa org usa la `ANTHROPIC_API_KEY` global.
+- **Riesgo:** Si alguien descubre el toggle «Crear cuenta», entonces puede crear organizaciones founder sin límite (rate limit sólo por email) y usar el agente de IA con la ANTHROPIC_API_KEY global, que no tiene cupo por organización. Es trivial de hacer.
+- **Impacto:** Costo de IA de Limitless sin techo ni cobro asociado, y orgs basura en la base; no expone datos de otras orgs.
 - **Qué hay que hacer:** decidir si el alta es sólo por super admin/trial. Si sí: sacar el toggle y el action, y desactivar signups en Supabase Auth.
 - **Criterio de aceptación:** Agustín decidió si el alta de cuentas founder es pública o sólo por super admin/prueba y la decisión quedó registrada en docs/arquitectura/auth-organizaciones-y-permisos.md; si es cerrada: /login ya no muestra «Crear cuenta», llamar signUpAction falla y el signup está desactivado en Supabase Auth
 - **Dónde:** `apps/web/components/auth/supabase-login-form.tsx`, `apps/web/app/auth/actions.ts`.
 
 #### [LOGIN-RATE-LIMIT] Rate limit de login sólo por email
 - **Tipo:** seguridad
+- **Severidad:** Media
 - **Estado verificado:** `authRateLimit(`signin:${email}`)` 5/15 min (`app/auth/actions.ts:119`, `lib/rate-limit.ts`). Sin clave por IP, sin captcha: cualquiera bloquea a otro y el spraying no se limita.
+- **Riesgo:** Si alguien conoce el email de un usuario, entonces con 5 intentos fallidos lo deja sin poder entrar 15 minutos (repetible), y si prueba una contraseña común contra muchos emails no hay límite propio por IP (sólo el de Supabase Auth).
+- **Impacto:** Cualquier usuario de la app puede quedar bloqueado a voluntad de un tercero; el riesgo de adivinar contraseñas queda acotado por el límite por IP de Supabase Auth, no por la app.
 - **Qué hay que hacer:** doble clave IP + email; captcha tras N fallos.
 - **Criterio de aceptación:** Seis intentos fallidos con el email de otra persona desde una IP no impiden que esa persona entre desde otra IP; muchos intentos desde una misma IP contra emails distintos quedan bloqueados; después de N fallos el login pide captcha
 - **Dónde:** `apps/web/app/auth/actions.ts`, `apps/web/lib/rate-limit.ts`.
 
 #### [BAJAS-SIN-PROBAR] La baja del super admin nunca se ejecutó entera
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** código completo en `app/super-admin/delete-actions.ts` y `lib/super-admin/execute-deletion.ts`; CHANGES no registra una ejecución real.
+- **Riesgo:** Si se ejecuta la baja por primera vez en una org real y algún paso falla (una FK sin cascade, un bucket no listado, deleteUser que falla), entonces quedan archivos o cuentas de login activas del cliente dado de baja; el proceso es irreversible y reporta los problemas, pero nadie lo vio correr.
+- **Impacto:** Cada org que se dé de baja: posibles datos o accesos residuales de un ex cliente. El borrado está acotado por id de la organización, así que no se ve riesgo de borrar otra org.
 - **Qué hay que hacer:** bloque "Bajas" de `docs/operacion/verificacion-manual.md` § Plataforma.
 - **Criterio de aceptación:** Se ejecutó el bloque «Bajas del super admin» de verificacion-manual.md con una org descartable y el resultado de cada paso quedó anotado (en particular: el founder dado de baja no puede entrar, no quedan archivos en Storage y super_admin_deletions tiene la fila con problemas vacío); si algo falló, se abrió un ítem nuevo
 - **Dónde:** super admin → organizaciones → baja.
 
 #### [DISCORD-SIN-PROBAR] Canales, equipo, sugerencias y atribución sin probar
 - **Tipo:** verificación manual
+- **Severidad:** Media
 - **Estado verificado:** migraciones aplicadas; ningún registro de prueba en CHANGES.
+- **Riesgo:** Si canales, equipo, sugerencias o atribución fallan en un servidor real, entonces los mensajes se atribuyen mal o no se guardan sin que nadie lo note hasta mirar una ficha.
+- **Impacto:** Orgs que usen la integración de Discord: actividad de clientes incompleta o mal atribuida; módulo secundario frente a ventas y clientes.
 - **Qué hay que hacer:** bloque "Discord — canales y personas" de `docs/operacion/verificacion-manual.md` § Plataforma.
 - **Criterio de aceptación:** Se ejecutó el bloque «Discord — canales y personas» de verificacion-manual.md con el bot desplegado y un servidor real, y el resultado de cada paso quedó anotado; si algo falló, se abrió un ítem nuevo
 - **Dónde:** `/integrations/discord`.
 
 #### [PERMISOS-VERIFICAR-SESION] Probar el bloqueo con un rol limitado (ex bloque de PLAN_VERIFICACION)
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** nunca se probó con una segunda cuenta.
+- **Riesgo:** Si el bloqueo por módulo no funciona como se espera (hay indicios fuertes en PERMISOS-LAYOUT-NAV-SUAVE y PERMISOS-FOUNDER-AREA), entonces un member ve módulos que su rol tiene en «sin acceso» sin que el equipo lo sepa.
+- **Impacto:** Todas las orgs que confían en roles limitados; lo que protege es la única barrera real entre roles hoy, porque RLS no mira el rol.
 - **Qué hay que hacer:** bloque "Permisos por módulo" de `docs/operacion/verificacion-manual.md` § Plataforma.
 - **Criterio de aceptación:** Se ejecutó el bloque «Permisos por módulo con un rol limitado» de verificacion-manual.md con una segunda cuenta member y el resultado de cada paso quedó anotado; si algo falló, se abrió un ítem nuevo
 - **Dónde:** `/team/roles`, sesión de member.
@@ -2034,10 +2078,25 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 ### Infraestructura, seguridad y tests (transversal) · P0
 
+#### [SEG-BUCKET-IMPORT-FILES] El bucket `import-files` deja leer y borrar archivos de cualquier organización
+- **Tipo:** seguridad
+- **Severidad:** Crítica
+- **Estado verificado:** en prod existe el bucket `import-files` (privado, límite 50 MB) con tres policies en `storage.objects` para `authenticated` — `Users can read import files` (SELECT), `Users can upload import files` (INSERT) y `Users can delete import files` (DELETE) — cuya única condición es `bucket_id = 'import-files'`, sin filtro por organización. Ninguna migración crea el bucket ni esas policies (grep en `supabase/migrations/` vacío). El sistema de importación que lo usaba se eliminó (commit `4ee95c17`); `lib/super-admin/deletion-plan.ts:35-39` indica que guarda todo bajo `imports/` sin separar por cuenta. No se contó cuántos objetos quedan (no se leen filas).
+- **Riesgo:** si un usuario logueado de cualquier org lista el bucket con su JWT (`supabase.storage.from('import-files').list('imports')`), entonces descarga o borra los Excel/CSV que subieron otras organizaciones. Es trivial para cualquiera con cuenta.
+- **Impacto:** al 2026-09-23 el bucket tiene 2 archivos, subidos el 2026-07-19 y 2026-07-20 (conteo de `storage.objects`, sin abrir contenido): esas importaciones (listas de clientes, ventas y montos) quedan legibles y borrables por cualquier usuario logueado de cualquier organización. El bucket ya no lo usa ninguna pantalla, así que no crece.
+- **Qué hay que hacer:** confirmar si quedan objetos; si el bucket no se usa, borrar las tres policies (y el bucket tras respaldar/borrar su contenido) en una migración; si se usa, reescribir las policies por prefijo de organización como `agent-documents`.
+- **Criterio de aceptación:** con el JWT de un usuario de la org A, listar, descargar o borrar un objeto de `import-files` que no sea de A es rechazado (o el bucket ya no existe); la migración que lo resuelve está en `supabase/migrations/` y el historial de prod la tiene.
+- **Dónde:** Supabase Storage (`import-files`), `pg_policies` de `storage.objects`, migración nueva, `apps/web/lib/super-admin/deletion-plan.ts`.
+
+Prioridad sugerida P0: acceso cruzado entre orgs explotable hoy por cualquier usuario autenticado.
+
 #### [PERMISOS-SERVER-ACTIONS/infra] Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1)
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
+- **Severidad:** Alta
 - **Estado verificado:** ninguna policy RLS filtra por rol salvo `Founders update org profiles` (UPDATE de `profiles`, `20260616100000_workboard_time_tracking.sql`: founder/admin editan perfiles de su org); el resto va sólo por `organization_id`. No existe ningún helper `requireRole`/`requirePermission` en `app/` ni `lib/` (grep vacío). El único bloqueo es el render en `app/(platform)/layout.tsx` (`<SinAcceso/>`). Un viewer puede, vía PostgREST con su JWT, escribir `team_roles.permissions`, tablas de finanzas y lo que tenga policy `FOR ALL` por org (`discord_integrations`, `unipile_integrations`); vía actions, `saveClaudeApiKeyAction`, los `disconnect*Action`, el Drive del founder y `updateCloserCommissionAction`. `organizations` ya está protegido por grants por columna.
+- **Riesgo:** Si un usuario con rol limitado (viewer, closer) usa su propio JWT contra PostgREST, entonces puede hacer PATCH a `team_roles.permissions` de su propio rol y quedar con acceso `full` a todos los módulos (`get-current-permissions.ts:91-101` lee los permisos de esa fila), o borrar/editar filas de finanzas e integraciones. Requiere saber usar la API, pero no hay ninguna barrera técnica.
+- **Impacto:** Afecta a toda org con miembros no founder: se rompe el modelo de roles (lo que el founder cree que un viewer no ve ni toca, lo puede cambiar), incluida la key BYOK y comisiones de closers. No cruza organizaciones: el daño queda dentro de la propia org.
 - **Qué hay que hacer:** (1) helper `requireRole(minRole | modulo, nivel)` sobre `requireOrganizationId()` y aplicarlo primero en actions de plata, equipo, integraciones y BYOK; (2) policies de escritura por rol en `team_roles`, finanzas y `*_integrations` editables (función SQL `current_user_role()` o similar); (3) test que recorra los exports críticos.
 - **Criterio de aceptación:** Con un usuario viewer, invocar saveClaudeApiKeyAction, un disconnect*Action, updateCloserCommissionAction y una action de Finanzas devuelve error de permiso y no cambia nada en la base; con el JWT de ese viewer, un PATCH por PostgREST a team_roles, a una tabla de finanzas y a discord_integrations/unipile_integrations es rechazado por RLS mientras el founder/admin sigue pudiendo escribir; hay un test que recorre los exports críticos y falla si alguno no llama al chequeo de rol (paso 6 de V-INFRA-1 en verificacion-manual.md rechaza)
 - **Dónde:** `apps/web/lib/auth/`, `app/settings/actions.ts`, `app/sales/closer-actions.ts`, `app/finance/actions.ts`, `app/team/actions.ts`, `app/integrations/**`, `app/marketing/content/drive-actions.ts`, migración nueva.
@@ -2046,126 +2105,180 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 #### [ENV-ANTHROPIC-VERCEL] `ANTHROPIC_API_KEY` no figura en las variables del proyecto de Vercel
 - **Tipo:** verificación manual
+- **Severidad:** Alta
 - **Estado verificado:** el listado de env del proyecto `otc-plaform` (Production y Preview) no tiene `ANTHROPIC_API_KEY`; el código la usa como fallback global cuando la org no tiene BYOK (`lib/ai/credential-resolver.ts:35`, `lib/ai/anthropic.ts`). Puede venir de una variable compartida del team (no visible en ese listado). Si no está, toda org sin key propia falla en cualquier función de IA.
+- **Riesgo:** Si la variable no está tampoco como Shared del team, entonces `getGlobalClient()` devuelve null (`credential-resolver.ts:35-37`) y toda org sin key propia, o con la propia vencida, no tiene IA ni fallback. La probabilidad depende de un dato no verificado (las Shared env vars).
+- **Impacto:** Agente, pipelines de IA, análisis de llamadas y reportes quedan inutilizables para las orgs sin BYOK, y el fallback BYOK→global deja de proteger a las que tienen key rechazada (caso `familiayformacion` citado en el propio resolver).
 - **Qué hay que hacer:** confirmar en Vercel → Settings → Environment Variables (incluidas las Shared del team) y en los logs de un pipeline de IA de una org sin BYOK. Si falta y es a propósito (todas BYOK), documentarlo; si no, cargarla.
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md (V-INFRA-1, pasos 1 y 5) con cuenta real y el resultado quedó anotado: ANTHROPIC_API_KEY está cargada en Vercel (proyecto o Shared del team) y una función de IA en una org sin BYOK responde, o quedó documentado que todas las orgs usan BYOK; si falló, se abrió un ítem nuevo
 - **Dónde:** Vercel; `apps/web/lib/ai/credential-resolver.ts`.
 
 #### [ENV-ZERNIO-WEBHOOK-SECRET] El webhook de Zernio responde 503 en producción
 - **Tipo:** bug
+- **Severidad:** Baja
 - **Estado verificado:** `app/api/integrations/zernio/webhook/route.ts:64-72` rechaza con 503 si falta `ZERNIO_WEBHOOK_SECRET`; la variable no está en Vercel ni en `.env.example`. Coherente con `zernio_messages` y `zernio_comments` en 0 filas en prod con 9 integraciones de Zernio conectadas.
+- **Riesgo:** Si sigue faltando el secreto, entonces todos los eventos de Zernio se rechazan con 503 (fail-closed: no hay agujero de seguridad). Ya está pasando.
+- **Impacto:** Nadie lee `zernio_messages`/`zernio_comments` (sólo se escriben en el webhook y se marcan replied/hidden en `app/integrations/zernio/actions.ts:369,390`); inbox y comentarios son live-fetch. Lo único que se pierde es el aviso `account.connected/disconnected` que actualiza `zernio_integrations`.
 - **Qué hay que hacer:** decidir si el webhook se usa (el inbox es live-fetch). Si sí: generar el secreto, cargarlo en Vercel y en el panel de Zernio, sumarlo a `.env.example`. Si no: sacar la ruta y las tablas.
 - **Criterio de aceptación:** Agustín decidió si el webhook de Zernio se usa y la decisión quedó registrada en PENDIENTES.md/CHANGES.md; si se usa: un POST sin firma a /api/integrations/zernio/webhook en producción responde 401 (no 503), ZERNIO_WEBHOOK_SECRET figura en .env.example y un mensaje real llega a zernio_messages; si no se usa: la ruta y las tablas zernio_messages/zernio_comments ya no existen
 - **Dónde:** `apps/web/app/api/integrations/zernio/webhook/route.ts`, `.env.example`, Vercel.
 
 #### [AUD-SEG-2] Tokens OAuth y API keys guardados en texto plano
 - **Tipo:** seguridad
+- **Severidad:** Crítica
 - **Estado verificado:** `encrypt(` sólo se usa para BYOK, Zernio, GHL, Hyros, VTurb, WebinarJam, Fathom por miembro, pagos y Mercado Pago. Quedan en claro (protegidos sólo por RLS cerrado + service role): `calendly_integrations`, `stripe_integrations`, `instagram_integrations`, `typeform_integrations`, `google_forms_integrations`/`youtube_integrations`, `super_admin_google_tokens`, `fathom_integrations.api_key`, `manychat_integrations.api_token`.
+- **Riesgo:** Si se filtra un backup, un dump, la service role key o alguien accede al SQL editor, entonces se leen directamente tokens OAuth y API keys de Calendly, Stripe, Google (incluido el del super admin), Fathom, ManyChat, Instagram y Typeform de todas las orgs. Hoy RLS impide el acceso por la API, así que la probabilidad es baja.
+- **Impacto:** Exposición de credenciales de terceros de todas las orgs conectadas (Calendly, Google y Fathom tienen filas en prod), con acceso a agendas, Drive/YouTube y cobros de Stripe fuera de Limitless; el token de Google del super admin es de alcance transversal.
 - **Qué hay que hacer:** cifrar al escribir con `lib/security/encryption.ts`, descifrar al leer, y una migración de datos (script con service role) que cifre lo existente. Empezar por Calendly, Google y Fathom (las que tienen filas en prod).
 - **Criterio de aceptación:** Al conectar Calendly, Google (Forms/YouTube/super admin), Fathom, Stripe, Instagram, Typeform y ManyChat, la columna del token/API key en la base queda cifrada (no se lee el valor en claro con SQL) y la integración sigue sincronizando; después de correr el script de migración de datos no queda ninguna fila existente con token en texto plano en esas tablas; hay un test que cubre el cifrado al escribir y el descifrado al leer
 - **Dónde:** `apps/web/lib/{calendly,stripe,instagram,typeform,google,fathom,manychat}/`, `app/api/integrations/*/callback`.
 
 #### [AUD-SEG-4] Ventanas de replay y firma QStash sin URL
 - **Tipo:** seguridad
-- **Estado verificado:** Calendly (`calendly/webhook/route.ts`) firma `t.body` pero no compara `t` contra el reloj; Mercado Pago (`lib/mercadopago/webhook-verify.ts`) no valida `ts` y la firma sólo cubre `data.id`; GHL (`lib/ghl/verify-webhook.ts`) sin timestamp; `verifyQStashRequest` (`lib/queue/qstash-verify.ts`) llama `receiver.verify({ signature, body })` sin `url`, así que un cuerpo firmado para un worker vale para otro.
+- **Severidad:** Media
+- **Estado verificado:** Calendly (`calendly/webhook/route.ts`) firma `t.body` pero no compara `t` contra el reloj; Mercado Pago (`lib/mercadopago/webhook-verify.ts`) no valida `ts` y la firma sólo cubre `data.id` — el cuerpo (`action`, `user_id`) no está firmado y con `application.deauthorized` desconecta la integración de ese `user_id` (`app/api/webhooks/mercadopago/route.ts:58-72`); GHL (`lib/ghl/verify-webhook.ts`) sin timestamp; `verifyQStashRequest` (`lib/queue/qstash-verify.ts`) llama `receiver.verify({ signature, body })` sin `url`, así que un cuerpo firmado para un worker vale para otro.
+- **Riesgo:** Si alguien obtiene un webhook firmado real (logs, proxy, panel del proveedor), entonces puede reenviarlo indefinidamente; en Mercado Pago, como la firma sólo cubre `data.id`, puede cambiar el cuerpo y mandar `action: application.deauthorized` con cualquier `user_id`, que desconecta la integración de MP de esa cuenta (`app/api/webhooks/mercadopago/route.ts:58-72`). Requiere capturar un request firmado: poco probable.
+- **Impacto:** Desconexión forzada de integraciones de Mercado Pago de cualquier org (se arregla reconectando) y reprocesos repetidos en workers de QStash dentro de la vida de la firma; los duplicados de pagos quedan frenados por el dedupe por ID de evento.
 - **Qué hay que hacer:** tolerancia de 5 min en Calendly y MP (como `WEBHOOK_TOLERANCE_SECONDS` de pagos); pasar `url` al `Receiver`; en GHL apoyarse en el dedupe por `webhookId`.
 - **Criterio de aceptación:** Un webhook de Calendly o Mercado Pago con firma válida pero timestamp de más de 5 minutos es rechazado; un cuerpo firmado por QStash para un worker enviado a otra URL de worker es rechazado; un reenvío del mismo webhookId de GHL no se procesa dos veces; hay tests que cubren estos casos
 - **Dónde:** archivos citados.
 
 #### [SEG-REEL-WORKER-AUTH] Autenticación débil del worker de Fly.io
 - **Tipo:** seguridad
-- **Estado verificado:** `apps/reel-worker/src/index.ts:67-130`: compara `WORKER_AUTH_SECRET` con `===` (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de `127.0.0.1` o IPs `10.*`/`172.*`, o si `NODE_ENV` no contiene `prod`. La lista de secrets comentada en `fly.toml` no incluye `WORKER_AUTH_SECRET` (el README del worker ya lo lista).
+- **Severidad:** Crítica
+- **Estado verificado:** `apps/reel-worker/src/index.ts:67-130`: compara `WORKER_AUTH_SECRET` con `===` (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de `127.0.0.1` o IPs `10.*`/`172.*`, o si `NODE_ENV` no contiene `prod`. La lista de secrets comentada en `fly.toml` no incluye `WORKER_AUTH_SECRET` (el README del worker ya lo lista). Express no tiene `trust proxy`, así que `req.ip` es la IP del proxy de Fly, no la del cliente. La web publica en QStash la URL `...?workerSecret=<secreto>` (`app/marketing/content/reel-variation-actions.ts:142-144`): el secreto queda guardado en QStash y en logs de acceso; el header `x-worker-secret` ya existe como alternativa (`lib/queue/qstash-client.ts:90`).
+- **Riesgo:** Si en Fly no están cargados `WORKER_AUTH_SECRET` ni las signing keys de QStash, entonces el worker acepta a cualquiera cuyo `req.ip` empiece con `10.`/`172.` — y como Express no tiene `trust proxy`, `req.ip` es la IP del proxy de Fly, no la del cliente. Además el secreto viaja como query param (`reel-variation-actions.ts:142-144`), así que queda en la URL de destino guardada en QStash y en logs de acceso.
+- **Impacto:** Con el worker abierto, cualquiera puede mandar jobs con `organizationId`/`sourceStoragePath` arbitrarios: el worker usa service role sobre el bucket `trial-reels` (`processor.ts:35,46,113`) y escribe `reel_variation_jobs`, o sea lectura/escritura de videos de otras orgs y consumo de cómputo. No se confirmó qué secrets tiene cargados hoy.
 - **Qué hay que hacer:** comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar `WORKER_AUTH_SECRET` a `fly.toml`/README y confirmar con `fly secrets list` que está cargado.
 - **Criterio de aceptación:** Un POST sin credenciales al worker (curl sin header, también desde IP 10.*/172.* o con NODE_ENV no productivo) responde 401; un intento con secreto incorrecto no deja ningún fragmento del secreto en los logs; fly secrets list -a otc-reel-worker muestra WORKER_AUTH_SECRET, figura en fly.toml/README y un reel de prueba llega a preview_ready (V-INFRA-8)
 - **Dónde:** `apps/reel-worker/src/index.ts`, `apps/reel-worker/fly.toml`, `apps/reel-worker/README.md`.
 
 #### [AUD-SEG-9] Buckets de Storage fuera de las migraciones
 - **Tipo:** verificación manual
-- **Estado verificado:** el código usa `client-payment-receipts`, `business-context-documents`, `sop-attachments`, `workboard-task-attachments` y `ai-brain-documents`; ninguna migración los crea (las que tocan `storage.buckets` crean `avatars`, `agent-documents`, `content-thumbnails`, `trial-reels`, `client-wins`, `sop-videos`, `discord-bot-avatars`). `content-thumbnails` es público con policy pública de listado (`20260805200000`).
+- **Severidad:** Media
+- **Estado verificado:** el código usa `client-payment-receipts`, `business-context-documents`, `sop-attachments`, `workboard-task-attachments` y `ai-brain-documents`; ninguna migración los crea (las que tocan `storage.buckets` crean `avatars`, `agent-documents`, `content-thumbnails`, `trial-reels`, `client-wins`, `sop-videos`, `discord-bot-avatars`). `content-thumbnails` es público con policy pública de listado (`20260805200000`). Catálogo de prod (2026-09-23): los cinco buckets son `public = false` y no tienen policies en `storage.objects` (acceso sólo por service role). También está fuera de migraciones `import-files`, con policies abiertas a cualquier `authenticated`: ver `[SEG-BUCKET-IMPORT-FILES]`.
+- **Riesgo:** Si se levanta una base nueva (staging, recuperación) desde las migraciones, entonces los cinco buckets no existen o se crean a mano sin policies definidas; en prod, verificado por catálogo hoy, los cinco son `public = false` y no tienen policies en `storage.objects` (sólo service role).
+- **Impacto:** Hoy no hay exposición en esos cinco; el problema es de reproducibilidad y de control de cambios. La exposición real está en otro bucket fuera de migraciones que el ítem no nombra (`import-files`, ver ítem nuevo propuesto).
 - **Qué hay que hacer:** confirmar en el dashboard que los cinco son privados; escribir una migración idempotente que los declare con sus policies; decidir si `content-thumbnails` necesita listado público.
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md (V-INFRA-7) con cuenta real y el resultado quedó anotado: client-payment-receipts, business-context-documents, sop-attachments, workboard-task-attachments y ai-brain-documents son privados y su URL pública da 400/404; existe una migración idempotente que declara esos cinco buckets con sus policies y aplicada en una base desde cero los crea; Agustín decidió si content-thumbnails necesita listado público y quedó registrado (si falló algo, se abrió un ítem nuevo)
 - **Dónde:** Supabase Storage; migración nueva.
 
 #### [AUD-CONF-1] Sin timeouts en los clientes de APIs externas
 - **Tipo:** deuda técnica
+- **Severidad:** Media
 - **Estado verificado:** `AbortSignal.timeout`/`signal:` sólo aparece en `lib/discord/api.ts`, `lib/agent/*`, `app/api/agent/send/route.ts` (`req.signal`, cancelación y no timeout), `lib/fathom/share-link.ts` y `lib/marketing/story-thumbnail-storage.ts`. Ninguno en `lib/zernio/client.ts`, `lib/ghl/client.ts`, `lib/hyros/client.ts`, Stripe, Mercado Pago, Calendly, Typeform. Un proveedor colgado retiene la lambda hasta `maxDuration`.
+- **Riesgo:** Si un proveedor (Zernio, GHL, Hyros, Stripe, MP, Calendly, Typeform) se cuelga, entonces la lambda espera hasta `maxDuration` y el cron o la pantalla fallan por timeout en vez de fallar rápido; pasa cada vez que un proveedor tiene una caída.
+- **Impacto:** Crons que no completan las orgs siguientes de la lista, pantallas live-fetch (inbox Zernio) que tardan minutos, y más costo de Vercel; no hay pérdida de datos, el próximo ciclo reintenta.
 - **Qué hay que hacer:** `signal: AbortSignal.timeout(15_000)` (o similar) en cada `*Fetch` de cliente de proveedor.
 - **Criterio de aceptación:** Todos los clientes de proveedor (Zernio, GHL, Hyros, Stripe, Mercado Pago, Calendly, Typeform) pasan un timeout a cada fetch; con un proveedor simulado que no responde, la llamada falla con error de timeout en ~15 s en vez de colgar la lambda hasta maxDuration; typecheck y tests pasan
 - **Dónde:** `apps/web/lib/<proveedor>/client.ts`.
 
 #### [AUD-CONF-3] Crons de Calendly que se pisan
 - **Tipo:** bug
+- **Severidad:** Media
 - **Estado verificado:** `vercel.json`: `/api/cron/calendly-sync` y `/api/cron/calendly-sync-closers` ambos en `0 * * * *`. La sync hace N+1 por evento sobre 120 días y `.in()` con URIs largas puede pasarse del largo de URL (no re-medido).
+- **Riesgo:** Si las dos syncs corren a la vez sobre la misma org, entonces compiten por las mismas filas de `closing_calls` y pueden duplicar o pisar turnos; con muchos eventos el `.in()` puede superar el largo de URL y la sync falla entera. Pasa cada hora.
+- **Impacto:** Turnos de closers duplicados o faltantes en Ventas para orgs con Calendly (hay filas en prod); workaround: sync manual.
 - **Qué hay que hacer:** desfasar los horarios (p. ej. `:15`), unificar `sync-events.ts` y `closer-sync.ts` (ver `[AUD-SALUD-2]`), batch de lecturas.
 - **Criterio de aceptación:** En vercel.json /api/cron/calendly-sync y /api/cron/calendly-sync-closers ya no corren en el mismo minuto; una corrida de la sync de Calendly de una org con muchos eventos termina sin error de URL demasiado larga y sin una consulta por evento; los turnos importados en closing_calls no se duplican
 - **Dónde:** `apps/web/vercel.json`, `apps/web/lib/calendly/`.
 
 #### [AUD-CONF-4] Typeform pierde respuestas y colisiona entre orgs
 - **Tipo:** bug
-- **Estado verificado:** `lib/typeform/sync.ts:192` pide `page_size=1000` con `since` y no pagina; `form_responses.external_response_id` es `unique` global (`20260522000000_phase11_integrations.sql:223`). Hoy hay 0 integraciones de Typeform en prod.
+- **Severidad:** Alta
+- **Estado verificado:** `lib/typeform/sync.ts:192` pide `page_size=1000` con `since` y no pagina; `form_responses.external_response_id` es `unique` global (`20260522000000_phase11_integrations.sql:223`) y tanto Typeform (`lib/typeform/sync.ts:219-232`) como Google Forms (`lib/google-forms/sync.ts:208-221`) hacen `upsert` con `onConflict: "external_response_id"` y `organization_id` en el payload: si el mismo formulario está conectado en dos orgs, la respuesta no choca sino que se reescribe y pasa a la última org que sincronizó. Hoy hay 0 integraciones de Typeform en prod; Google Forms sí tiene.
+- **Riesgo:** Si un formulario tiene más de 1000 respuestas desde el último sync, entonces se pierden las que exceden la página; y si el mismo formulario está conectado en dos orgs (p. ej. dentro de un holding), el `upsert` con `onConflict: external_response_id` reescribe `organization_id` y la respuesta se mueve de una org a la otra en cada sync. Google Forms usa el mismo upsert (`lib/google-forms/sync.ts:208-221`).
+- **Impacto:** Respuestas faltantes o que cambian de org (una org ve respuestas que eran de otra y la otra las pierde). Typeform tiene 0 integraciones hoy; Google Forms sí tiene conexiones en prod, así que la parte del índice global ya está expuesta.
 - **Qué hay que hacer:** paginar con `before`/`after` hasta agotar; índice único `(organization_id, external_response_id)`.
 - **Criterio de aceptación:** Con un formulario de Typeform de más de 1000 respuestas, la sync importa todas (pagina hasta agotar); dos organizaciones con el mismo external_response_id pueden guardar cada una su respuesta sin colisión (índice único por (organization_id, external_response_id)); hay un test de la paginación
 - **Dónde:** `apps/web/lib/typeform/sync.ts`, migración nueva.
 
 #### [AUD-CONF-5] Dedupe de webhooks que descarta reintentos legítimos
 - **Tipo:** bug
+- **Severidad:** Crítica
 - **Estado verificado:** `payment_webhook_events` tiene índice único `(provider, external_event_id)` sin `organization_id` (`20260829200000_payments_whop_fanbasis.sql:115`); un evento que quedó en `error` hace que el reintento del proveedor choque y se descarte. Mismo patrón en `ghl_webhook_events`.
+- **Riesgo:** Si el primer procesamiento de un webhook de pago falla (timeout de DB, bug de mapeo, deploy a mitad), entonces el reintento del proveedor choca con el índice único y se marca `duplicate` (`lib/payments/ingest.ts:46-48`), así que ese cobro nunca se registra. Cualquier error transitorio lo dispara.
+- **Impacto:** Cobros de Whop/Fanbasis/pagos que no aparecen en Finanzas ni en el cliente, en silencio; el crudo queda guardado pero no hay herramienta ni pantalla para reprocesarlo. Mismo efecto en oportunidades de GHL (`ghl_webhook_events`).
 - **Qué hay que hacer:** en conflicto, re-procesar si el estado previo es `error`; sumar `organization_id` al índice de pagos.
 - **Criterio de aceptación:** Un webhook de pagos o de GHL que quedó en estado error, al ser reenviado por el proveedor con el mismo ID de evento, se reprocesa y termina en estado ok en vez de descartarse; un duplicado de un evento ya procesado ok se sigue descartando; el índice de payment_webhook_events incluye organization_id; hay un test que cubre ambos casos
 - **Dónde:** `apps/web/lib/payments/ingest.ts`, `apps/web/lib/ghl/ingest-opportunity-event.ts`, migración nueva.
 
 #### [AUD-CONF-6] Trabajo sin `await` después de responder
 - **Tipo:** bug
-- **Estado verificado:** no hay ningún uso de `after()` de `next/server` en `apps/web`. Según la auditoría, embeddings RAG, scoring de leads, sync inicial de YouTube, mails de waitlist y eventos de Meta se disparan sin `await` y Vercel puede cortarlos.
+- **Severidad:** Alta
+- **Estado verificado:** no hay ningún uso de `after()` de `next/server` en `apps/web`. Según la auditoría, embeddings RAG, scoring de leads, sync inicial de YouTube, mails de waitlist y eventos de Meta se disparan sin `await` y Vercel puede cortarlos. En la waitlist también la atribución UTM: `void trackUTMLeadCapture` (`app/api/waitlist/route.ts:156`), `void sendWaitlistConfirmationEmail` (`:169`), `void sendMetaLeadEvent` (`:172`).
+- **Riesgo:** Si Vercel congela la función apenas se devuelve la respuesta, entonces los `void` quedan a medias: en la waitlist, además de mail y evento de Meta, también `trackUTMLeadCapture` (`app/api/waitlist/route.ts:156,169,172`). Ocurre de forma intermitente y sin error visible.
+- **Impacto:** Leads de la waitlist sin mail de confirmación, sin evento de conversión en Meta y sin atribución UTM; documentos de contexto sin indexar para el RAG y leads de ManyChat sin score. Datos de marketing incompletos que se usan para decidir pauta.
 - **Qué hay que hacer:** envolver esos disparos en `after(() => …)`.
 - **Criterio de aceptación:** Los disparos de embeddings RAG, scoring de leads de ManyChat, sync inicial de YouTube, mails de waitlist y eventos de Meta están envueltos en after() (o con await) y no queda ninguno sin await tras responder; al anotarse en la waitlist llega el mail y al subir un documento de contexto queda indexado en producción
 - **Dónde:** `app/api/waitlist/route.ts`, `app/api/integrations/youtube/oauth/callback/route.ts`, `lib/business-context/`, scoring de ManyChat.
 
 #### [ENV-LIMPIEZA] Variables de entorno desalineadas entre código, `.env.example`, `turbo.json` y Vercel
 - **Tipo:** deuda técnica
+- **Severidad:** Media
 - **Estado verificado:** faltan en `.env.example` y el código las usa: `WORKER_AUTH_SECRET`, `ZERNIO_WEBHOOK_SECRET`, `ZERNIO_BASE_URL`, `CALENDLY_CLOSER_REDIRECT_URI`, `SUPER_ADMIN_GOOGLE_REDIRECT_URI`, `GHL_API_BASE`, `HYROS_API_BASE`, `VTURB_API_BASE`, `WEBINARJAM_API_BASE`, `SENTRY_*`, `NEXT_PUBLIC_SOP_VIDEO_MAX_MB`. Sobra `NEXT_PUBLIC_VSL_URL`. `.env.example` dice que `CRON_SECRET` es "opcional" (es obligatoria). En Vercel sobran `NEXT_PUBLIC_VSL_URL`, `NEXT_PUBLIC_NAV_STYLE`, `REDIS_URL`, `QSTASH_URL`, `GOOGLE_REDIRECT_URI`, `FATHOM_REDIRECT_URI`; faltan `LIMITLESS_WEBHOOK_SECRET` (está `OTC_`), `FATHOM_WEBHOOK_SECRET`, `NEXT_PUBLIC_UTM_ORGANIZATION_ID`. `turbo.json` `build.env` no declara la mayoría de las nuevas y sigue listando `OTC_WEBHOOK_SECRET`.
+- **Riesgo:** Si alguien arma un entorno nuevo desde `.env.example` o borra el respaldo `OTC_WEBHOOK_SECRET` sin cargar `LIMITLESS_WEBHOOK_SECRET`, entonces fallan en silencio el worker, el webhook de Zernio, el bot de Discord o el tracking UTM de la waitlist (sin `NEXT_PUBLIC_UTM_ORGANIZATION_ID` hoy no se registra ningún UTM de la waitlist, `waitlist/route.ts:154`).
+- **Impacto:** Operación y deploys: configuraciones incompletas difíciles de diagnosticar; hoy concretamente la captura UTM de la waitlist está apagada en prod por falta de la variable.
 - **Qué hay que hacer:** actualizar `.env.example` y `turbo.json` con la tabla de `docs/operacion/entorno-y-deploy.md`; limpiar Vercel; renombrar `OTC_WEBHOOK_SECRET` → `LIMITLESS_WEBHOOK_SECRET` en Vercel y Railway y después borrar el respaldo.
 - **Criterio de aceptación:** Todas las variables que usa el código (incluidas WORKER_AUTH_SECRET, ZERNIO_WEBHOOK_SECRET, ZERNIO_BASE_URL, CALENDLY_CLOSER_REDIRECT_URI, SUPER_ADMIN_GOOGLE_REDIRECT_URI, *_API_BASE, SENTRY_*, NEXT_PUBLIC_SOP_VIDEO_MAX_MB) figuran en .env.example y turbo.json, coincidiendo con la tabla de docs/operacion/entorno-y-deploy.md, y CRON_SECRET figura como obligatoria; en Vercel no quedan NEXT_PUBLIC_VSL_URL, NEXT_PUBLIC_NAV_STYLE, REDIS_URL, QSTASH_URL, GOOGLE_REDIRECT_URI ni FATHOM_REDIRECT_URI y sí están LIMITLESS_WEBHOOK_SECRET, FATHOM_WEBHOOK_SECRET y NEXT_PUBLIC_UTM_ORGANIZATION_ID; OTC_WEBHOOK_SECRET ya no se usa en código, turbo.json, Vercel ni Railway y el bot de Discord sigue autenticando contra la web
 - **Dónde:** `.env.example`, `turbo.json`, Vercel, Railway, `apps/web/lib/discord/webhook-auth.ts`, `apps/discord-bot/src/lib/limitless-api.ts`.
 
 #### [AUD-SALUD-4 / T-14 / T-BYOK] Sin tests en agente, IA, RAG, auth y colas
 - **Tipo:** tests
+- **Severidad:** Media
 - **Estado verificado:** no hay `__tests__` en `lib/agent`, `lib/ai`, `lib/rag`, `lib/auth`, `lib/holding`, `lib/queue`, `lib/calendly`, `lib/typeform`, `lib/mercadopago`. CLAUDE.md declara invariantes testeables (la compaction no muta el historial; BYOK cae al global).
+- **Riesgo:** Si se modifica compaction, credential resolver, verificación de colas o el switch de holding, entonces una regresión (p. ej. aceptar requests de cola sin firma o resolver la org equivocada en un holding) llega a prod sin que ningún test la frene.
+- **Impacto:** Los módulos sin red son justo los de aislamiento entre orgs y autenticación de workers; el daño potencial de una regresión es Crítico, pero la falta de tests en sí es un riesgo acotado.
 - **Qué hay que hacer:** empezar por `compact-conversation.ts` (no muta la entrada, conserva los últimos 6), `credential-resolver.ts`/`executeWithCredentialFallback` (orden BYOK → global), `verify-queue-request.ts` (secreto vs firma) y `resolveEffectiveOrganizationId` del holding.
 - **Criterio de aceptación:** Existen tests en lib/agent, lib/ai, lib/queue y lib/holding que verifican: la compaction no muta la entrada y conserva los últimos 6 mensajes; executeWithCredentialFallback usa primero la key BYOK de la org y cae a la global; verifyQueueRequest acepta secreto o firma QStash y rechaza sin ninguno, y resolveEffectiveOrganizationId respeta el holding; pnpm test pasa
 - **Dónde:** `apps/web/lib/{agent,ai,queue,auth,holding}/__tests__/`.
 
 #### [T-1] Tests de `derive-finance-summary.ts` y `derive-monthly-series.ts`
 - **Tipo:** tests
+- **Severidad:** Media
 - **Estado verificado:** `lib/metrics/__tests__/` sólo tiene `build-sales-funnel-stages` y `match-closer`.
+- **Riesgo:** Si se toca la agregación mensual o el desglose por closer, entonces un corrimiento ART/UTC o un mes vacío mal tratado cambia los números del dashboard sin que nada lo detecte.
+- **Impacto:** Métricas de Finanzas y comisiones por closer que el negocio usa para decidir; hoy no hay bug conocido, es prevención.
 - **Qué hay que hacer:** agrupación por mes (ART vs UTC), meses vacíos, `deriveCloserBreakdown` con 0/1 closer y sin `closed_by_name`, reembolsos y `null`.
 - **Criterio de aceptación:** Hay tests de derive-finance-summary.ts y derive-monthly-series.ts que cubren agrupación por mes en hora de Argentina vs UTC, meses vacíos, deriveCloserBreakdown con 0/1 closer y sin closed_by_name, reembolsos y valores null; pnpm test pasa
 - **Dónde:** `apps/web/lib/metrics/`.
 
 #### [T-2] Tests de `revenue-period.ts` y `revenue-events.ts`
 - **Tipo:** tests
+- **Severidad:** Media
 - **Estado verificado:** sin tests.
+- **Riesgo:** Si se cambia el cálculo de período o de eventos de revenue, entonces cuotas que cruzan meses o pagos sin fecha pueden contarse doble o desaparecer sin aviso.
+- **Impacto:** Revenue por período en dashboards de Finanzas; prevención, sin bug confirmado.
 - **Qué hay que hacer:** bordes de período, cuotas entre meses, pago sin fecha.
 - **Criterio de aceptación:** Hay tests de revenue-period.ts y revenue-events.ts que cubren bordes de período, cuotas que cruzan meses y pagos sin fecha; pnpm test pasa
 - **Dónde:** `apps/web/lib/metrics/`.
 
 #### [T-3] Tests de `parse-client-import.ts` y `excel-parser.ts`
 - **Tipo:** tests
+- **Severidad:** Media
 - **Estado verificado:** `lib/clients/__tests__/` no cubre los parsers. El bug de montos sigue (`lib/metrics/excel-parser.ts:67` borra todos los puntos), ver `[AUD-DIN-1]`.
+- **Riesgo:** Si se importan Excel con montos decimales, entonces hoy ya se multiplican (bug `[AUD-DIN-1]`, `excel-parser.ts:67`); sin tests, el arreglo y futuros cambios del parser no quedan protegidos.
+- **Impacto:** Importaciones de clientes y montos incorrectos; el daño del bug vive en AUD-DIN-1, este ítem es la red de seguridad.
 - **Qué hay que hacer:** título fusionado, filas vacías, `pickBestSheet`, `sheetName` explícito, montos con punto decimal; workbooks armados en memoria.
 - **Criterio de aceptación:** Hay tests de parse-client-import.ts y excel-parser.ts con workbooks armados en memoria que cubren título fusionado, filas vacías, pickBestSheet, sheetName explícito y montos con punto decimal; pnpm test pasa (el caso de montos con punto decimal pasa recién cuando se cierre AUD-DIN-1)
 - **Dónde:** `apps/web/lib/clients/`, `apps/web/lib/metrics/excel-parser.ts`.
 
 #### [T-4] Tests de `lib/clients/payment-utils.ts`
 - **Tipo:** tests
+- **Severidad:** Media
 - **Estado verificado:** sin tests.
+- **Riesgo:** Si cambia el formato del payload de cierre o la lógica de cuotas, entonces el monto pagado, el número de cuota o la fecha se leen mal sin que un test lo marque.
+- **Impacto:** Pagos de clientes y cuotas mal registrados en la ficha y en Finanzas; prevención.
 - **Qué hay que hacer:** pago único, cuotas, payload incompleto en `getPaidAmountFromClosePayload`, `installmentNumberForClosePayload`, `getPaymentDateFromClosePayload`.
 - **Criterio de aceptación:** Hay tests de lib/clients/payment-utils.ts que cubren pago único, cuotas y payload incompleto en getPaidAmountFromClosePayload, installmentNumberForClosePayload y getPaymentDateFromClosePayload; pnpm test pasa
 - **Dónde:** `apps/web/lib/clients/payment-utils.ts`.
 
 #### [T-5] Tests de `lib/utm/`
 - **Tipo:** tests
+- **Severidad:** Baja
 - **Estado verificado:** `lib/utm/` no tiene `__tests__`.
+- **Riesgo:** Si se toca el match UTM, entonces un lead puede atribuirse al link equivocado sin que nada lo detecte.
+- **Impacto:** Atribución de marketing por link UTM; hoy además la captura UTM de la waitlist está apagada por falta de variable (ver ENV-LIMPIEZA), así que el alcance actual es chico.
 - **Qué hay que hacer:** match por email vs identificador, ventana, dos links candidatos, lead sin UTM.
 - **Criterio de aceptación:** Hay tests en lib/utm/__tests__ que cubren match por email vs por identificador, ventana de atribución, dos links candidatos y lead sin UTM; pnpm test pasa
 - **Dónde:** `apps/web/lib/utm/`.

@@ -6,6 +6,7 @@ a Jira. **No se edita a mano**: `PENDIENTES.md` es la única fuente del backlog 
 ```bash
 python3 docs/backlog/pendientes_a_jira.py           # regenera el CSV
 python3 docs/backlog/pendientes_a_jira.py --check   # valida sin escribir
+python3 docs/backlog/pendientes_a_jira.py --actualizar-indices   # recalcula la tabla de P0 y el índice por área de PENDIENTES.md, valida y regenera
 ```
 
 La validación falla si hay un ID repetido, si a un ítem P0/P1 le falta severidad, riesgo, impacto o criterio de aceptación, si una severidad no es de la escala, o si el índice por área de `PENDIENTES.md` no coincide con los ítems.

@@ -6,6 +6,7 @@ se regenera. Uso (desde la raíz del repo):
 
     python3 docs/backlog/pendientes_a_jira.py           # escribe docs/backlog/jira-import.csv
     python3 docs/backlog/pendientes_a_jira.py --check   # sólo valida, no escribe
+    python3 docs/backlog/pendientes_a_jira.py --actualizar-indices --check   # recalcula índice y tabla de P0
 
 --check falla si hay IDs repetidos, un ítem P0/P1 sin criterio de aceptación, severidad, riesgo o
 impacto, una severidad fuera de la escala, o si el índice por área no coincide con los ítems.
@@ -178,8 +179,36 @@ def fila(it):
             "\n\n".join(partes), it["id"], it["area"], it["prioridad"], c.get("Severidad", ""), tipo]
 
 
+def actualizar_indices(items):
+    """Reescribe la tabla de P0 y los conteos del índice por área de PENDIENTES.md a partir de los ítems."""
+    lineas = SRC.read_text(encoding="utf-8").splitlines()
+    conteo = {}
+    for it in items:
+        conteo[(it["area"], it["prioridad"])] = conteo.get((it["area"], it["prioridad"]), 0) + 1
+    for k, linea in enumerate(lineas):
+        m = re.match(r"^\| \[([^\]]+)\]\(#[^)]*\) \|", linea)
+        nombre = area_de(m.group(1))[0] if m else None
+        if nombre and linea.count("|") == 7:
+            cols = linea.split("|")
+            for j, p in enumerate(PRIORIDAD_JIRA):
+                cols[3 + j] = f" {conteo.get((nombre, p), 0)} "
+            lineas[k] = "|".join(cols)
+    ini = next(k for k, l in enumerate(lineas) if l.startswith("## P0"))
+    fin = next(k for k in range(ini + 1, len(lineas)) if lineas[k].startswith("## "))
+    tabla = ["| ID | Área | Severidad | Qué |", "|---|---|---|---|"]
+    for it in items:
+        if it["prioridad"] == "P0":
+            tabla.append(f"| `[{it['id']}]` | {it['area']} | {it['campos'].get('Severidad', '')} | {it['titulo']} |")
+    lineas[ini:fin] = [lineas[ini], ""] + tabla + [""]
+    SRC.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+
+
 def main():
     items = parsear()
+    if "--actualizar-indices" in sys.argv:
+        actualizar_indices(items)
+        print("Índice por área y tabla de P0 actualizados")
+        items = parsear()
     errores = validar(items)
     conteo = {}
     for it in items:
