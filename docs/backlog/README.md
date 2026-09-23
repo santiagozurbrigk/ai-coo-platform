@@ -8,7 +8,7 @@ python3 docs/backlog/pendientes_a_jira.py           # regenera el CSV
 python3 docs/backlog/pendientes_a_jira.py --check   # valida sin escribir
 ```
 
-La validación falla si hay un ID repetido, un ítem P0/P1 sin criterio de aceptación o si el índice por área de `PENDIENTES.md` no coincide con los ítems.
+La validación falla si hay un ID repetido, si a un ítem P0/P1 le falta severidad, riesgo, impacto o criterio de aceptación, si una severidad no es de la escala, o si el índice por área de `PENDIENTES.md` no coincide con los ítems.
 
 Una vez que el backlog viva en Jira, lo que se cambie allá no vuelve solo a `PENDIENTES.md`. Hay que decidir
 cuál de los dos manda. Mientras no se decida, un ítem cerrado en Jira también se borra de `PENDIENTES.md`
@@ -21,9 +21,9 @@ cuál de los dos manda. Mientras no se decida, un ítem cerrado en Jira también
 | Summary | `[ID] Título`. El ID es el mismo de `PENDIENTES.md`, así se puede buscar en los dos lados |
 | Issue Type | `Bug` para bugs y seguridad, `Story` para features, `Task` para el resto (deuda, tests, verificación manual, decisiones de negocio, investigación) |
 | Priority | P0 → Highest · P1 → High · P2 → Medium · P3 → Low |
-| Labels | Área, prioridad (`p0`…`p3`) y tipo (`seguridad`, `deuda-tecnica`, `verificacion-manual`, `decision-de-negocio`…). Los ítems que son parte del arreglo transversal de permisos llevan `permisos-transversal` |
-| Description | Tipo, estado verificado en el código, qué hay que hacer, **criterio de aceptación** (sólo P0 y P1) y dónde, en formato wiki de Jira |
-| ID Limitless, Área, Prioridad Limitless, Tipo Limitless | Copia de los datos originales. Se pueden mapear a campos propios o ignorar |
+| Labels | Área, prioridad (`p0`…`p3`), severidad (`sev-critica`, `sev-alta`, `sev-media`, `sev-baja`) y tipo (`seguridad`, `deuda-tecnica`, `verificacion-manual`, `decision-de-negocio`…). Los ítems que son parte del arreglo transversal de permisos llevan `permisos-transversal` |
+| Description | Tipo, severidad, estado verificado en el código (el hecho), riesgo, impacto, qué hay que hacer (la recomendación), **criterio de aceptación** y dónde, en formato wiki de Jira. Severidad, riesgo, impacto y criterio son obligatorios en P0/P1 |
+| ID Limitless, Área, Prioridad Limitless, Severidad, Tipo Limitless | Copia de los datos originales. Se pueden mapear a campos propios o ignorar |
 
 Los criterios de aceptación están escritos sólo para P0 y P1. Un P2 o P3 recibe el suyo cuando entra en un
 sprint, al refinarlo.
@@ -34,7 +34,7 @@ sprint, al refinarlo.
    externa del sistema → CSV** (según el plan, uno u otro).
 2. Subir `jira-import.csv`, codificación **UTF-8**, separador **coma**.
 3. Mapear: `Summary` → Resumen, `Issue Type` → Tipo de incidencia, `Priority` → Prioridad,
-   cada `Labels` → Etiquetas, `Description` → Descripción. Las cuatro últimas columnas se pueden dejar sin mapear.
+   cada `Labels` → Etiquetas, `Description` → Descripción. Las cinco últimas columnas se pueden dejar sin mapear (o mapear `Severidad` a un campo propio, si el proyecto lo tiene).
 4. Si el proyecto no tiene los tipos `Bug`/`Story`/`Task` con esos nombres (por ejemplo, está en castellano),
    mapear los valores en el paso de "valores de campo" del asistente.
 

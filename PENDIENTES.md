@@ -9,11 +9,11 @@
 
 - Este archivo tiene **sólo lo abierto**. Cuando cerrás un ítem, **borralo** y nombrá su ID en la entrada
   de `CHANGES.md`. No hay sección de "completados".
-- Un ítem nuevo va en la sección de su área, en su prioridad, con el mismo formato: ID en corchetes,
-  **Tipo**, **Estado verificado** (qué viste en el código), **Qué hay que hacer**, **Dónde**. Los P0 y P1
-  llevan además **Criterio de aceptación** (qué se prueba y qué tiene que pasar para darlo por cerrado).
+- Un ítem nuevo va en la sección de su área, en su prioridad, con el formato de hallazgo de abajo. Los P0 y
+  P1 llevan todos los campos; los P2/P3, como mínimo Tipo, Estado verificado, Qué hay que hacer y Dónde.
 - Después de tocar este archivo, regenerá el CSV de Jira: `python3 docs/backlog/pendientes_a_jira.py`
-  (ver [`docs/backlog/`](./docs/backlog/README.md)). Falla si un P0/P1 no tiene criterio o si hay un ID repetido.
+  (ver [`docs/backlog/`](./docs/backlog/README.md)). Falla si a un P0/P1 le falta un campo obligatorio, si hay
+  un ID repetido o si el índice por área no coincide con los ítems.
 - Las funcionalidades a las que afecta cada ítem están en [`docs/FUNCIONAL.md`](./docs/FUNCIONAL.md).
 - Lo que requiere probar con cuentas reales se lista acá como `verificación manual` y los pasos están en
   [`docs/operacion/verificacion-manual.md`](./docs/operacion/verificacion-manual.md).
@@ -27,7 +27,34 @@
 | **P2** | Mejora, deuda o limpieza con costo acotado. |
 | **P3** | Idea, feature futura o decisión de negocio sin urgencia. |
 
+**Severidad** (independiente de la prioridad: la severidad mide cuánto daño hace si ocurre; la prioridad, qué
+tan rápido hay que resolverlo)
+
+| | Significa |
+|---|---|
+| **Crítica** | Puede dar acceso a datos de otra organización, exponer secretos o credenciales, perder o corromper datos, perder plata registrada o tirar el sistema |
+| **Alta** | Escalamiento de permisos dentro de una organización, datos incorrectos que se usan para decidir, una funcionalidad central inutilizable o una falla silenciosa de un proceso importante |
+| **Media** | Problema real pero acotado: tiene workaround o afecta a pocos o a una parte secundaria |
+| **Baja** | Calidad, mantenimiento, prolijidad, cosmético |
+
 **Tipos:** bug · seguridad · verificación manual · deuda técnica · feature · decisión de negocio · tests · investigación.
+
+**Formato de hallazgo.** Cada ítem separa el hecho de la opinión:
+
+```
+#### [ID] Título corto que describe el problema
+- **Tipo:** …
+- **Severidad:** Crítica | Alta | Media | Baja          (obligatorio en P0/P1)
+- **Estado verificado:** el HECHO, con evidencia (archivo:línea, migración, policy). Sin opinión.
+- **Riesgo:** qué puede pasar y en qué condiciones ("si …, entonces …").   (obligatorio en P0/P1)
+- **Impacto:** a quién y a qué afecta, y cuánto.                           (obligatorio en P0/P1)
+- **Qué hay que hacer:** la RECOMENDACIÓN.
+- **Criterio de aceptación:** qué se prueba y qué tiene que pasar.         (obligatorio en P0/P1)
+- **Dónde:** archivos y tablas.
+```
+
+Los informes de auditoría con el mismo criterio (hecho · observación · riesgo · recomendación) están en
+[`docs/auditoria/`](./docs/auditoria/README.md).
 
 
 ## P0 — lo que rompe o arriesga plata, datos o seguridad

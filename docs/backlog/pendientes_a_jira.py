@@ -7,7 +7,8 @@ se regenera. Uso (desde la raíz del repo):
     python3 docs/backlog/pendientes_a_jira.py           # escribe docs/backlog/jira-import.csv
     python3 docs/backlog/pendientes_a_jira.py --check   # sólo valida, no escribe
 
---check falla si hay IDs repetidos o un ítem P0/P1 sin criterio de aceptación.
+--check falla si hay IDs repetidos, un ítem P0/P1 sin criterio de aceptación, severidad, riesgo o
+impacto, una severidad fuera de la escala, o si el índice por área no coincide con los ítems.
 Sólo usa la biblioteca estándar.
 """
 
@@ -34,7 +35,9 @@ AREAS = {
     "Infraestructura, seguridad y tests (transversal)": ("infra", "docs/arquitectura/vision-general.md"),
 }
 
-CAMPOS = ["Tipo", "Parte de", "Estado verificado", "Qué hay que hacer", "Criterio de aceptación", "Dónde"]
+CAMPOS = ["Tipo", "Severidad", "Parte de", "Estado verificado", "Riesgo", "Impacto", "Qué hay que hacer",
+          "Criterio de aceptación", "Dónde"]
+SEVERIDADES = ("Crítica", "Alta", "Media", "Baja")
 
 
 def area_de(encabezado):
@@ -128,8 +131,13 @@ def validar(items):
         if it["id"] in vistos:
             errores.append(f"ID repetido: [{it['id']}]")
         vistos[it["id"]] = True
-        if it["prioridad"] in ("P0", "P1") and not it["campos"].get("Criterio de aceptación"):
-            errores.append(f"{it['prioridad']} sin criterio de aceptación: [{it['id']}]")
+        if it["prioridad"] in ("P0", "P1"):
+            for campo in ("Criterio de aceptación", "Severidad", "Riesgo", "Impacto"):
+                if not it["campos"].get(campo):
+                    errores.append(f"{it['prioridad']} sin {campo.lower()}: [{it['id']}]")
+        sev = it["campos"].get("Severidad")
+        if sev and sev not in SEVERIDADES:
+            errores.append(f"Severidad inválida '{sev}': [{it['id']}]")
 
     # El índice por área del encabezado tiene que coincidir con los ítems reales.
     conteo = {}
@@ -151,11 +159,14 @@ def fila(it):
     c = it["campos"]
     tipo = c.get("Tipo", "")
     etiqueta_area, doc = it["area_datos"]
-    etiquetas = [etiqueta_area, it["prioridad"].lower()] + etiquetas_tipo(tipo)
+    etiquetas = [etiqueta_area, it["prioridad"].lower()]
+    if c.get("Severidad"):
+        etiquetas.append("sev-" + slug(c["Severidad"]))
+    etiquetas += etiquetas_tipo(tipo)
     if "Parte de" in c:
         etiquetas.append("permisos-transversal")
-    etiquetas = list(dict.fromkeys(etiquetas))[:5]
-    etiquetas += [""] * (5 - len(etiquetas))
+    etiquetas = list(dict.fromkeys(etiquetas))[:6]
+    etiquetas += [""] * (6 - len(etiquetas))
 
     partes = [f"*{nombre}:* {md_a_jira(c[nombre])}" for nombre in CAMPOS if c.get(nombre)]
     if not partes:
@@ -164,7 +175,7 @@ def fila(it):
     resumen = f"[{it['id']}] {it['titulo'].replace('`', '')}"[:250]
 
     return [resumen, tipo_jira(tipo), PRIORIDAD_JIRA[it["prioridad"]], *etiquetas,
-            "\n\n".join(partes), it["id"], it["area"], it["prioridad"], tipo]
+            "\n\n".join(partes), it["id"], it["area"], it["prioridad"], c.get("Severidad", ""), tipo]
 
 
 def main():
@@ -184,8 +195,8 @@ def main():
     items.sort(key=lambda it: (orden[it["prioridad"]], list(AREAS).index(it["area"])))
     with OUT.open("w", encoding="utf-8", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["Summary", "Issue Type", "Priority", "Labels", "Labels", "Labels", "Labels", "Labels",
-                    "Description", "ID Limitless", "Área", "Prioridad Limitless", "Tipo Limitless"])
+        w.writerow(["Summary", "Issue Type", "Priority", "Labels", "Labels", "Labels", "Labels", "Labels", "Labels",
+                    "Description", "ID Limitless", "Área", "Prioridad Limitless", "Severidad", "Tipo Limitless"])
         for it in items:
             w.writerow(fila(it))
     print(f"Escrito {OUT.relative_to(ROOT)}")
