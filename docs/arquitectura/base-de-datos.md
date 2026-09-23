@@ -4,7 +4,7 @@
 
 ## Qué es
 
-Una sola base PostgreSQL 17 en Supabase (Auth + Storage + pgvector), multi-tenant por `organization_id`. **El schema se define sólo con las migraciones de `supabase/migrations/`**: no hay `database.types.ts` generado ni ORM; los tipos de fila se escriben a mano en `apps/web/types/` o junto al mapper de cada dominio. Producción tiene 147 tablas en `public`, todas con RLS habilitado.
+Una sola base PostgreSQL 17 en Supabase (Auth + Storage + pgvector), multi-tenant por `organization_id`. **El schema se define sólo con las migraciones de `supabase/migrations/`**: no hay `database.types.ts` generado ni ORM; los tipos de fila se escriben a mano en `apps/web/types/` o junto al mapper de cada dominio. Producción tiene 147 tablas en `public`, todas con RLS habilitado. **Producción está en plan Free de Supabase: no hay backups ni PITR** (`[DR-BACKUPS-SUPABASE]`; ver [`../auditoria/backups-y-recuperacion.md`](../auditoria/backups-y-recuperacion.md)).
 
 ## Migraciones
 
@@ -34,6 +34,7 @@ Matices que un dev tiene que saber:
    - SQL Editor: no registra nada; insertar la fila a mano.
 3. En la misma migración: RLS, policies y grants. En Supabase las tablas y funciones nuevas nacen con GRANT explícito a `anon`/`authenticated`; `revoke ... from public` no alcanza, hay que revocar a cada rol (comentario en `20260922110000_rpcs_y_policies_entre_organizaciones.sql`).
 4. Una migración ya aplicada **no se edita**: cualquier corrección es un archivo nuevo.
+5. Si la migración borra o transforma datos (`drop`, `delete`, `update` masivo, cambio de tipo), antes de aplicarla hacer un dump de las tablas afectadas (`supabase db dump --data-only -t <tabla>`), guardarlo fuera del repo y escribir en el comentario del archivo cómo se revierte. Preferir expand/contract: primero agregar, después (en otro deploy) borrar, para que un rollback de Vercel siga funcionando.
 
 ### Chequeo en CI
 
@@ -107,7 +108,7 @@ Vistas: `organization_claude_status` (estado de la key de Claude, filtrada por o
 
 Buckets creados por migraciones: `avatars`, `agent-documents`, `content-thumbnails` (público, con policy pública de listado), `trial-reels`, `client-wins`, `sop-videos`, `discord-bot-avatars`.
 
-**Buckets que el código usa y ninguna migración crea** (existen sólo en el dashboard; confirmar que son privados): `client-payment-receipts`, `business-context-documents`, `sop-attachments`, `workboard-task-attachments`, `ai-brain-documents` (`[AUD-SEG-9]`). Las rutas de objeto se validan contra la carpeta de la org en `lib/storage/org-path.ts`.
+**Buckets que el código usa y ninguna migración crea** (existen sólo en el dashboard; confirmar que son privados): `client-payment-receipts`, `business-context-documents`, `sop-attachments`, `workboard-task-attachments`, `ai-brain-documents` (`[AUD-SEG-9]`). Además existe en producción `import-files` (legacy del importador viejo, 2 archivos al 2026-09-23), con policies que dejan leer y borrar a cualquier usuario autenticado (`[SEG-BUCKET-IMPORT-FILES]`, P0). Tamaño por bucket: [`../auditoria/backups-y-recuperacion.md`](../auditoria/backups-y-recuperacion.md). Las rutas de objeto se validan contra la carpeta de la org en `lib/storage/org-path.ts`.
 
 ## Inventario de tablas por área
 

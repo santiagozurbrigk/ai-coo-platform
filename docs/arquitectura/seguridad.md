@@ -56,7 +56,7 @@ Qué se guarda cifrado y qué no:
 | Tokens de Mercado Pago | `mercadopago_integrations` | sí (`lib/mercadopago/tokens.ts`) |
 | Tokens OAuth de Calendly, Stripe, Instagram, Typeform, Google/YouTube, Drive de super-admin; `fathom_integrations.api_key`; token de ManyChat | `*_integrations`, `super_admin_google_tokens` | **no** — protegidos sólo por RLS cerrado (`[AUD-SEG-2]`) |
 
-Rotar `ENCRYPTION_MASTER_KEY` invalida todo lo cifrado: no hay re-cifrado automático.
+Rotar `ENCRYPTION_MASTER_KEY` invalida todo lo cifrado: no hay re-cifrado automático. Efecto concreto: la clave de Claude de cada org cae en silencio a la global, las demás integraciones cifradas dejan de funcionar y los webhooks de pagos responden 404 (Commas no reintenta: esos cobros se pierden). Ver `[SEC-MASTER-KEY-ROTACION]`.
 
 ## Crons, colas y bot
 

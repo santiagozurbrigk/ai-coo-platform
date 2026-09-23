@@ -322,7 +322,7 @@ repiten: se listan al final con su ID.
 - **Recomendación.** Prefijo de versión (`v1.iv.tag.ct`), `ENCRYPTION_MASTER_KEY_PREVIOUS` para descifrar lo viejo,
   script de re-cifrado con service role, AAD con `organization_id` + nombre de columna, y validar 32 bytes al leer la
   clave. Hacerlo junto con `[AUD-SEG-2]` (que ya obliga a tocar el cifrado).
-- **PENDIENTES:** nuevo `[CIFRADO-ROTACION]` (P2).
+- **PENDIENTES:** `[SEC-MASTER-KEY-ROTACION]` (propuesto en [`backups-y-recuperacion.md`](./backups-y-recuperacion.md)). Se propone sumarle AAD y la validación de largo (ver `cambios-secretos-auth.md`).
 
 ### A-4 · Baja · `admin.ts` y `encryption.ts` no están marcados como sólo-servidor; `env.ts` mezcla la clave pública con la de service role
 

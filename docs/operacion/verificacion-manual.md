@@ -19,7 +19,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | 11 |
 | [Agente de negocio e IA](#agente-de-negocio-e-ia) | 12 |
 | [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | 8 |
-| [Infraestructura](#infraestructura) | 10 |
+| [Infraestructura](#infraestructura) | 11 |
 
 ---
 
@@ -1134,3 +1134,16 @@ en `sop_generation_jobs` (`status`, `error`): puede decir dónde falla sin subir
 3. Correr a mano un cron con `?organizationId=` (`curl -X POST …/api/cron/sync-content-metrics?organizationId=<uuid> -H "Authorization: Bearer $CRON_SECRET"`).
 
 **Resultado esperado:** todos con ejecuciones recientes en 2xx; los fallos devuelven 500 (no `ok: true` con ceros); en 2, ⚠️ puede aparecer un error de índice único por las dos corridas simultáneas (`[AUD-CONF-3]`).
+
+### V-INFRA-11 · Plan, cupos y backups de Supabase; copia de la master key ⚠️🔒 — `[DR-BACKUPS-SUPABASE]`, `[SUPABASE-PLAN-FREE-LIMITES]`, `[SEC-MASTER-KEY-ROTACION]`
+
+**Prerrequisitos:** acceso de owner a la organización de Supabase del proyecto `OTC`; acceso al gestor de secretos del equipo.
+
+1. Supabase → Organization → Billing: anotar el plan y el uso de Database size y Storage size contra el cupo.
+2. Supabase → Storage → Settings: anotar el límite global de subida.
+3. Supabase → Database → Backups: ¿hay backups diarios listados? ¿PITR?
+4. Confirmar que `ENCRYPTION_MASTER_KEY` de producción está guardada fuera de Vercel y quién tiene acceso (no copiar el valor en ningún doc).
+5. Confirmar cuántos owners tienen Supabase, Vercel, Fly y Railway.
+
+**Resultado esperado:** 1 → plan pago o, si sigue Free, uso de Storage < 50 % del cupo; 3 → al menos un backup de menos de 24 h (o el dump automático de `[DR-BACKUPS-SUPABASE]`); 4 → existe copia, con acceso de al menos dos personas; 5 → al menos dos owners. ⚠️ Al 2026-09-23: plan `free` (confirmado con la API de Supabase), sin backups, Storage ≈ 797 MB de 1 GB.
+

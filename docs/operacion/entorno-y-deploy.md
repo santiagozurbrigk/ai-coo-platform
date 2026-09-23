@@ -112,7 +112,7 @@ El bot valida al arrancar que estén las cinco (`apps/discord-bot/src/index.ts`)
 - Build: `next build` (con `withSentryConfig`); `outputFileTracingRoot` en la raíz del monorepo; `serverExternalPackages` para ffmpeg; `serverActions.bodySizeLimit = 16mb` (adjuntos del inbox).
 - Límites de duración: la mayoría de las rutas declara `maxDuration` 60; agente y RAG 300; `daily-signals` 600; `process-sop-video` 800.
 - Redirects en `next.config.ts`: `/` → `/login` (temporal), los de `lib/navigation/redirects.ts` y el callback viejo de Google Forms.
-- Rollback: desde el dashboard de Vercel (promover un deploy anterior). No revierte migraciones.
+- Rollback: desde el dashboard de Vercel (promover un deploy anterior). No revierte migraciones: sólo es seguro si la migración del deploy era compatible hacia atrás. Después de un rollback, re-promover el último deploy cuando esté arreglado. Qué hacer ante un incidente: [`incidentes.md`](./incidentes.md).
 
 ## Workflow de git
 
@@ -133,6 +133,7 @@ Vercel **no aplica migraciones**. El orden es: aplicar la migración en Supabase
 - App `otc-reel-worker`, región `gru`, VM `performance-2x` (2 vCPU, 4 GB), concurrencia 1 (soft) / 2 (hard), `auto_stop_machines` con `min_machines_running = 0` (arranca en frío con el primer job).
 - Deploy manual: `fly deploy --config apps/reel-worker/fly.toml` (o `cd apps/reel-worker && fly deploy`). **No hay deploy automático** ni CI para este worker.
 - Secrets con `fly secrets set` (lista arriba).
+- Rollback: `fly releases -a otc-reel-worker` y `fly deploy --image <imagen de la release anterior>`.
 - Endpoints: `GET /health`, `POST /` (procesa el job **sincrónicamente**, con la conexión abierta para que Fly no apague la máquina: descarga de Storage, 5 variantes con FFmpeg, captions con Haiku, sube a `trial-reels`, marca el job `preview_ready`; responde 200 aunque falle, para que QStash no reintente). `fly.toml` no define health check.
 - Assets opcionales en `apps/reel-worker/luts/`: está `warm.cube`; falta `background-music.mp3`. Sin ese archivo la V3 conserva el audio original y se diferencia sólo por crop y metadatos; la música propia de la org no llega porque el schema del worker descarta `reelMusicPath` (`[TRIAL-REELS-MUSICA]`). Ver `[TRIAL-4]` en marketing.
 
