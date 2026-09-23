@@ -14,6 +14,24 @@
 
 ---
 
+### 2026-09-23 — 🔓 `/privacidad` pública
+
+**Rama/branch:** `claude/gallant-johnson-hczrys` (reiniciada desde `main` después del #76)
+**Commits:** este
+**Módulo(s) afectado(s):** `lib/supabase/public-paths.ts` y su test.
+
+**Qué se hizo:** `/privacidad` entra en `isPublicPath` (sólo la ruta exacta).
+Hay un caso nuevo en el test.
+
+**Por qué / finalidad:** es la política de privacidad que se declara en las apps
+OAuth (Google, Meta). Sin sesión redirigía al login, y quien revisa esas apps no
+inicia sesión.
+
+**Riesgos / deuda técnica pendiente:** el link «← Volver al inicio» de la página
+apunta a `/`, que ahora lleva al login. No se tocó.
+
+---
+
 ### 2026-09-23 — 🧹 Landing de `/` eliminada; la raíz redirige a `/login`. Migración del onboarding aplicada en producción
 
 **Rama/branch:** `claude/gallant-johnson-hczrys`

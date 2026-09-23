@@ -25,6 +25,12 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/queue/")) return true;
   if (pathname.startsWith("/api/rag/")) return true;
   if (pathname === "/prueba" || pathname.startsWith("/prueba/")) return true;
+  /*
+   * La política de privacidad tiene que leerse sin cuenta: es la URL que se
+   * declara en las apps OAuth (Google, Meta), y quien las revisa no inicia
+   * sesión. Hasta el 2026-09-23 redirigía al login.
+   */
+  if (pathname === "/privacidad") return true;
   if (pathname === "/api/trial-confirm") return true;
   if (pathname.startsWith("/invite")) return true;
   if (pathname.startsWith("/api/invite/")) return true;

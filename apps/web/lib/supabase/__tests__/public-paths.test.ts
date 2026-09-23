@@ -17,6 +17,7 @@ describe("isPublicPath", () => {
     "/api/integrations/calendly/oauth/callback",
     "/login",
     "/onboarding-cliente/abc123",
+    "/privacidad",
   ])("deja pasar %s sin sesión", (pathname) => {
     expect(isPublicPath(pathname)).toBe(true);
   });
