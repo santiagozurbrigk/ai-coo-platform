@@ -992,7 +992,7 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 - **Qué hay que hacer:** timeout en `zernioFetchJson` y pasar todos los métodos por ahí.
 - **Dónde:** `apps/web/lib/zernio/client.ts`
 
-#### [ZERNIO-DOCS] Zernio no tiene documentación local ni entrada en API_DOCS_PENDIENTES
+#### [ZERNIO-DOCS] Zernio no tiene documentación local y sus supuestos casi no están registrados
 - **Tipo:** verificación manual
 - **Estado verificado:** `docs/external-apis/` no tiene Zernio; `/accounts/{id}/instagram/stories`, `/posts/sync-stories`, `/media/presign`, formato de firma del webhook y forma de `/analytics` están implementados por prueba y error.
 - **Qué hay que hacer:** bajar la doc (docs.zernio.com) con `docs/external-apis/tools/regenerar.sh` o registrar los supuestos en `docs/integraciones/apis-sin-documentacion.md`.
@@ -1106,7 +1106,7 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL
 - **Tipo:** verificación manual
-- **Estado verificado:** `app/api/webhooks/ghl/route.ts` acepta firma Ed25519/RSA o secreto por org; el payload del Workflow no está documentado (se buscó en `docs/external-apis/gohighlevel/`). Si el Workflow no manda `type: Opportunity*`, la ruta descarta todo con 200 `ignored` sin guardar nada.
+- **Estado verificado:** `app/api/webhooks/ghl/route.ts` acepta firma Ed25519/RSA o secreto por org; el payload del Workflow no está documentado (se buscó en `docs/external-apis/gohighlevel/`). Si el Workflow no manda `type` (o `event`/`eventType`) con valor `Opportunity*`, la ruta descarta todo con 200 `ignored` sin guardar nada. El id de oportunidad se busca capa por capa empezando por la raíz (`lib/ghl/opportunity-event.ts`): un `id` en la raíz del payload del Workflow (que puede ser el del contacto) gana sobre un `opportunityId` anidado.
 - **Qué hay que hacer:** armar el Workflow en una sub-cuenta, mirar el crudo, confirmar `type`, id de oportunidad, `pipelineStageId` y `webhookId`. Si no hay `pipelineStageId`, priorizar `[FEAT-GHL-OAUTH]`.
 - **Criterio de aceptación:** Se armó el Workflow de GHL en una sub-cuenta, se movió una oportunidad y quedó anotado el payload crudo recibido (type, id de oportunidad, pipelineStageId, webhookId); el evento quedó guardado en ghl_webhook_events en vez de descartarse como 'ignored'; si no llega pipelineStageId, se abrió o se priorizó FEAT-GHL-OAUTH
 - **Dónde:** `apps/web/lib/ghl/opportunity-event.ts`, `apps/web/app/api/webhooks/ghl/route.ts`.
