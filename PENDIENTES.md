@@ -167,6 +167,12 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 
 ### Plataforma · P2
 
+#### [ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS] El gate muestra moneda y zona horaria ya elegidas (nuevo)
+- **Tipo:** bug
+- **Estado verificado:** la migración `20260831130000_organizations_drop_unit_defaults.sql` sacó los defaults de `organizations.currency/timezone/language` para que un null signifique "nadie lo eligió" y el gate lo pregunte. Pero `getOnboardingGateDefaultsAction` (`apps/web/app/onboarding/actions.ts:42-72`) rellena el null con `USD` / `America/Argentina/Buenos_Aires` / `es`, y los `<select>` de `components/onboarding/onboarding-gate.tsx:237-266` no tienen opción vacía: el founder ve USD y Buenos Aires preseleccionados y puede avanzar sin elegir (la validación de la línea 91 sólo mira que haya valor). Es el mismo problema que la migración quiso cerrar, movido a la UI.
+- **Qué hay que hacer:** que el default del gate sea vacío cuando la columna está en null (opción "Elegí…" sin valor) y que el botón no avance hasta elegir.
+- **Dónde:** `apps/web/app/onboarding/actions.ts`, `apps/web/components/onboarding/onboarding-gate.tsx`. Paso 2 del bloque 2 de `docs/operacion/verificacion-manual.md` § Plataforma.
+
 #### [SUPERADMIN-ONBOARDING-SIN-GUARD] `loadOnboardingProgress` no llama a `requireSuperAdmin` (nuevo)
 - **Tipo:** seguridad
 - **Estado verificado:** `lib/super-admin/onboarding-progress.ts:24` llama la RPC `onboarding_org_progress` con `createAdminClient()` sin `requireSuperAdmin()`. Todas las demás lecturas del panel (`queries.ts`, `org-health.ts`, `client-health.ts`, `waitlist-queries.ts`, `holding-queries.ts`, `holdings-admin.ts`) sí lo llaman. Hoy sólo la protege el redirect de `app/(super-admin)/super-admin/layout.tsx`; es `server-only` y su único llamador es `app/(super-admin)/super-admin/onboarding/page.tsx`, así que no es explotable hoy, pero rompe la regla de guard doble.
@@ -432,8 +438,8 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 #### [ONBOARDING-CLIENTES-PROBAR] Probar el onboarding de clientes en producción
 - **Tipo:** verificación manual
 - **Estado verificado:** migración aplicada; `client_onboarding_links` y `client_onboarding_submissions` con 0 filas y `field_definitions` con 48 filas en toda la base (las 86 preguntas no se cargaron en ninguna org).
-- **Qué hay que hacer:** bloques A–G de `docs/operacion/verificacion-manual.md` § Clientes (Onboarding). Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`) queda reemplazado; sus respuestas no se importan.
-- **Criterio de aceptación:** Se ejecutaron los bloques A–G de Clientes (Onboarding) de docs/operacion/verificacion-manual.md con la organización real que tiene el add-on y el resultado quedó anotado; si algo falló, se abrió un ítem nuevo; el equipo fue avisado de que el formulario viejo queda reemplazado y sus respuestas no se importan
+- **Qué hay que hacer:** bloque 14 «Onboarding por link» de `docs/operacion/verificacion-manual.md` § Clientes. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`) queda reemplazado; sus respuestas no se importan.
+- **Criterio de aceptación:** Se ejecutó el bloque 14 «Onboarding por link» de docs/operacion/verificacion-manual.md § Clientes con la organización real que tiene el add-on y el resultado quedó anotado; si algo falló, se abrió un ítem nuevo; el equipo fue avisado de que el formulario viejo queda reemplazado y sus respuestas no se importan
 - **Dónde:** `/clients/campos`, ficha de un growth partner, `/onboarding-cliente/[token]`.
 
 #### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos
@@ -715,7 +721,7 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 #### [LLAMADAS-VERIFICAR-FATHOM] Cruce grabación ↔ turno con datos reales
 - **Tipo:** verificación manual
 - **Estado verificado:** `lib/fathom/match-appointment.ts` (ventanas de 12 h por mail y 45 min sólo horario) sin medición real.
-- **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Cruce con agenda").
+- **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas 7 ("Cruce grabación ↔ turno y clasificación").
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md § Ventas 7 («Cruce grabación ↔ turno y clasificación») con datos reales y quedó anotado cuántas grabaciones de venta cruzaron un turno y si las ventanas de 12 h / 45 min son correctas; si falló, se abrió un ítem nuevo
 - **Dónde:** `apps/web/lib/fathom/match-appointment.ts`, `resolve-sales-call.ts`.
 
@@ -999,7 +1005,7 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 - **Dónde:** `apps/web/lib/zernio/client.ts`
 
 #### [ZERNIO-DOCS] Zernio no tiene documentación local y sus supuestos casi no están registrados
-- **Tipo:** verificación manual
+- **Tipo:** deuda técnica (documentación)
 - **Estado verificado:** `docs/external-apis/` no tiene Zernio; `/accounts/{id}/instagram/stories`, `/posts/sync-stories`, `/media/presign`, formato de firma del webhook y forma de `/analytics` están implementados por prueba y error.
 - **Qué hay que hacer:** bajar la doc (docs.zernio.com) con `docs/external-apis/tools/regenerar.sh` o registrar los supuestos en `docs/integraciones/apis-sin-documentacion.md`.
 - **Dónde:** `docs/external-apis/`

@@ -176,6 +176,8 @@ Video:  prepareSopVideoUploadAction (signed URL a sop-videos) → navegador sube
   todo con `-f null` `[OPS-SOP-VIDEO-MEMORIA]`.
 - **Un miembro desactivado sigue entrando**: `is_active` no se mira en login, middleware ni RLS `[EQUIPO-DESACTIVAR-NO-BLOQUEA]`.
 - **Las escrituras del agente/Fathom/clientes no mantienen `assignee_ids`** `[WORKBOARD-ASIGNACION-AGENTE]`.
+- **Cerrar una tarea arrastrándola no registra quién la cerró** (`moveWorkboardTaskAction` no toca `completed_by/at`) `[WORKBOARD-CIERRE-ARRASTRANDO]`.
+- **El SOP desde video no puede tener capturas**: ninguna pantalla las sube contra el job `[OPS-SOP-VIDEO-CAPTURAS]`.
 - **No hay edición ni borrado de SOPs** en la UI: `updateSOPAction` existe pero nadie la llama, y no hay delete;
   por eso el versionado nunca se ejercita `[SOPS-EDITAR]`. `sop_versions` tiene 0 filas con 3 SOPs (producción, al 2026-09-23).
 - **`customRoleId` no se valida contra la org** al invitar ni al cambiar rol `[EQUIPO-CUSTOM-ROLE-ORG]`.
