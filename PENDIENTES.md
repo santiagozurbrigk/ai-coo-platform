@@ -9,27 +9,34 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [ONBOARDING-CLIENTES-APLICAR] Aplicar la migración del onboarding y probarlo 🔴
+### [ONBOARDING-CLIENTES-PROBAR] Probar el onboarding de clientes en producción 🔴
 
-**Qué es:** el formulario de onboarding por link está construido en la rama
-`claude/gallant-johnson-hczrys`:
-- el link por creador;
-- el link general con su bandeja «sin asignar»;
-- los estados de sistemas;
-- el aviso de clientes sin novedades;
-- el aviso de próximo lanzamiento.
+**Qué es:** el formulario de onboarding por link está en producción:
+- la migración se aplicó en OTC el 2026-09-23;
+- el código entró a `main` con el PR de la rama `claude/gallant-johnson-hczrys`.
 
-Hasta aplicar la migración, el botón de cargar preguntas, los links y los
-avisos fallan o no aparecen.
+Incluye el link por creador, el link general con su bandeja, los estados de
+sistemas, el aviso de clientes sin novedades y el de próximo lanzamiento.
 
 **Qué hacer:**
 
-1. Aplicar `20260923140000_onboarding_de_clientes.sql` en **OTC**, con la versión
-   del archivo (regla de CLAUDE.md, "Migraciones Supabase").
-2. Mergear el PR y cargar las preguntas en Campos personalizados (86).
-3. Seguir `docs/PLAN_VERIFICACION.md` → «Onboarding de clientes por link».
-4. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`)
+1. Campos personalizados → «Preguntas del onboarding» → Cargar preguntas (86).
+2. Seguir `docs/PLAN_VERIFICACION.md` → «Onboarding de clientes por link»,
+   bloques A a G.
+3. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`)
    queda reemplazado. Sus respuestas **no** se importan (decisión del usuario).
+
+---
+
+### [PRIVACIDAD-NO-PUBLICA] `/privacidad` pide iniciar sesión 🟠
+
+**Qué es:** la política de privacidad no está en `isPublicPath`, así que sin
+sesión redirige al login. Pasaba desde antes de borrar la landing
+(2026-09-23). Si una app OAuth (Google, Meta) la tiene configurada como URL de
+privacidad, quien revisa la app no la puede leer.
+
+**Qué hacer:** decidir si tiene que ser pública. Si sí, sumarla a
+`lib/supabase/public-paths.ts` con su caso en el test.
 
 ---
 

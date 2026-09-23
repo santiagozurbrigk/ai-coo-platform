@@ -14,6 +14,53 @@
 
 ---
 
+### 2026-09-23 — 🧹 Landing de `/` eliminada; la raíz redirige a `/login`. Migración del onboarding aplicada en producción
+
+**Rama/branch:** `claude/gallant-johnson-hczrys`
+**Commits:** este
+**Módulo(s) afectado(s):** `app/(landing)/page.tsx` (borrado), `components/landing/`
+(11 componentes borrados), `next.config.ts`; base de producción (Supabase **OTC**).
+
+**Qué se hizo:**
+
+1. **Landing borrada** (pedido del usuario): la página de `/` y todo lo que
+   sólo ella usaba: `landing-page`, las 8 secciones (hero, problemas, cómo
+   funciona, qué incluye, agendar prueba, integraciones, FAQ, CTA final),
+   `vsl-player` y `waitlist-form`, que ya no se importaba en ningún lado.
+2. **`/` redirige a `/login`** con un redirect de `next.config.ts` (temporal,
+   307). Quien tiene sesión rebota de `/login` a su panel, como antes.
+   Verificado con `next start`: `/` → 307 a `/login`.
+3. **Se quedaron**, porque no son la landing de `/`:
+   - `/prueba` (confirmar la prueba gratis) y `/privacidad`, con su layout
+     `(landing)`;
+   - `confirm-trial-form`, `landing-glass`, `meta-pixel` y `utm-capture`, que
+     esas páginas usan;
+   - `/api/waitlist`, que puede tener llamadas externas;
+   - las imágenes `public/screenshots/problem-*.png`, que ya no referenciaba
+     ningún código.
+4. **Migración `20260923140000_onboarding_de_clientes` aplicada en OTC** con
+   `apply_migration`, y la versión del historial corregida a la del archivo:
+   175 en producción, 175 en el repo. Verificado:
+   - las dos tablas nuevas con RLS y sus 4 policies;
+   - `client_last_activity` no la pueden ejecutar `authenticated` ni `anon`;
+   - las 29 organizaciones con `client_silence_days` = 15;
+   - la función devuelve los 37 clientes de Limitless, ninguno con 15 días o
+     más sin novedades hoy.
+
+**Por qué / finalidad:** el producto no se vende más desde esa landing; quien
+entra a la raíz es un usuario que va a iniciar sesión.
+
+**Riesgos / deuda técnica pendiente:**
+- ⚠️ **`/privacidad` no es pública:** sin sesión redirige al login, y ya pasaba
+  antes de este cambio (no está en `isPublicPath`). Si Google o Meta la tienen
+  como URL de política de privacidad de una app OAuth, su revisión no la puede
+  leer. Ver `[PRIVACIDAD-NO-PUBLICA]` en PENDIENTES.
+- Los links viejos a `/` (anuncios, bio) ahora terminan en el login.
+- `/prueba` sigue viva, pero ya no hay página que lleve a ella. Si el
+  embudo de prueba gratis también se abandonó, borrarla en otro cambio.
+
+---
+
 ### 2026-09-23 — 📝 Onboarding de clientes, fases 2 y 3: sistemas, link general, sin novedades y lanzamientos
 
 **Rama/branch:** `claude/gallant-johnson-hczrys`
@@ -94,7 +141,7 @@ Campos personalizados, migración `20260923140000_onboarding_de_clientes`
   lado, así que se amplió en vez de sumar otra.
 
 **Riesgos / deuda técnica pendiente:**
-- **Migración sin aplicar en producción** (`[ONBOARDING-CLIENTES-APLICAR]`).
+- **Migración aplicada en producción el mismo día** (ver la entrada de arriba).
 - **Qué se verificó:**
   - la migración arma la base con las 175 desde cero en Postgres 16 +
     pgvector local;
