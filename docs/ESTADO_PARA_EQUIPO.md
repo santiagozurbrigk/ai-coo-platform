@@ -103,7 +103,9 @@ Además, lo que quedó abierto en la reunión: el rol de Matías y las horas sem
    decidir el plan de Supabase, y cerrar la vista que borra organizaciones, el espacio de archivos abierto y el
    secreto filtrado del worker.
 2. Agustín completa la columna Octubre y las decisiones de arriba (incluido el plan de Supabase).
-3. Martín importa a Jira las primeras 105 filas del CSV (P0 y P1) y crea las épicas por área.
+3. Martín importa a Jira las primeras 105 filas del CSV (P0 y P1), crea las épicas por área y suma las
+   [historias de usuario](./backlog/historias.md) (122, una por funcionalidad que hoy no funciona bien), revisando
+   el "para qué" de las que están marcadas para confirmar.
 4. Fernando revisa los 13 P0 y el [informe de auditoría](./auditoria/README.md) contra su propia revisión, y
    define con Agustín las prioridades que la severidad sugiere cambiar.
 5. Con eso, se arman los dos sprints hasta la segunda semana de octubre: fase 1 (acceso y aislamiento) y fase 2

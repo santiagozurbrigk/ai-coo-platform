@@ -55,7 +55,13 @@ def parsear():
         if h:
             historias.append(h)
 
+    en_ejemplo = False
     for linea in SRC.read_text(encoding="utf-8").splitlines():
+        if linea.startswith("```"):  # los bloques de ejemplo del encabezado no son historias
+            en_ejemplo = not en_ejemplo
+            continue
+        if en_ejemplo:
+            continue
         if linea.startswith("## "):
             cerrar()
             h, campo, area = None, None, linea[3:].strip()

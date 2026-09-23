@@ -20,6 +20,7 @@ Reorganizada el 2026-09-23: cada documento de esta carpeta se verificó contra e
 | [`FUNCIONAL.md`](./FUNCIONAL.md) | **Documento funcional**: qué puede hacer el usuario en cada área y si funciona hoy, con sus pendientes. Base del backlog |
 | [`ESTADO_PARA_EQUIPO.md`](./ESTADO_PARA_EQUIPO.md) | Resumen de una página: estado por área, problemas graves y decisiones pendientes |
 | [`backlog/`](./backlog/README.md) | `PENDIENTES.md` exportado a CSV para importar a Jira, y el script que lo genera |
+| [`backlog/historias.md`](./backlog/historias.md) | **Historias de usuario** (una por funcionalidad que hoy no funciona bien), con sus criterios y tareas técnicas, exportables a Jira |
 | [`auditoria/`](./auditoria/README.md) | **Informe de auditoría** del 2026-09-23: resumen ejecutivo, aislamiento entre organizaciones, secretos y autenticación, modelo de amenazas, confiabilidad, backups y el plan de remediación |
 
 ## Áreas del producto

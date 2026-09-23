@@ -42,6 +42,13 @@ sprint, al refinarlo.
 Sugerencia: importar primero sólo P0 y P1 (las primeras filas: 105 al 2026-09-23; el script imprime el conteo por prioridad) para armar los dos primeros sprints, y el
 resto después.
 
+## Historias de usuario
+
+[`historias.md`](./historias.md) tiene 122 historias (una por funcionalidad de `FUNCIONAL.md` que no está en
+"Funciona"), cada una con sus criterios de aceptación y los IDs de sus tareas técnicas. `historias_a_jira.py` las
+valida y genera `historias-jira.csv` (Issue Type `Story`); la prioridad se calcula a partir de las tareas. Importar
+primero `jira-import.csv` y después las historias, y vincularlas por ID.
+
 ## Épicas
 
 No se crean desde el CSV. Si se quiere una épica por área, crearlas a mano y filtrar por la etiqueta de área

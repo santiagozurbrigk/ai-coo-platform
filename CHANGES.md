@@ -34,6 +34,38 @@ al terminar cada bloque de trabajo, aunque sea chico.
 
 ---
 
+### 2026-09-23 — Historias de usuario para Jira
+
+**Rama:** `claude/loving-pascal-yui3l1` (PR #78)
+**Commit(s):** los "historias" de esta rama
+**Módulo(s) afectado(s):** documentación: `docs/backlog/historias.md` (nuevo), `docs/backlog/historias_a_jira.py`
+(nuevo), `docs/backlog/historias-jira.csv` (generado), `docs/backlog/README.md`, `docs/README.md`, `CLAUDE.md`,
+`docs/ESTADO_PARA_EQUIPO.md`, `docs/FUNCIONAL.md` (F-MKT-03 cita `[ZERNIO-METRICAS-429]`). No se tocó código.
+
+**Qué se hizo:** 122 historias de usuario, una por cada funcionalidad de `FUNCIONAL.md` que no está en
+"Funciona", con el formato "Como …, quiero …, para …", 2 a 4 criterios de aceptación en lenguaje de usuario y los
+IDs de las tareas técnicas de `PENDIENTES.md` que la resuelven. 70 tienen dudas "Para confirmar" (15 son decisiones
+de construir o sacar) y 1 no tiene tarea técnica que la cubra (se crea al refinar). `historias_a_jira.py` valida
+(una historia por funcionalidad con problemas, formato, tareas existentes) y genera `historias-jira.csv`.
+
+**Por qué / finalidad:** Fernando pidió el backlog como historias de usuario, no como casos de uso; Martín las
+carga en Jira y Agustín decide qué entra en octubre.
+
+**Decisiones de diseño relevantes:**
+- La prioridad y la severidad de una historia se calculan de sus tareas técnicas (la más urgente manda), y la
+  columna Octubre se lee de `FUNCIONAL.md`: nada se escribe dos veces. Resultado al 2026-09-23: 23 historias P0
+  (dependen de sólo 8 tareas P0), 71 P1, 27 P2, 1 P3.
+- Las funcionalidades que ya funcionan no generan historia, y la seguridad y deuda técnica pura siguen como tareas
+  (no son "algo que un usuario quiere").
+- El "para qué" deducido sin respaldo quedó marcado para confirmar en vez de inventarse.
+
+**Riesgos / deuda técnica pendiente:** las historias las escribió IA a partir del código y los docs: Martín tiene
+que revisar redacción y alcance, y Agustín las 70 dudas. Los agentes sugirieron reclasificar algunas filas de
+`FUNCIONAL.md` (p. ej. F-EMB-23 y F-FIN-11/12 de "A medias" a "No funciona"); no se cambiaron porque no alteran qué
+historias existen.
+
+---
+
 ### 2026-09-23 — Complemento de auditoría: severidad, seguridad, confiabilidad, backups, diagramas y ADRs
 
 **Rama:** `claude/loving-pascal-yui3l1`
