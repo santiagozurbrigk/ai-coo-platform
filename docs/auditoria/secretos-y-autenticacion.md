@@ -161,7 +161,7 @@ es `[AUD-SEG-2]` / `[TOKENS-TEXTO-PLANO]`. Lo que faltaba (A-6):
 
 | Flujo | Cómo funciona hoy (evidencia) | Estado |
 |---|---|---|
-| **Login con contraseña** | `signInAction` (`app/auth/actions.ts:104`) → Zod de email → `authRateLimit("signin:<email>")` 5 / 15 min (`:119`) → `signInWithPassword` → corta si la contraseña temporal venció → `ensureCurrentUserBootstrap` | Rate limit sólo por email: `[LOGIN-RATE-LIMIT]` (= `[AUD-SEG-7]`, duplicado) |
+| **Login con contraseña** | `signInAction` (`app/auth/actions.ts:104`) → Zod de email → `authRateLimit("signin:<email>")` 5 / 15 min (`:119`) → `signInWithPassword` → corta si la contraseña temporal venció → `ensureCurrentUserBootstrap` | Rate limit sólo por email: `[LOGIN-RATE-LIMIT]` |
 | **Login super admin** | `/superadmin/login` → `signInSuperAdminAction` (`:156`): mismo login + `isSuperAdminEmail`; si no está en la allowlist, `signOut` | Contador aparte (`signin-superadmin:<email>`, `:175`): suma otros 5 intentos por email. Sin MFA (B-3) |
 | **Mensajes de error** | `mapAuthError` (`:27-44`) distingue "credenciales incorrectas", "confirmá tu email" y "ya existe una cuenta"; el resto devuelve el mensaje crudo de Supabase | Permite saber si un email tiene cuenta (B-5) |
 | **Signup público** | Toggle "Crear cuenta" → `signUpAction` (`:227`), rate limit por email (`signup:<email>`, `:243`), `emailRedirectTo` = `NEXT_PUBLIC_APP_URL` + `/auth/callback`; con sesión inmediata crea org founder | `[SIGNUP-PUBLICO]`. El límite por email no frena altas masivas con emails distintos |
@@ -322,7 +322,7 @@ repiten: se listan al final con su ID.
 - **Recomendación.** Prefijo de versión (`v1.iv.tag.ct`), `ENCRYPTION_MASTER_KEY_PREVIOUS` para descifrar lo viejo,
   script de re-cifrado con service role, AAD con `organization_id` + nombre de columna, y validar 32 bytes al leer la
   clave. Hacerlo junto con `[AUD-SEG-2]` (que ya obliga a tocar el cifrado).
-- **PENDIENTES:** `[SEC-MASTER-KEY-ROTACION]` (propuesto en [`backups-y-recuperacion.md`](./backups-y-recuperacion.md)). Se propone sumarle AAD y la validación de largo (ver `cambios-secretos-auth.md`).
+- **PENDIENTES:** `[SEC-MASTER-KEY-ROTACION]` (propuesto en [`backups-y-recuperacion.md`](./backups-y-recuperacion.md)). Se le sumaron la AAD y la validación de largo de la clave (puntos 7 y 8 de su "Qué hay que hacer").
 
 ### A-4 · Baja · `admin.ts` y `encryption.ts` no están marcados como sólo-servidor; `env.ts` mezcla la clave pública con la de service role
 
@@ -398,7 +398,7 @@ repiten: se listan al final con su ID.
 | `[AUTH-RECUPERAR-PASSWORD]` | Nada llama a `resetPasswordForEmail` (grep) |
 | `[EQUIPO-DESACTIVAR-NO-BLOQUEA]` | El middleware no lee `is_active` (`lib/supabase/middleware.ts:93-99` sólo pide contraseña temporal, rol, org) |
 | `[SIGNUP-PUBLICO]` | Sigue; el rate limit del signup es por email (`app/auth/actions.ts:243`) |
-| `[LOGIN-RATE-LIMIT]` y `[AUD-SEG-7]` | **Son el mismo ítem** (Plataforma P1 e Infra P2). Se sugiere dejar uno. `getRequestIp` (`lib/rate-limit.ts:179`) toma el primer `x-forwarded-for`: en Vercel es confiable; fuera de Vercel sería falsificable |
+| `[LOGIN-RATE-LIMIT]` y `[AUD-SEG-7]` | **Eran el mismo ítem** (Plataforma P1 e Infra P2): `[AUD-SEG-7]` se borró y su detalle pasó a `[LOGIN-RATE-LIMIT]`. `getRequestIp` (`lib/rate-limit.ts:179`) toma el primer `x-forwarded-for`: en Vercel es confiable; fuera de Vercel sería falsificable |
 | `[AUD-SEG-2]` / `[TOKENS-TEXTO-PLANO]` | Advisor: las 21 tablas de integraciones y super admin tienen RLS sin policies (cerradas para `authenticated`) |
 | `[TRIAL-SECRET-EN-URL]`, `[SEG-WORKER-SECRET-QUERY]`, `[SEG-REEL-WORKER-AUTH]` | Sin cambios (`reel-variation-actions.ts:177,182`) |
 | `[SEG-HEADERS]` | Sin cambios; se amplía con B-4 |

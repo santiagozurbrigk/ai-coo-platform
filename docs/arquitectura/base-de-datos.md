@@ -60,7 +60,7 @@ SELECT COALESCE(
 
 El claim `active_business_org_id` lo agrega el Auth Hook `custom_access_token_hook` a partir de `holding_active_sessions`, verificado contra `holding_businesses`. El hook se activa a mano en el dashboard (Authentication → Hooks); sin eso un holding que entra a un negocio lee con la org del perfil.
 
-Lectura de portfolio del holding: `get_my_holding_business_org_ids()` + policies `holding_reads_*` sobre `organizations`, `clients`, `closing_calls`, `conversations` (`20260630100000_holding_portfolio_rls.sql`). **No miran el rol**: cualquier miembro de la org holding lee esas tablas de todos los negocios (`[AUD-SEG-3]`).
+Lectura de portfolio del holding: `get_my_holding_business_org_ids()` + policies `holding_reads_*` sobre `organizations`, `clients`, `closing_calls`, `conversations` (`20260630100000_holding_portfolio_rls.sql`). **No miran el rol**: cualquier miembro de la org holding lee esas tablas de todos los negocios (`[HOLDING-PORTFOLIO-ROL]`).
 
 **Casi ninguna policy filtra por rol**: la única excepción en el repo es `Founders update org profiles` (UPDATE de `profiles`, `20260616100000_workboard_time_tracking.sql`), que deja a un `founder`/`admin` editar los perfiles de su org; en prod esa lógica está en la policy consolidada con `current_user_is_founder_or_admin()`. Los permisos por módulo (`team_roles.permissions`) se aplican en el render de `app/(platform)/layout.tsx`, no en la base ni en las actions (`[PERMISOS-SERVER-ACTIONS]`).
 

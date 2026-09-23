@@ -112,7 +112,7 @@ Riesgos abiertos: `verifyQStashRequest` no pasa `url` al `Receiver`, así que un
 | `webhookRateLimit` | 1 min / 100 | IP | Fathom legacy, Calendly, Mercado Pago, ManyChat |
 | `unipileWebhookRateLimit` | 1 min / 40 | | Unipile |
 
-No hay límite para "conectar integración" a propósito (comentario en el archivo). El límite de login va por email: cualquiera puede bloquear a otro y el password spraying no está limitado (`[AUD-SEG-7]`).
+No hay límite para "conectar integración" a propósito (comentario en el archivo). El límite de login va por email: cualquiera puede bloquear a otro y el password spraying no está limitado (`[LOGIN-RATE-LIMIT]`).
 
 ## Instrumentación y Sentry
 

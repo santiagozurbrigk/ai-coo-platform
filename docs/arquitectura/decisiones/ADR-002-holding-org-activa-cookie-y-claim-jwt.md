@@ -49,8 +49,7 @@ Dos mecanismos que se escriben y se borran juntos:
   falta, la app muestra el negocio (cookie) pero RLS filtra por la org del holding.
 - Dos fuentes de verdad (cookie y claim) que tienen que coincidir.
 - Las policies de portfolio (`20260630100000_holding_portfolio_rls.sql`) no miran el rol: cualquier miembro de la
-  org holding lee clientes, llamadas y conversaciones de todo el portfolio (`[HOLDING-PORTFOLIO-ROL]`,
-  `[AUD-SEG-3]`).
+  org holding lee clientes, llamadas y conversaciones de todo el portfolio (`[HOLDING-PORTFOLIO-ROL]`).
 - UI y servidor leen add-ons de orgs distintas en modo holding (`[ADDONS-HOLDING]`); Closing mezcla turnos de
   varios negocios (`[CLOSING-HOLDING-MEZCLA]`); acciones que leen `profile.organization_id` ignoran el negocio
   activo (`[AUD-SALUD-ORG-HOLDING]`, `[MKT-HOLDING-ORG]`).

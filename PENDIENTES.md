@@ -87,7 +87,7 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
 | [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 18 | 7 |
 | [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 15 | 10 |
-| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 5 | 25 | 44 | 13 |
+| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 5 | 25 | 42 | 13 |
 
 ---
 
@@ -237,7 +237,7 @@ Y no hace falta la cookie: `lib/supabase/middleware.ts:61-65` sólo sobrescribe 
 - **Estado verificado:** `authRateLimit(`signin:${email}`)` 5/15 min (`app/auth/actions.ts:119`, `lib/rate-limit.ts`). Sin clave por IP, sin captcha: cualquiera bloquea a otro y el spraying no se limita.
 - **Riesgo:** Si alguien conoce el email de un usuario, entonces con 5 intentos fallidos lo deja sin poder entrar 15 minutos (repetible), y si prueba una contraseña común contra muchos emails no hay límite propio por IP (sólo el de Supabase Auth).
 - **Impacto:** Cualquier usuario de la app puede quedar bloqueado a voluntad de un tercero; el riesgo de adivinar contraseñas queda acotado por el límite por IP de Supabase Auth, no por la app.
-- **Qué hay que hacer:** doble clave IP + email; captcha tras N fallos.
+- **Qué hay que hacer:** doble clave IP + email; captcha tras N fallos. Tener en cuenta que `signin` y `signin-superadmin` son contadores separados (10 intentos por email cada 15 min en total). (Absorbe `[AUD-SEG-7]`.)
 - **Criterio de aceptación:** Seis intentos fallidos con el email de otra persona desde una IP no impiden que esa persona entre desde otra IP; muchos intentos desde una misma IP contra emails distintos quedan bloqueados; después de N fallos el login pide captcha
 - **Dónde:** `apps/web/app/auth/actions.ts`, `apps/web/lib/rate-limit.ts`.
 
@@ -2369,20 +2369,20 @@ Prioridad sugerida P1: falla silenciosa de procesos centrales, activa hoy.
 - **Estado verificado:** `Sentry.captureException` sólo se usa en `app/api/agent/send/route.ts` y `lib/holding/refresh-auth-session.ts`; `onRequestError` (`instrumentation.ts`) sólo ve errores no atrapados, y los crons, workers de QStash y webhooks atrapan el error y hacen `console.*`. No hay tabla de corridas de crons (`information_schema` de prod), ni Sentry Cron Monitors, ni `failureCallback` en `publishJSON` (`lib/queue/qstash-client.ts`), ni Sentry en `apps/discord-bot` y `apps/reel-worker`. Los eventos no llevan `org_id`. El agregado de errores de Vercel (ventana de 7 días, consultado 2026-09-23) muestra fallas repetidas que nadie registró: 168 × token de GHL inválido de una org (desde 2026-09-03), ~3.000 × `401 authentication_error` de Anthropic en `/api/integrations/fathom/process` (2026-09-02 → 09-21), 849 × 429 de Zernio en el cron de métricas, 99 × `Task timed out after 60 seconds` en tres crons.
 - **Riesgo:** Si un proceso de fondo falla de forma persistente (token vencido, clave de IA, proveedor caído, timeout), entonces nadie del equipo se entera hasta que un cliente nota datos faltantes, días o semanas después. Pasa hoy.
 - **Impacto:** Todas las orgs: sync de turnos, llamadas, formularios, métricas, reportes de IA y cobros pueden quedar incompletos sin aviso. Las fallas de arriba duraron entre 3 y 8 semanas.
-- **Qué hay que hacer:** (1) en el helper común de crons/workers (`[AUD-SALUD-3]`) mandar cada error por org a Sentry con tags `org_id`, `cron`, `provider`; (2) `Sentry.withMonitor` (Cron Monitors) en los 19 crons de `vercel.json`; (3) reglas de alerta de Sentry a mail o Slack del equipo (issue nuevo, pico de eventos, cron que no corrió); (4) `failureCallback` de QStash hacia un endpoint que registre y alerte; (5) Sentry en el bot de Discord y en el reel-worker.
+- **Qué hay que hacer:** (complementa `[MONITOREO-Y-ALERTAS]`, que cubre salud y disponibilidad) (1) en el helper común de crons/workers (`[AUD-SALUD-3]`) mandar cada error por org a Sentry con tags `org_id`, `cron`, `provider`; (2) `Sentry.withMonitor` (Cron Monitors) en los 19 crons de `vercel.json`; (3) reglas de alerta de Sentry a mail o Slack del equipo (issue nuevo, pico de eventos, cron que no corrió); (4) `failureCallback` de QStash hacia un endpoint que registre y alerte; (5) Sentry en el bot de Discord y en el reel-worker.
 - **Criterio de aceptación:** Un error simulado dentro de un cron con fan-out (p. ej. token inválido en una org) aparece en Sentry con el tag org_id y dispara una alerta que le llega a alguien del equipo; si un cron de vercel.json no corre en su horario, Sentry alerta; un job de QStash que agota sus reintentos queda registrado y alerta; el bot de Discord y el reel-worker reportan sus errores a Sentry
 - **Dónde:** `apps/web/instrumentation.ts`, `apps/web/app/api/cron/*`, `apps/web/app/api/queue/*`, `apps/web/lib/queue/qstash-client.ts`, `apps/discord-bot/src/index.ts`, `apps/reel-worker/src/index.ts`, Sentry (reglas de alerta).
 
 Prioridad sugerida P1: la falla es silenciosa y ya está ocurriendo en producción.
 
-#### [MONITOREO-Y-ALERTAS] Sin monitoreo activo: los incidentes se detectan cuando un cliente avisa
+#### [MONITOREO-Y-ALERTAS] Sin chequeo de salud ni monitor de disponibilidad: una caída se detecta cuando un cliente avisa
 - **Tipo:** deuda técnica
 - **Severidad:** Alta
 - **Estado verificado:** no hay endpoint de salud en `apps/web/app/api`; la página "Infraestructura" del super admin (`components/super-admin/infrastructure-page.tsx:18-42`) muestra estados escritos a mano (`status: "ok"`, `"Configurado ✓"`) salvo Resend; no hay registro de corridas de crons en la base; `apps/discord-bot` y `apps/reel-worker` no tienen Sentry (`docs/arquitectura/jobs-webhooks-y-colas.md`); no se pudo verificar si Sentry tiene alertas configuradas.
 - **Riesgo:** Si un cron deja de correr, un webhook responde 4xx/5xx, una clave global se queda sin créditos o Supabase entra en sólo lectura, entonces nadie se entera hasta que un cliente reclama, y lo que no se reintenta (Commas, snapshots de anuncios, reportes) se pierde en el medio.
 - **Impacto:** Todas las orgs; afecta el tiempo de detección de cualquier incidente del runbook `docs/operacion/incidentes.md`.
-- **Qué hay que hacer:** `/api/health` (consulta mínima a la base y a Storage, variables críticas presentes, sin exponer valores) con un monitor externo de uptime; alertas de Sentry por error nuevo y por pico; registro de cada corrida de cron (ruta, inicio, fin, estado, orgs fallidas) con alerta si un cron no corre en 2× su intervalo o falla 3 veces seguidas; reemplazar los estados fijos de la página de Infraestructura por esos chequeos; Sentry (o al menos alerta por logs) en bot y worker.
-- **Criterio de aceptación:** `GET /api/health` responde 200 con la base arriba y 503 si no puede consultarla; un monitor externo lo consulta y avisa a un canal del equipo; con un cron deshabilitado a propósito en un entorno de prueba, llega una alerta dentro de 2× su intervalo; un error nuevo en producción genera un aviso de Sentry; la página de Infraestructura ya no tiene estados fijos.
+- **Qué hay que hacer:** `/api/health` (consulta mínima a la base y a Storage, variables críticas presentes, sin exponer valores) con un monitor externo de uptime; registro de cada corrida de cron (ruta, inicio, fin, estado, orgs fallidas); reemplazar los estados fijos de la página de Infraestructura por esos chequeos. Las alertas de errores de crons, colas y webhooks, y Sentry en bot y worker, van en `[OBS-SIN-ALERTAS]` (se hacen juntos).
+- **Criterio de aceptación:** `GET /api/health` responde 200 con la base arriba y 503 si no puede consultarla; un monitor externo lo consulta y avisa a un canal del equipo; cada corrida de cron queda registrada con su estado; la página de Infraestructura ya no tiene estados fijos.
 - **Dónde:** `apps/web/app/api/health/` (nuevo), `apps/web/components/super-admin/infrastructure-page.tsx`, crons en `apps/web/app/api/cron/`, Sentry, `apps/discord-bot`, `apps/reel-worker`.
 
 Prioridad sugerida P1: es la base del runbook; sin detección, todas las demás fallas silenciosas se alargan.
@@ -2393,7 +2393,7 @@ Prioridad sugerida P1: es la base del runbook; sin detección, todas las demás 
 - **Estado verificado:** `apps/web/lib/security/encryption.ts` usa una sola clave AES-256-GCM sin versión en el texto cifrado (`iv.tag.ciphertext`); no existe script de re-cifrado. En Vercel la variable es tipo `sensitive` (no se puede releer), target Preview y Production, creada el 2026-06-18 y nunca modificada. Con otra clave: BYOK de Claude cae a la global en silencio (`lib/ai/credential-resolver.ts:136-141`, la UI sigue mostrando la clave como válida); Zernio, GHL, Hyros, VTurb, WebinarJam y Fathom por miembro tiran al leer (`readStoredSecret`); los webhooks de Whop/Commas responden 404 "no tiene … conectado" (`lib/payments/integration.ts:54-59`, `app/api/webhooks/whop/route.ts:42-46`); el refresh de Mercado Pago falla (`lib/mercadopago/tokens.ts:103-110`).
 - **Riesgo:** Si alguien cambia la variable (por ejemplo, rotando secretos tras una filtración) o se pierde sin copia, entonces se caen todas las integraciones cifradas de todas las orgs y los cobros de Commas del período se pierden (Commas no reintenta). Si se filtra junto con la service role, no hay forma de rotarla sin ese corte.
 - **Impacto:** Todas las orgs con integraciones cifradas (BYOK, Zernio, GHL, Hyros, VTurb, WebinarJam, Fathom, pagos, Mercado Pago); cobros de Commas.
-- **Qué hay que hacer:** (1) confirmar que la clave está guardada en un gestor de secretos fuera de Vercel, con acceso de al menos dos personas; (2) versionar el formato (`v2.<iv>.<tag>.<ct>`) y aceptar `ENCRYPTION_MASTER_KEY_PREVIOUS` para leer lo viejo; (3) script de re-cifrado con service role; (4) procedimiento de rotación en `docs/operacion/`; (5) distinguir en los webhooks "no se pudo descifrar" (500) de "no conectado" (404); (6) valor distinto para Preview (ver `[ENTORNO-STAGING]`).
+- **Qué hay que hacer:** (1) confirmar que la clave está guardada en un gestor de secretos fuera de Vercel, con acceso de al menos dos personas; (2) versionar el formato (`v2.<iv>.<tag>.<ct>`) y aceptar `ENCRYPTION_MASTER_KEY_PREVIOUS` para leer lo viejo; (3) script de re-cifrado con service role; (4) procedimiento de rotación en `docs/operacion/`; (5) distinguir en los webhooks "no se pudo descifrar" (500) de "no conectado" (404); (6) valor distinto para Preview (ver `[ENTORNO-STAGING]`). Al versionar: (7) usar AAD con `organization_id` + nombre de columna, para que un ciphertext copiado a otra fila no se descifre; (8) validar al leer la clave que decodifique a 32 bytes (`lib/security/encryption.ts:5-11`). (Hallazgos de `docs/auditoria/secretos-y-autenticacion.md`.)
 - **Criterio de aceptación:** Hay constancia (anotada en V-INFRA-11) de que la clave existe fuera de Vercel; en un entorno de prueba con datos cifrados con la clave A, se configura B como actual y A como anterior, todas las integraciones siguen funcionando, el script re-cifra todo y después de sacar A siguen funcionando; un webhook de pagos con secreto indescifrable responde 500 y no 404; hay tests de cifrar/descifrar con clave actual y anterior; el procedimiento está en `docs/operacion/`.
 - **Dónde:** `apps/web/lib/security/encryption.ts`, `apps/web/lib/payments/integration.ts`, script nuevo, Vercel.
 
@@ -2655,13 +2655,6 @@ Prioridad sugerida P2: los previews no son públicos; el daño requiere un bug e
 
 Prioridad sugerida P2: no hay una filtración conocida; el procedimiento se necesita antes de la primera.
 
-#### [AUD-SEG-3] El portfolio del holding no mira el rol
-- **Tipo:** seguridad
-- **Duplicado de:** `[HOLDING-PORTFOLIO-ROL]` (se sigue allí; borrar este ítem al aplicar).
-- **Estado verificado:** policies `holding_reads_*` en `20260630100000_holding_portfolio_rls.sql` sólo usan `get_my_holding_business_org_ids()`, que no filtra por rol: cualquier miembro de la org holding lee `clients`, `closing_calls`, `conversations` y `organizations` de todos los negocios.
-- **Qué hay que hacer:** restringir la función a founder/`is_holding_admin` o sumar la condición en las policies.
-- **Dónde:** migración nueva.
-
 #### [AUD-SEG-5] Mass assignment e ids ajenos
 - **Tipo:** seguridad
 - **Estado verificado:** `updateContentPieceAction` (`app/marketing/content/actions.ts:148`) hace `.update(updates)` sin zod; `customRoleId` en invitaciones (`app/team/actions.ts:242-289`) y `clientId` en `associateFathomCallAction` (`app/fathom/actions.ts:161`) no se validan contra la org.
@@ -2678,12 +2671,6 @@ Prioridad sugerida P2: no hay una filtración conocida; el procedimiento se nece
 - **Estado verificado:** `lib/ai/wrap-untrusted-content.ts` interpola `content` tal cual: un `</label>` dentro cierra la etiqueta. Según la auditoría quedan sin envolver DMs de Zernio (`app/integrations/zernio/actions.ts`), respuestas de formularios, ManyChat, labeling de contenido, clasificador de Discord y resultados de tools del agente (no re-verificado caso por caso).
 - **Qué hay que hacer:** escapar el tag de cierre (o usar un delimitador aleatorio por llamada) y envolver las fuentes listadas.
 - **Dónde:** `apps/web/lib/ai/wrap-untrusted-content.ts` y los call sites.
-
-#### [AUD-SEG-7] Rate limit de login por email
-- **Tipo:** seguridad
-- **Estado verificado:** `app/auth/actions.ts:119` usa `authRateLimit(\`signin:${email}\`)`: cualquiera bloquea a otro 15 min con 5 intentos, y el spraying (muchos emails, una contraseña) no tiene límite.
-- **Qué hay que hacer:** **duplicado de `[LOGIN-RATE-LIMIT]`**: cerrar este ítem y seguir allá. Sumar allá que `signin` y `signin-superadmin` son contadores separados (10 intentos por email cada 15 min en total).
-- **Dónde:** `apps/web/app/auth/actions.ts`, `apps/web/lib/rate-limit.ts`.
 
 #### [AUD-SEG-8] Errores internos devueltos al cliente
 - **Tipo:** seguridad

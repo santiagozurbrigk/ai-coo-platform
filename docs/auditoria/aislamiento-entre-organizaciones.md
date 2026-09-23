@@ -10,6 +10,11 @@
 
 ## Resumen
 
+**En una línea:** las tablas aíslan bien a las organizaciones; los huecos entre organizaciones están en el
+**almacenamiento de archivos**, en las **conexiones de integraciones (OAuth)** y en el **holding**.
+
+**Capa de base de datos**
+
 - **La base aísla bien a las organizaciones en casi todo.** Las 147 tablas de `public` tienen RLS activado en producción; 138 quedan en OK y ninguna tabla deja leer ni escribir filas de otra organización por sí sola. Todas las policies de datos de negocio filtran por `get_my_organization_id()` tanto al leer como al escribir, y las 16 tablas de secretos (API keys y tokens de integraciones) no son legibles por los usuarios.
 - **Un usuario no puede "mudarse" de organización**: el trigger de `profiles` le impide cambiar su `organization_id`, su rol o su marca de admin de holding, y el dato de "negocio activo" del holding viaja firmado dentro del JWT, así que no lo puede inventar.
 - **La falla concreta está en Storage**: el bucket `import-files` deja a cualquier usuario logueado, de cualquier organización, listar, bajar, subir y borrar archivos de todo el bucket (ya está en PENDIENTES como `[SEG-BUCKET-IMPORT-FILES]`).
@@ -17,6 +22,20 @@
 - **El holding sigue siendo el punto débil**: cualquier miembro del holding (no sólo el founder o el admin) lee clientes, llamadas y conversaciones de todos los negocios (ya en PENDIENTES), y además quien entró a un negocio y después perdió el permiso sigue pudiendo operar en ese negocio porque el sistema no vuelve a mirar su rol.
 - Producción y el repo difieren en Storage y Realtime en cosas que el diff del 2026-09-22 no miró: el bucket abierto salió justamente de esa diferencia.
 - Dentro de una misma organización la base **no** hace cumplir roles (un miembro puede darse permisos editando su rol): eso está en `[PERMISOS-SERVER-ACTIONS]` y no es tema de esta auditoría.
+
+**Capa de aplicación**
+
+- **En el uso diario la app no mezcla organizaciones**: las acciones resuelven la org desde la sesión (también
+  cuando usan service role), y crons, colas, bot de Discord, búsqueda de la IA y caches respetan la org.
+- **Hueco nuevo grave — conectar integraciones de otra organización**: los 10 callbacks de OAuth toman la org de
+  una cookie sin firmar y no miran la sesión. Conociendo el UUID de otra org, cualquiera le conecta su propia
+  cuenta de Stripe, Calendly, Google, etc. (`[OAUTH-ESTADO-SIN-FIRMA]`, P0).
+- **Hueco nuevo grave — archivos de otra organización**: en 7 tablas el usuario puede escribir la ruta de un
+  archivo, y 11 lugares del servidor la abren o la borran con service role sin re-validar el prefijo de la org
+  (`[STORAGE-RUTA-DESDE-FILA]`, P1).
+- Se confirmaron y ampliaron: Fathom asociado a un cliente ajeno escribe en su ficha (`[FATHOM-CLIENTID-SIN-VALIDAR]`),
+  la key global de Zernio está cargada en producción (`[ZERNIO-KEY-GLOBAL]`) y un miembro sin permisos del holding
+  también **escribe** en los negocios vía acciones con service role (`[HOLDING-PORTFOLIO-ROL]`).
 
 ## Capa de base de datos
 
@@ -263,7 +282,7 @@ No hay `pg_graphql` instalado (no hay una segunda API sobre las tablas) ni otras
 - **Hecho:** las cuatro policies de portfolio de prod usan `get_my_holding_business_org_ids()`, cuyo cuerpo sólo exige `account_type = 'holding'` y vínculo `active`.
 - **Riesgo e impacto:** ya descritos en PENDIENTES.
 - **Recomendación:** además de lo que dice el ítem, la migración que lo arregle tiene que borrar las policies **con el nombre de prod** (`Users read own or portfolio …`, `Users read own or linked business orgs`), no las `holding_reads_portfolio_*` del repo, que en prod no existen.
-- **PENDIENTES:** `[HOLDING-PORTFOLIO-ROL]` (existente; se propone ampliar). `[AUD-SEG-3]` describe lo mismo: duplicado.
+- **PENDIENTES:** `[HOLDING-PORTFOLIO-ROL]` (existente; se propone ampliar). `[AUD-SEG-3]` describía lo mismo: se borró como duplicado.
 
 **H4 · Revisar · Crítica — El negocio activo del holding no se revalida contra el rol.**
 - **Hecho:** `custom_access_token_hook` agrega `active_business_org_id` si hay fila en `holding_active_sessions` y el vínculo está activo; no mira `role` ni `is_holding_admin`. `get_my_organization_id()` confía en el claim sin volver a mirar nada. `enterBusinessAction` sí exige `canManageHolding`, pero sólo al entrar (`docs/arquitectura/auth-organizaciones-y-permisos.md`, "Holding: qué org ve cada request").

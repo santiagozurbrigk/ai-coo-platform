@@ -34,6 +34,62 @@ al terminar cada bloque de trabajo, aunque sea chico.
 
 ---
 
+### 2026-09-23 — Complemento de auditoría: severidad, seguridad, confiabilidad, backups, diagramas y ADRs
+
+**Rama:** `claude/loving-pascal-yui3l1`
+**Commit(s):** los de esta rama posteriores a `ff4e433`
+**Módulo(s) afectado(s):** documentación: `docs/auditoria/` (nuevo), `docs/arquitectura/diagramas.md` (nuevo),
+`docs/arquitectura/decisiones/` (nuevo), `docs/operacion/incidentes.md` (nuevo), `PENDIENTES.md`,
+`docs/backlog/pendientes_a_jira.py`, `docs/ESTADO_PARA_EQUIPO.md`, `docs/README.md`, `CLAUDE.md`,
+`docs/arquitectura/{seguridad,base-de-datos,jobs-webhooks-y-colas}.md`, `docs/operacion/{entorno-y-deploy,verificacion-manual}.md`.
+**No se tocó código ni producción** (en producción sólo lectura de catálogo, planes y agregados; nunca filas de clientes).
+
+**Qué se hizo:** los seis puntos que faltaban respecto de una auditoría completa.
+1. **Formato de hallazgo en el backlog**: escala de severidad (Crítica/Alta/Media/Baja, independiente de la prioridad)
+   y campos Severidad, Riesgo e Impacto, obligatorios en P0/P1 junto con el criterio de aceptación. Los 105 P0/P1
+   quedaron completos: P0 7 críticos, 5 altos, 1 medio; P1 12 críticos, 31 altos, 42 medios, 7 bajos. El generador
+   valida esos campos, suma etiqueta `sev-*` y columna Severidad al CSV, y `--actualizar-indices` recalcula la tabla
+   de P0 y el índice por área.
+2. **Seguridad**: `docs/auditoria/aislamiento-entre-organizaciones.md` (147 tablas una por una y cada uso de service
+   role), `secretos-y-autenticacion.md` (895 commits sin secretos) y `modelo-de-amenazas.md` (STRIDE por frontera).
+3. **Confiabilidad y recuperación**: `confiabilidad-y-monitoreo.md` (qué pasa si falla cada flujo, cómo nos enteramos,
+   cómo se recupera), `backups-y-recuperacion.md` y el runbook `docs/operacion/incidentes.md`.
+4. **Diagramas**: 7 en Mermaid (C4 contexto y contenedores, del lead al cliente, agente de IA, ingesta, multi-tenant),
+   validados con el parser oficial y renderizados con Chromium.
+5. **ADRs**: 12 decisiones de arquitectura reconstruidas del código y el historial, con la regla de cuándo escribir una.
+6. **Informe ejecutivo** (`docs/auditoria/README.md`) y **plan de remediación** en 4 fases con dependencias.
+
+Hallazgos nuevos principales (todos confirmados además con una consulta independiente al catálogo o al código):
+- `[DR-BACKUPS-SUPABASE]` (P0, Crítica): la organización de Supabase está en plan `free`: sin backups ni PITR.
+- `[DB-VISTA-CLAUDE-STATUS-ESCRIBIBLE]` (P0, Crítica): la vista tiene DELETE/INSERT/UPDATE para `authenticated`, es
+  auto-actualizable y su dueño es `postgres`: cualquier miembro puede borrar su organización (cascada a 138 tablas).
+- `[OAUTH-ESTADO-SIN-FIRMA]` (P0, Crítica): los callbacks OAuth toman la org de una cookie JSON sin firmar.
+- `[SEG-BUCKET-IMPORT-FILES]` (P0, Crítica): bucket con policies sólo por `bucket_id` (2 archivos, de julio).
+- Además: `[STORAGE-RUTA-DESDE-FILA]`, `[SEG-RLS-IDENTIFICADORES-EXTERNOS]`, `[SEC-MASTER-KEY-ROTACION]`,
+  `[AUTH-ALTA-EMAIL-AJENO]`, `[AUTH-MFA-Y-POLITICA]`, `[OBS-SIN-ALERTAS]`, `[MONITOREO-Y-ALERTAS]`,
+  `[FATHOM-SYNC-CURSOR]`, `[INTEGRACIONES-ERROR-SIN-MARCA]` y otros. Backlog: 357 ítems (13 P0, 92 P1).
+- Borrados por duplicados: `[AUD-SEG-7]` (absorbido por `[LOGIN-RATE-LIMIT]`) y `[AUD-SEG-3]` (= `[HOLDING-PORTFOLIO-ROL]`).
+- Correcciones de docs: `seguridad.md` § OAuth decía lo contrario del código; `[PERMISOS-SERVER-ACTIONS]` exageraba el
+  caso de comisiones (la RLS de `profiles` lo frena); `[AUTH-CALLBACK-NEXT]` es de severidad Media.
+
+**Por qué / finalidad:** la auditoría anterior alineaba documentación y código; faltaban severidad, seguridad
+sistemática, confiabilidad, recuperación, diagramas, decisiones y un plan. Se presenta a Fernando el viernes.
+
+**Decisiones de diseño relevantes:**
+- No se cambió ninguna prioridad: la severidad sugiere cambios (tabla en `docs/auditoria/README.md` § 12) que
+  deciden Agustín y Fernando.
+- Los informes separan hecho, observación, riesgo y recomendación, y cada problema tiene ID en `PENDIENTES.md`.
+- La fase 0 del plan pone el backup antes que cualquier migración de arreglo.
+
+**Riesgos / deuda técnica pendiente:**
+- **Los P0 críticos siguen abiertos en producción** (no se tocó nada). La fase 0 del plan los cierra con configuración
+  o migraciones cortas.
+- No auditado: calidad de código, rendimiento, costos por cliente, calidad de prompts. Sin pruebas de penetración con
+  una segunda organización real.
+- Datos que requieren acceso que no hubo: secretos de Fly/Railway, reglas de Sentry, configuración de Supabase Auth.
+
+---
+
 ### 2026-09-23 — Verificación final de toda la documentación contra el código
 
 **Rama:** `claude/loving-pascal-yui3l1`

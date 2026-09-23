@@ -71,7 +71,7 @@ Fuente: PENDIENTES.md [CLOSING-LIST-1000] · Doc del área: docs/areas/ventas.md
 
 *Severidad:* Crítica
 
-*Estado verificado:* {{getZernioApiKeyForOrganization}} ({{lib/zernio/integration.ts:113-121}}) devuelve {{process.env.ZERNIO_API_KEY}} cuando la org no tiene fila activa o su fila no tiene {{api_key}}. Todo {{getZernioClientForOrganization}} (anuncios, comentarios, inbox, sync) lo hereda. {{captureAdMetricsForAllOrganizations}} ({{lib/marketing/ad-metrics-snapshot.ts:158}}) recorre {{zernio_integrations}} sin filtrar {{is_active}}, y una fila inactiva cae al fallback → escribiría en {{ad_metrics_daily}} anuncios de la cuenta global. {{.env.example}} la trae como {{sk_pending}}. No verifiqué si está seteada en Vercel. También lo hereda Embudos: {{countZernioTriggers}} ({{lib/funnels/resolve.ts:300-313}}) contaría los comentarios de la cuenta global en el paso de disparadores de una org sin Zernio.
+*Estado verificado:* {{getZernioApiKeyForOrganization}} ({{lib/zernio/integration.ts:113-121}}) devuelve {{process.env.ZERNIO_API_KEY}} cuando la org no tiene fila activa o su fila no tiene {{api_key}}. Todo {{getZernioClientForOrganization}} (anuncios, comentarios, inbox, sync) lo hereda. {{captureAdMetricsForAllOrganizations}} ({{lib/marketing/ad-metrics-snapshot.ts:158}}) recorre {{zernio_integrations}} sin filtrar {{is_active}}, y una fila inactiva cae al fallback → escribiría en {{ad_metrics_daily}} anuncios de la cuenta global. {{.env.example}} la trae como {{sk_pending}}. {{ZERNIO_API_KEY}} *existe* en Vercel en Production y Preview (tipo sensitive, creada el 2026-07-09). No se pudo ver si el valor es una key real o {{sk_pending}}. Caen al fallback sin chequear integración: - {{getMarketingAdsAction}} ({{app/marketing/content/ad-actions.ts:50-54}}); - {{captureAdMetricsForOrganization}} ({{lib/marketing/ad-metrics-snapshot.ts:99}}, también por {{?organizationId=}} del cron); - {{fetchZernioCommentSteps}} ({{lib/sales/lead-journey.ts:221}}).
 
 *Riesgo:* Si ZERNIO_API_KEY está seteada en Production, entonces cualquier org sin Zernio activo (o con la integración desactivada) lee anuncios, comentarios y conteos de otra cuenta sin hacer nada especial: basta con abrir /marketing/anuncios o un embudo con el paso de comentarios. Probabilidad desconocida hasta confirmar la variable en Vercel.
 
@@ -96,16 +96,16 @@ Fuente: PENDIENTES.md [ZERNIO-KEY-GLOBAL] · Doc del área: docs/areas/marketing
 
 *Qué hay que hacer:* responder 5xx cuando {{stored: false}} (salvo Commas, que no reintenta: ahí alertar); en {{duplicate}}, si la fila previa está en {{error}}, reprocesarla; construir un reproceso (acción de super-admin o script) para {{payment_webhook_events}} y {{ghl_webhook_events}} en {{unmapped}}/{{error}}.
 
-*Criterio de aceptación:* Si falla el guardado del evento crudo, los webhooks de Whop y GHL responden 5xx (no 200) y el proveedor reintenta; en Commas, que no reintenta, queda una alerta registrada. Un reintento de un evento que quedó en 'error' se reprocesa en vez de volver 'duplicate'; hay tests que cubren los dos casos. Existe un reproceso (acción de super-admin o script) que toma los eventos en 'unmapped'/'error' de payment_webhook_events y ghl_webhook_events y los deja en 'processed' si ahora se pueden interpretar
+*Criterio de aceptación:* Si falla el guardado del evento crudo, los webhooks de Whop y GHL responden 5xx (no 200) y el proveedor reintenta; en Commas, que no reintenta, queda una alerta registrada. Un reintento de un evento que quedó en 'error' se reprocesa en vez de volver 'duplicate'; hay tests que cubren los dos casos. Existe un reproceso (acción de super-admin o script) que toma los eventos en 'unmapped'/'error' de payment_webhook_events y ghl_webhook_events y los deja en 'processed' si ahora se pueden interpretar - *Relacionado (auditoría de recuperación):* el insert también falla si la base está en sólo lectura ({{[SUPABASE-PLAN-FREE-LIMITES]}}), y un secreto que no se puede descifrar hoy responde 404 ""no tiene … conectado"" ({{lib/payments/integration.ts:54-59}}): conviene que responda 500 y cubrir los dos casos en los tests de este ítem.
 
-*Dónde:* {{apps/web/app/api/webhooks/{whop,fanbasis,ghl}/route.ts}}, {{apps/web/lib/payments/ingest.ts}}, {{apps/web/lib/ghl/ingest-opportunity-event.ts}}.
+*Dónde:* {{apps/web/app/api/webhooks/{whop,fanbasis,ghl}/route.ts}}, {{apps/web/lib/payments/ingest.ts}}, {{apps/web/lib/ghl/ingest-opportunity-event.ts}}, {{apps/web/lib/payments/integration.ts}}.
 
 Fuente: PENDIENTES.md [EMBUDOS-WEBHOOK-PERDIDA] · Doc del área: docs/areas/embudos.md",EMBUDOS-WEBHOOK-PERDIDA,Embudos y Lanzamientos,P0,Crítica,bug
 [1A1-CLAVE-ANTHROPIC-ROTA] Una organización sin clave válida y sin clave global,Task,Highest,agente-ia,p0,sev-alta,verificacion-manual,,,"*Tipo:* verificación manual
 
 *Severidad:* Alta
 
-*Estado verificado:* el código ya marca la clave ({{marcarClaveDeOrgComoRechazada}} en {{lib/ai/credential-resolver.ts}}) y deja de usarla. Pero si no hay {{ANTHROPIC_API_KEY}} global, {{executeWithCredentialFallback}} no tiene a dónde caer: todo el trabajo IA de esa org (análisis de llamadas, reportes, agente) queda sin hacer. No se puede saber desde el código si la global ya se cargó en Vercel.
+*Estado verificado:* el código ya marca la clave ({{marcarClaveDeOrgComoRechazada}} en {{lib/ai/credential-resolver.ts}}) y deja de usarla. Pero si no hay {{ANTHROPIC_API_KEY}} global, {{executeWithCredentialFallback}} no tiene a dónde caer: todo el trabajo IA de esa org (análisis de llamadas, reportes, agente) queda sin hacer. No se puede saber desde el código si la global ya se cargó en Vercel. Evidencia en prod (agregado de errores de Vercel, 2026-09-23): ~10 llamadas de Fathom fallaron ~296 veces cada una con {{401 authentication_error: API key is invalid}} en {{/api/integrations/fathom/process}} entre 2026-09-02 y 2026-09-21 (qué org y qué clave requiere leer filas); el listado de variables del proyecto {{otc-plaform}} sigue sin {{ANTHROPIC_API_KEY}}. El reintento sin tope de esas llamadas está en {{[FATHOM-REINTENTOS-SIN-TOPE]}}.
 
 *Riesgo:* Si ANTHROPIC_API_KEY no está en Vercel producción, entonces cada llamada IA de la org 997e94be-… falla sin reintento posible y los jobs de fondo (análisis de llamadas, reportes) quedan sin hacer sin que nadie lo note. Pasa hoy si la global falta; no requiere ninguna acción de nadie.
 
@@ -135,6 +135,57 @@ Fuente: PENDIENTES.md [1A1-CLAVE-ANTHROPIC-ROTA] · Doc del área: docs/areas/ag
 *Dónde:* {{apps/web/app/team/actions.ts}}, {{apps/web/lib/supabase/middleware.ts}}, migración nueva.
 
 Fuente: PENDIENTES.md [EQUIPO-DESACTIVAR-NO-BLOQUEA] · Doc del área: docs/areas/operaciones.md",EQUIPO-DESACTIVAR-NO-BLOQUEA,"Operaciones, Finanzas y Producto",P0,Crítica,seguridad
+[DB-VISTA-CLAUDE-STATUS-ESCRIBIBLE] Cualquier miembro puede borrar su organización entera a través de la vista organization_claude_status,Bug,Highest,infra,p0,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:* en prod, {{public.organization_claude_status}} es una vista simple sobre {{organizations}} sin {{security_invoker}} ({{pg_class.reloptions}} null; advisor {{security_definer_view}}, nivel ERROR), dueña {{postgres}} ({{rolbypassrls = true}}; {{organizations}} sin {{FORCE ROW LEVEL SECURITY}}). {{information_schema.views}}: {{is_updatable = YES}}, {{is_insertable_into = YES}}; columnas actualizables {{id}}, {{claude_api_key_status}}, {{claude_api_key_last_validated_at}}. {{role_table_grants}}: {{authenticated}} tiene {{INSERT}}, {{UPDATE}} y {{DELETE}} sobre la vista (las migraciones sólo hacen {{grant select}} y {{revoke all … from anon}}, {{20260922110000_rpcs_y_policies_entre_organizaciones.sql:68-69}}; el resto sale de los privilegios por defecto de {{public}}). Filtro de la vista para {{authenticated}}: {{id = get_my_organization_id()}}. 138 FKs hacia {{organizations}} son {{ON DELETE CASCADE}} (incluye {{profiles}}, {{clients}}, {{team_roles}}); {{organizations}} no tiene triggers. Deducido del catálogo; no se ejecutó ninguna escritura.
+
+*Riesgo:* Si cualquier usuario logueado (cualquier rol, incluido un member de ""sólo lectura"" o un miembro de holding con un negocio activo en el JWT) manda {{DELETE /rest/v1/organization_claude_status?id=eq.<su org>}} con la anon key y su JWT, entonces Postgres borra la fila de {{organizations}} como {{postgres}} (sin RLS) y en cascada los datos de la org en 138 tablas. Con {{PATCH}} puede además cambiar {{claude_api_key_status}}. Es una sola llamada HTTP con datos que el navegador ya tiene; basta un empleado descontento o una sesión robada.
+
+*Impacto:* Pérdida total de los datos de una organización (clientes, ventas, llamadas, finanzas, equipo, integraciones), sin papelera y *sin backups* (producción está en plan Free: {{[DR-BACKUPS-SUPABASE]}}), así que hoy sería irrecuperable. El borrado alcanza sólo a la org del propio usuario (la vista filtra por {{get_my_organization_id()}}), pero lo puede hacer cualquier miembro, incluso uno de sólo lectura. Expuestas todas las orgs de producción.
+
+*Qué hay que hacer:* migración con {{revoke insert, update, delete on public.organization_claude_status from authenticated, anon;}} y {{alter view public.organization_claude_status set (security_invoker = true);}} (confirmar que la RLS y los grants por columna de {{organizations}} dejan leer esas columnas a la org propia y que {{app/settings/actions.ts:386}} y {{lib/super-admin/queries.ts:99,449}} siguen funcionando); chequeo en {{supabase/ci/}} que falle si una vista de {{public}} es actualizable y tiene INSERT/UPDATE/DELETE para {{authenticated}}/{{anon}}; revisar si ya hubo borrados de {{organizations}} no hechos por el super admin (logs de PostgREST).
+
+*Criterio de aceptación:* Con el JWT de un member, {{DELETE}} y {{PATCH}} por PostgREST sobre {{organization_claude_status}} son rechazados (permiso denegado) y la org sigue existiendo; {{information_schema.role_table_grants}} no muestra INSERT/UPDATE/DELETE de {{authenticated}} ni {{anon}} sobre ninguna vista de {{public}}; el advisor ya no reporta {{security_definer_view}}; Ajustes → Claude y el panel del super admin siguen mostrando el estado de la clave; la migración está en {{supabase/migrations/}} y en el historial de prod
+
+*Dónde:* vista {{public.organization_claude_status}}, migración nueva, {{supabase/ci/check-migrations.sh}}.
+
+Fuente: PENDIENTES.md [DB-VISTA-CLAUDE-STATUS-ESCRIBIBLE] · Doc del área: docs/arquitectura/vision-general.md",DB-VISTA-CLAUDE-STATUS-ESCRIBIBLE,"Infraestructura, seguridad y tests (transversal)",P0,Crítica,seguridad
+[OAUTH-ESTADO-SIN-FIRMA] Los callbacks OAuth conectan la integración a la org que diga una cookie sin firmar,Bug,Highest,infra,p0,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:* los {{*/oauth/start}} y {{*/connect}} guardan {{JSON.stringify({ organizationId, state })}} en una cookie httpOnly sin firma ({{app/api/integrations/stripe/connect/route.ts:28-37}}). El callback sólo compara {{cookie.state === ?state}} y escribe con {{createAdminClient()}} en {{cookie.organizationId}} ({{stripe/callback/route.ts:57-106}}). Mismo patrón en {{calendly/oauth/callback:73-192}}, {{calendly/closer/callback:65-131}} (también {{profileId}} de la cookie), {{discord/callback:41-114}}, {{instagram/callback:62-105}}, {{mercadopago/callback:62-114}}, {{google-forms/oauth/callback:37-111}}, {{typeform/oauth/callback:30-105}} y {{youtube/oauth/callback:31-74}}. {{super-admin-google/oauth/callback:35-66}} usa {{cookie.userId}}. Ningún callback mira la sesión, y todos son rutas públicas ({{lib/supabase/public-paths.ts}}). {{docs/arquitectura/seguridad.md}} § OAuth dice lo contrario.
+
+*Riesgo:* si alguien conoce el UUID de otra org, completa el OAuth con su propia cuenta del proveedor y manda la cookie {{{""organizationId"":""<otra org>"",""state"":""x""}}} con {{?state=x}}. Entonces el servidor pisa la integración de esa org con la cuenta del atacante. No hace falta sesión. Los UUID de org circulan en las URLs de webhook de Whop, Commas y GHL, en el snippet UTM de las landings y en el holding. Es fácil: una cuenta gratis en el proveedor y un {{curl}}.
+
+*Impacto:* escritura en otra organización. Pierde su conexión real (Stripe, Mercado Pago, Calendly org o de un closer, Instagram, Google Forms/Drive, YouTube, Typeform, Discord) y le entran datos falsos por la sync: turnos en Closing, cobros en Finanzas, contenido y formularios en Marketing, mensajes de otro servidor de Discord. Con el Drive del super-admin, se reemplaza el token de un super admin, y de ese Drive se importan documentos al contexto de IA de todas las orgs.
+
+*Qué hay que hacer:*  - En cada callback, exigir sesión y que {{requireOrganizationId()}} (y {{user.id}} en closer y super-admin) coincida con la cookie. - Además, firmar la cookie con HMAC de un secreto de servidor, o guardar {{state}} en una tabla con TTL. Todo en un helper común ({{lib/integrations/oauth-state.ts}}) con tests. - Corregir {{docs/arquitectura/seguridad.md}} § OAuth y § Webhooks.
+
+*Criterio de aceptación:*  - Un GET a cada {{/api/integrations/*/callback}} o {{*/oauth/callback}} con una cookie armada a mano ({{organizationId}} de otra org, {{state}} coincidente) no escribe nada y redirige con error. Pasa igual sin sesión y con sesión de otra org. - El flujo normal desde {{/integrations}} sigue conectando cada proveedor. - Hay tests unitarios del helper: cookie alterada, org distinta a la sesión, {{state}} vencido.
+
+*Dónde:* {{apps/web/app/api/integrations/*/oauth/{start,callback}/route.ts}}, {{*/connect/route.ts}}, {{*/callback/route.ts}}, {{calendly/closer/{start,callback}}}, {{super-admin-google/oauth/*}}, {{lib/integrations/}}. > Prioridad sugerida P0: escritura en otra organización, explotable hoy sin sesión y con datos semipúblicos.
+
+Fuente: PENDIENTES.md [OAUTH-ESTADO-SIN-FIRMA] · Doc del área: docs/arquitectura/vision-general.md",OAUTH-ESTADO-SIN-FIRMA,"Infraestructura, seguridad y tests (transversal)",P0,Crítica,seguridad
+[DR-BACKUPS-SUPABASE] La base y los archivos de producción no tienen backups ni se ensayó nunca una restauración,Task,Highest,infra,p0,sev-critica,decision-de-negocio,,,"*Tipo:* decisión de negocio
+
+*Severidad:* Crítica
+
+*Estado verificado:* la organización de Supabase dueña del proyecto {{OTC}} ({{nrzlylzbmsuowzhpdnjl}}) está en plan {{free}} ({{get_organization}}, 2026-09-23). Según la doc oficial de Supabase ({{guides/platform/backups}}), sólo Pro/Team/Enterprise tienen backup diario y PITR es un add-on pago; los backups nunca incluyen los archivos de Storage. No hay ningún dump propio: {{CHANGES.md}}, {{docs/historial/}} y los scripts del repo no registran backups ni restauraciones. Storage: 13 buckets, ~797 MB, varios no reconstruibles ({{client-payment-receipts}}, {{business-context-documents}}, {{sop-videos}}, {{ai-brain-documents}}, {{client-wins}}). Migraciones destructivas aplicadas sin dump previo ({{20260922140000_borrar_metric_snapshots}}, {{20260922130000_limpiar_restos_legacy_de_produccion}}).
+
+*Riesgo:* Si una migración, un script con service role, una baja de organización o un bug borra o pisa datos, entonces no hay de dónde recuperarlos; si Supabase pierde el proyecto, se pierde todo. La probabilidad por evento es baja, pero el sistema se modifica a diario (175 migraciones en 4 meses) y sin red.
+
+*Impacto:* Todas las organizaciones: clientes, pagos cargados a mano, notas, wins, tareas, SOPs, documentos y comprobantes desde mayo 2026. Lo de proveedores se re-sincroniza sólo en parte (ver tabla §1.4 de la auditoría).
+
+*Qué hay que hacer:* (1) decidir el plan: Pro (backup diario 7 días) o Pro + PITR según el RPO que defina el equipo (preguntas en §7 de la auditoría); (2) mientras tanto, dump diario automatizado ({{supabase db dump}} roles + schema + data) a un almacenamiento fuera de Supabase; (3) copia periódica de los buckets no reconstruibles; (4) regla: dump de las tablas afectadas antes de toda migración destructiva; (5) ensayar una restauración completa en un proyecto descartable con checklist de lo que no está en migraciones (Auth Hook {{custom_access_token_hook}}, redirect URLs y SMTP de Auth, 5 buckets de {{[AUD-SEG-9]}}, publicaciones de realtime, extensiones) y escribir el procedimiento en {{docs/operacion/}}.
+
+*Criterio de aceptación:* Existe un backup de la base de producción de menos de 24 h que se puede listar (panel de Supabase en plan pago, o archivo de dump fechado fuera de Supabase generado por un proceso automático); existe una copia de los buckets no reconstruibles de menos de 7 días; se restauró ese backup en un proyecto descartable, la app apuntada a él permite entrar con una cuenta de prueba y ver sus clientes, y el procedimiento con tiempos medidos quedó escrito en {{docs/operacion/}}; la regla de dump previo a migraciones destructivas figura en {{docs/arquitectura/base-de-datos.md}}.
+
+*Dónde:* Supabase (plan, backups), {{docs/operacion/}}, {{docs/arquitectura/base-de-datos.md}}, script o workflow de dump nuevo.
+
+Fuente: PENDIENTES.md [DR-BACKUPS-SUPABASE] · Doc del área: docs/arquitectura/vision-general.md",DR-BACKUPS-SUPABASE,"Infraestructura, seguridad y tests (transversal)",P0,Crítica,decisión de negocio
 [SEG-BUCKET-IMPORT-FILES] El bucket import-files deja leer y borrar archivos de cualquier organización,Bug,Highest,infra,p0,sev-critica,seguridad,,,"*Tipo:* seguridad
 
 *Severidad:* Crítica
@@ -171,6 +222,40 @@ Fuente: PENDIENTES.md [SEG-BUCKET-IMPORT-FILES] · Doc del área: docs/arquitect
 *Dónde:* {{apps/web/lib/auth/}}, {{app/settings/actions.ts}}, {{app/sales/closer-actions.ts}}, {{app/finance/actions.ts}}, {{app/team/actions.ts}}, {{app/integrations/**}}, {{app/marketing/content/drive-actions.ts}}, migración nueva.
 
 Fuente: PENDIENTES.md [PERMISOS-SERVER-ACTIONS/infra] · Doc del área: docs/arquitectura/vision-general.md",PERMISOS-SERVER-ACTIONS/infra,"Infraestructura, seguridad y tests (transversal)",P0,Alta,seguridad
+"[AUTH-MFA-Y-POLITICA] Sin MFA (ni para el super admin), sin protección contra contraseñas filtradas y con la configuración de Auth fuera del repo",Bug,High,plataforma,p1,sev-alta,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Alta
+
+*Estado verificado:* ningún uso de MFA en {{apps/web}} (grep {{mfa|aal2|totp|two.?factor}} vacío). Advisor de Supabase en prod: {{auth_leaked_password_protection}} desactivada. El signup acepta el mínimo de Supabase (el mensaje de {{mapAuthError}} dice 6, {{apps/web/app/auth/actions.ts:39}}); el cambio forzado pide 8 ({{app/auth/force-password-change/actions.ts:6}}) y {{/auth/update-password}} pide 8 sólo en el navegador. No existe {{supabase/config.toml}}: duración del JWT, rotación de refresh tokens, confirmación de email y de cambio de email, y signups habilitados no están versionados ni documentados. El login del super admin tiene su propio contador ({{signin-superadmin:<email>}}, {{app/auth/actions.ts:175}}), así que un email admite 10 intentos cada 15 min entre los dos formularios.
+
+*Riesgo:* Si la contraseña del super admin o de un founder se filtra en otro sitio (reuso de contraseñas), entonces alcanza con ella para entrar; el rate limit por email ({{[LOGIN-RATE-LIMIT]}}) no frena probar una lista de contraseñas filtradas contra muchos emails. Probabilidad media: es el ataque más común contra paneles SaaS.
+
+*Impacto:* Super admin: todas las orgs. Founder: su org, sus integraciones y su BYOK.
+
+*Qué hay que hacer:* en Supabase → Authentication, activar la protección contra contraseñas filtradas y un mínimo de 8 caracteres; MFA TOTP obligatorio para el super admin (enrolamiento + chequeo de {{aal2}} en {{requireSuperAdmin}} y en el layout del panel) y ofrecido a founders; documentar la configuración de Auth vigente en {{docs/operacion/entorno-y-deploy.md}} (o versionarla en {{supabase/config.toml}}).
+
+*Criterio de aceptación:* Un signup o cambio de contraseña con una contraseña conocida como filtrada o de menos de 8 caracteres es rechazado; el super admin no puede abrir ninguna pantalla de {{/super-admin}} ni ejecutar sus actions sin haber pasado el segundo factor en esa sesión ({{aal2}}); el advisor ya no reporta {{auth_leaked_password_protection}}; la duración del JWT, la rotación de refresh tokens y las confirmaciones de email quedaron anotadas en {{docs/operacion/entorno-y-deploy.md}}
+
+*Dónde:* Supabase Auth (dashboard), {{apps/web/lib/auth/require-super-admin.ts}}, {{apps/web/app/(super-admin)/super-admin/layout.tsx}}, {{apps/web/app/auth/actions.ts}}, {{docs/operacion/entorno-y-deploy.md}}.
+
+Fuente: PENDIENTES.md [AUTH-MFA-Y-POLITICA] · Doc del área: docs/areas/plataforma.md",AUTH-MFA-Y-POLITICA,Plataforma,P1,Alta,seguridad
+"[AUTH-ALTA-EMAIL-AJENO] Un founder puede crear cuentas confirmadas para cualquier email, y el super admin se decide por email",Bug,High,plataforma,p1,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:* {{inviteTeamMemberAction}} ({{apps/web/app/team/actions.ts:263-301}}) llama {{admin.auth.admin.createUser({ email, password: tempPassword, email_confirm: true })}} y devuelve {{tempPassword}} al founder que invita, sin verificar que el email sea de la persona. Lo mismo hacen {{addBusinessToMyHoldingAction}} ({{app/(platform)/holding/actions.ts:174-204}}) y las altas del super admin ({{app/super-admin/actions.ts:127,197,724}}). Para invitar alcanza con ser founder ({{requireManagerProfile}}), y con {{[SIGNUP-PUBLICO]}} cualquiera puede serlo. {{isSuperAdminEmail}} ({{apps/web/lib/auth/require-super-admin.ts:6-17}}) da acceso al panel interno a todo usuario cuyo {{user.email}} esté en {{super_admin_users}}, sin mirar {{email_confirmed_at}} ni el id. Prod (conteo agregado, 2026-09-23): 1 email en la allowlist, con cuenta confirmada; 0 sin cuenta.
+
+*Riesgo:* Si se agrega a {{super_admin_users}} un email que todavía no tiene cuenta (p. ej. al sumar a alguien del staff antes de que entre), entonces cualquier founder que lo conozca o lo adivine lo invita a su org, recibe la contraseña temporal, entra y el middleware lo manda a {{/super-admin}}. Aun sin super admin de por medio, cualquier founder puede ocupar el email de otra persona (cuenta confirmada que esa persona ya no puede crear) y hacerse pasar por ella. Hoy la parte de super admin no es explotable (0 emails sin cuenta).
+
+*Impacto:* Toma del panel interno: todas las orgs, bajas, add-ons, claves BYOK de clientes ({{[IA-CLAVE-DE-CLIENTE-EN-SUPERADMIN]}}). Suplantación de identidad entre equipos.
+
+*Qué hay que hacer:* (1) identificar al super admin por {{user_id}} (FK a {{auth.users}}) en vez de por email, o como mínimo exigir {{email_confirmed_at}} y que la cuenta no venga de una invitación de org; (2) procedimiento en {{docs/operacion/}}: crear la cuenta del super admin antes de agregarla a la allowlist; (3) invitaciones por mail ({{auth.admin.inviteUserByEmail}} o link de un solo uso) en vez de cuentas confirmadas con contraseña visible, o {{email_confirm: false}} hasta que la persona confirme.
+
+*Criterio de aceptación:* Con un email agregado a {{super_admin_users}} que no tiene cuenta, un founder que lo invita a su org no obtiene acceso a {{/super-admin}} (la invitación falla o la cuenta queda sin acceso hasta que el dueño del email confirme); {{requireSuperAdmin}} rechaza a un usuario con email en la allowlist pero sin {{email_confirmed_at}} (o con otro {{user_id}}); invitar a un miembro no entrega una cuenta usable sin que la persona confirme su email; hay un test de {{requireSuperAdmin}}/{{isSuperAdmin}} con esos casos
+
+*Dónde:* {{apps/web/lib/auth/require-super-admin.ts}}, {{apps/web/app/team/actions.ts}}, {{apps/web/app/(platform)/holding/actions.ts}}, {{apps/web/app/super-admin/actions.ts}}, {{super_admin_users}} (migración).
+
+Fuente: PENDIENTES.md [AUTH-ALTA-EMAIL-AJENO] · Doc del área: docs/areas/plataforma.md",AUTH-ALTA-EMAIL-AJENO,Plataforma,P1,Crítica,seguridad
 "[AUTH-RECUPERAR-PASSWORD] (nuevo) ""¿Olvidaste tu contraseña?"" no hace nada",Bug,High,plataforma,p1,sev-media,bug,,,"*Tipo:* bug
 
 *Severidad:* Media
@@ -226,13 +311,13 @@ Fuente: PENDIENTES.md [PERMISOS-FOUNDER-AREA] · Doc del área: docs/areas/plata
 
 *Severidad:* Crítica
 
-*Estado verificado:* policies {{holding_reads_portfolio_*}} ({{20260630100000}}) sin rol; {{resolveEffectiveOrganizationId}} valida la cookie/header contra {{holding_businesses}} pero no contra {{canManageHolding}}, así que cualquier miembro del holding que setee la cookie a mano ve pantallas del negocio (las lecturas de {{clients}}, {{closing_calls}}, {{conversations}} y {{organizations}} pasan por las policies de portfolio; las escrituras con {{createClient()}} las rechaza RLS porque el claim {{active_business_org_id}} sólo lo setea {{enterBusinessAction}}, que sí exige {{canManageHolding}}). Esas mismas lecturas se pueden hacer por PostgREST sólo con el JWT, sin cookie.
+*Estado verificado:* policies {{holding_reads_portfolio_*}} ({{20260630100000}}) sin rol; {{resolveEffectiveOrganizationId}} valida la cookie/header contra {{holding_businesses}} pero no contra {{canManageHolding}}, así que cualquier miembro del holding que setee la cookie a mano ve pantallas del negocio (las lecturas de {{clients}}, {{closing_calls}}, {{conversations}} y {{organizations}} pasan por las policies de portfolio; las escrituras con {{createClient()}} las rechaza RLS porque el claim {{active_business_org_id}} sólo lo setea {{enterBusinessAction}}, que sí exige {{canManageHolding}}). *Pero* toda action que usa {{requireOrganizationId()}} + {{createAdminClient()}} sí escribe en el negocio, y también lee más allá de las 4 tablas de portfolio. Ejemplos: - {{saveClaudeApiKeyAction}} y {{removeClaudeApiKeyAction}} ({{app/settings/actions.ts:446-498}}); - los {{disconnect*Action}} ({{app/integrations/actions.ts}}); - {{connectPaymentProviderAction}}; - {{createDocumentFromFileAction}} y {{deleteDocumentAction}} ({{app/business-context/actions.ts}}); - {{recordClientPaymentAction}} y {{getClientPaymentReceiptUrlAction}}; - {{getClientOneOnOnesAction}}, que devuelve transcripts, porque su chequeo de {{clients}} pasa por la policy de portfolio.
 
 *Riesgo:* Si un holding tiene cualquier miembro que no es founder ni is_holding_admin, entonces ese miembro puede leer por PostgREST, sólo con su JWT y sin tocar cookies, los clientes, llamadas de cierre, conversaciones y datos de organización de todos los negocios activos del portfolio (policies de producción con get_my_holding_business_org_ids(), que no mira rol). Con la cookie seteada a mano además ve esas pantallas de los negocios.
 
 *Impacto:* Datos personales de clientes y conversaciones de las organizaciones de negocio expuestos a personas que esas organizaciones no autorizaron; alcance: cada holding con miembros no administradores (no se contó en producción por la regla de no leer filas).
 
-*Qué hay que hacer:* exigir {{canManageHolding}} en {{resolveEffectiveOrganizationId}} y en {{get_my_holding_business_org_ids()}}.
+*Qué hay que hacer:* exigir {{canManageHolding}} en {{resolveEffectiveOrganizationId}} y en {{get_my_holding_business_org_ids()}}. Además, que el middleware borre siempre el {{x-active-org-id}} entrante antes de setearlo desde la cookie. En prod las policies se llaman {{Users read own or portfolio clients}}, {{Users read own or portfolio closing calls}}, {{Users read own or portfolio conversations}} y {{Users read own or linked business orgs}} (consolidadas; en el repo son las {{holding_reads_portfolio_*}}): si el arreglo cambia policies, tiene que tocar esos nombres. Ver también {{[DB-CLAIM-HOLDING-SIN-REVALIDAR]}} (el hook tampoco mira el rol).
 
 *Criterio de aceptación:* Un miembro del holding que no es founder ni is_holding_admin, con la cookie limitless_active_org seteada a mano a un negocio, sigue viendo los datos del holding y no los del negocio; con su JWT no puede leer por PostgREST clientes, llamadas ni conversaciones de los negocios del portfolio; el founder del holding sigue entrando y leyendo el portfolio como antes
 
@@ -300,7 +385,7 @@ Fuente: PENDIENTES.md [E-RETENCION] · Doc del área: docs/areas/plataforma.md",
 
 *Impacto:* Costo de IA de Limitless sin techo ni cobro asociado, y orgs basura en la base; no expone datos de otras orgs.
 
-*Qué hay que hacer:* decidir si el alta es sólo por super admin/trial. Si sí: sacar el toggle y el action, y desactivar signups en Supabase Auth.
+*Qué hay que hacer:* decidir si el alta es sólo por super admin/trial. Si sí: sacar el toggle y el action, y desactivar signups en Supabase Auth. Si sigue abierta: rate limit por IP además de por email, mensaje neutro (""si el email es válido te llega un correo"") en vez de ""Ya existe una cuenta"", no devolver el mensaje crudo de Supabase, y resolver antes {{[AUTH-ALTA-EMAIL-AJENO]}}.
 
 *Criterio de aceptación:* Agustín decidió si el alta de cuentas founder es pública o sólo por super admin/prueba y la decisión quedó registrada en docs/arquitectura/auth-organizaciones-y-permisos.md; si es cerrada: /login ya no muestra «Crear cuenta», llamar signUpAction falla y el signup está desactivado en Supabase Auth
 
@@ -317,7 +402,7 @@ Fuente: PENDIENTES.md [SIGNUP-PUBLICO] · Doc del área: docs/areas/plataforma.m
 
 *Impacto:* Cualquier usuario de la app puede quedar bloqueado a voluntad de un tercero; el riesgo de adivinar contraseñas queda acotado por el límite por IP de Supabase Auth, no por la app.
 
-*Qué hay que hacer:* doble clave IP + email; captcha tras N fallos.
+*Qué hay que hacer:* doble clave IP + email; captcha tras N fallos. Tener en cuenta que {{signin}} y {{signin-superadmin}} son contadores separados (10 intentos por email cada 15 min en total). (Absorbe {{[AUD-SEG-7]}}.)
 
 *Criterio de aceptación:* Seis intentos fallidos con el email de otra persona desde una IP no impiden que esa persona entre desde otra IP; muchos intentos desde una misma IP contra emails distintos quedan bloqueados; después de N fallos el login pide captcha
 
@@ -513,6 +598,23 @@ Fuente: PENDIENTES.md [CLIENTES-DE-CLIENTES-PROBAR] · Doc del área: docs/areas
 *Dónde:* ficha → Sesiones 1-1; {{apps/web/lib/fathom/share-link.ts}}.
 
 Fuente: PENDIENTES.md [1A1-MANUALES-SIN-PROBAR] · Doc del área: docs/areas/clientes.md",1A1-MANUALES-SIN-PROBAR,Clientes,P1,Media,verificación manual
+[FATHOM-SYNC-CURSOR] La sync de Fathom saltea para siempre una llamada que no se pudo guardar,Bug,High,ventas,p1,sev-alta,bug,,,"*Tipo:* bug
+
+*Severidad:* Alta
+
+*Estado verificado:* {{syncFathomMeetingsForOrganization}} cuenta las reuniones guardadas ({{lib/fathom/sync.ts:268}}) y, si guardó al menos una, pone {{last_sync_at = now()}} ({{:274-277}}) aunque otras hayan fallado ({{upsertFathomCallFromMeeting}} devuelve {{false}}). La corrida siguiente pide {{created_after = last_sync_at}} ({{lib/fathom/sync-window.ts:50-58}}). El cursor es la hora del servidor, no el {{created_at}} más nuevo recibido. Como el webhook por miembro está roto ({{[FATHOM-WEBHOOK-MIEMBRO-ROTO]}}), esta sync es la única vía automática de entrada.
+
+*Riesgo:* Si en una misma corrida una llamada falla al guardarse y otra entra bien, entonces la que falló no se vuelve a pedir nunca. Si Fathom asigna {{created_at}} antes de que la reunión aparezca en el listado (no verificado), también se pierden las reuniones creadas durante la corrida.
+
+*Impacto:* Llamadas de venta y de entrega que no llegan a Limitless: sin clasificación, sin análisis, sin hitos propuestos, sin cruce con el turno. Se nota sólo si alguien compara contra Fathom.
+
+*Qué hay que hacer:* avanzar el cursor al {{created_at}} máximo de las guardadas bien, sin pasar del {{created_at}} de la más vieja que falló; restar un solape de unos minutos (el upsert deduplica).
+
+*Criterio de aceptación:* Con una corrida simulada donde una reunión falla al guardarse y otra entra, la corrida siguiente vuelve a pedir la que falló y la guarda; el cursor nunca pasa del created_at de una reunión no guardada; hay tests de la función que calcula el nuevo cursor
+
+*Dónde:* {{apps/web/lib/fathom/sync.ts}}, {{apps/web/lib/fathom/sync-window.ts}}.
+
+Fuente: PENDIENTES.md [FATHOM-SYNC-CURSOR] · Doc del área: docs/areas/ventas.md",FATHOM-SYNC-CURSOR,Ventas,P1,Alta,bug
 [FATHOM-WEBHOOK-MIEMBRO-ROTO] El webhook de Fathom por miembro no puede guardar ninguna grabación,Bug,High,ventas,p1,sev-media,bug,,,"*Tipo:* bug
 
 *Severidad:* Media
@@ -623,7 +725,7 @@ Fuente: PENDIENTES.md [CLOSING-CIERRE-ATOMICO] · Doc del área: docs/areas/vent
 
 *Riesgo:* Si un usuario autenticado pasa el UUID de un cliente de otra org (no se expone en la UI, así que hace falta conocerlo), entonces el admin client lee el nombre de ese cliente y escribe en su propia org filas (timeline, problemas, tareas, fathom_calls.client_id) que apuntan a él; difícil de explotar, pero sin ninguna barrera.
 
-*Impacto:* Filtración del nombre de un cliente ajeno hacia la org atacante (queda en el análisis y en call_analyses.lead_name) y referencias cruzadas entre orgs que corrompen la integridad; la org víctima no ve esas filas porque su RLS filtra por su org.
+*Impacto:* Filtración del nombre de un cliente ajeno hacia la org atacante (queda en el análisis y en call_analyses.lead_name) y referencias cruzadas entre orgs que corrompen la integridad; la org víctima no ve esas filas porque su RLS filtra por su org, *salvo* {{clients.linked_calls}}. Si la llamada tiene transcript y dura 10 minutos o más, {{syncClientLinkedCalls}} ({{lib/fathom/deep-call-analysis.ts:159-196}}, sin filtro de org) le agrega al cliente ajeno el título, el resumen y la URL de Fathom de una llamada de la org atacante, visibles en su ficha. Sumar {{.eq(""organization_id"")}} ahí y en las lecturas de {{clients}} de {{process-call.ts:369}} y {{lib/clients/client-tasks.ts:51}}.
 
 *Qué hay que hacer:* verificar {{clients.id = clientId and organization_id = org}} antes de finalizar.
 
@@ -1267,6 +1369,125 @@ Fuente: PENDIENTES.md [CLICKUP-MONTOS] · Doc del área: docs/areas/operaciones.
 *Dónde:* {{supabase/migrations/}} (nueva), {{apps/web/lib/{sops,workboard}/constants.ts}}.
 
 Fuente: PENDIENTES.md [OPS-STORAGE-BUCKETS] · Doc del área: docs/areas/operaciones.md",OPS-STORAGE-BUCKETS,"Operaciones, Finanzas y Producto",P1,Baja,verificación manual
+"[STORAGE-RUTA-DESDE-FILA] Rutas de Storage que el usuario puede escribir en la base se firman, descargan y borran con service role",Bug,High,infra,p1,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:*  - En producción, {{authenticated}} tiene {{INSERT}}/{{UPDATE}} de columna, y policy de INSERT que sólo mira {{organization_id}}, sobre estas columnas: {{storage_path}} de {{workboard_task_attachments}}, {{client_payments}}, {{business_context_documents}}, {{sop_attachments}} y {{win_attachments}}; {{video_path}} de {{sop_generation_jobs}}; {{variations}} de {{reel_variation_jobs}}. No hay constraint ni trigger sobre la ruta. - {{assertOrgStoragePath}} sólo se aplica a la ruta que manda el navegador al ""finalizar"". - La ruta leída de la fila se usa sin re-validar en: - {{app/workboard/task-link-actions.ts:327,367}}; - {{app/sales/payment-actions.ts:348}}; - {{app/business-context/actions.ts:606,646}}; - {{app/sops/actions.ts:504}}, {{app/sops/video-actions.ts:254}}; - {{app/clients/win-actions.ts:367,503,638}}; - {{app/marketing/content/reel-variation-actions.ts:504}}; - {{app/api/queue/process-sop-video/route.ts:84}} (descarga y transcribe); - {{app/api/queue/publish-reel-variation/route.ts:239}} (publica en Zernio); - {{app/api/cron/cleanup-trial-reels/route.ts:84}} (borra).
+
+*Riesgo:* si un miembro de una org escribe por PostgREST, en una fila propia, la ruta de un archivo de otra org, esa ruta se procesa con service role. Con eso obtiene una URL firmada, una transcripción (SOP desde video), una publicación en sus redes o el borrado del archivo ajeno. Hace falta conocer la ruta. La mayoría lleva UUIDs, pero hay rutas determinísticas, como {{<org>/music/background.mp3}} en el bucket {{trial-reels}}, que se lee y borra así.
+
+*Impacto:* lectura y borrado de archivos de otra organización: comprobantes de pago, documentos del contexto del negocio, videos de SOP, adjuntos de tareas, capturas de wins y videos de Trial Reels.
+
+*Qué hay que hacer:*  - Validar {{isOrgStoragePath(ruta, organizationId)}} antes de *toda* firma, descarga o borrado con service role (helper común). - En la base, {{CHECK (storage_path LIKE organization_id::text || '/%')}}, o sacar {{INSERT}}/{{UPDATE}} de esas columnas a {{authenticated}}. - En el worker de reels, exigir el prefijo de org en {{sourceStoragePath}} y {{reelMusicPath}}.
+
+*Criterio de aceptación:*  - Con el JWT de un member, insertar o actualizar una fila de cada tabla citada con una ruta que no empiece con su org falla (constraint o permiso). - Si igual existiera una fila así, las acciones citadas devuelven error sin firmar, descargar ni borrar. - Hay tests del helper con rutas de otra org, con {{..}} y vacías.
+
+*Dónde:* archivos citados, {{apps/web/lib/storage/org-path.ts}}, {{apps/reel-worker/src/processor.ts}}, migración nueva. > Prioridad sugerida P1: es Crítica, pero exige conocer la ruta del archivo ajeno. La mayoría no es adivinable.
+
+Fuente: PENDIENTES.md [STORAGE-RUTA-DESDE-FILA] · Doc del área: docs/arquitectura/vision-general.md",STORAGE-RUTA-DESDE-FILA,"Infraestructura, seguridad y tests (transversal)",P1,Crítica,seguridad
+[SEG-RLS-IDENTIFICADORES-EXTERNOS] Cualquier miembro puede escribir el identificador de la cuenta externa que decide a qué org van los eventos,Bug,High,infra,p1,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:* en prod, {{discord_integrations}} (policy {{org_access}}, ALL), {{unipile_integrations}} ({{Users manage own org unipile}}, ALL) y {{ghl_integrations}} (INSERT/UPDATE/DELETE por org) dejan a cualquier miembro, por PostgREST con su JWT, insertar o cambiar {{guild_id}}, {{unipile_account_id}}/{{status}} y {{location_id}} (grants de columna INSERT/UPDATE a {{authenticated}} confirmados en {{information_schema.column_privileges}}). Con service role, el sistema elige la org de cada evento entrante por esos valores: {{getOrgByGuildId}} ({{apps/discord-bot/src/lib/supabase.ts:117-123}}), {{getUnipileIntegrationByAccountId}} ({{apps/web/lib/unipile/integration.ts:14-26}}, {{maybeSingle}}) y {{resolveOrganizationByLocation}} ({{apps/web/lib/ghl/ingest-opportunity-event.ts:172-185}}, {{maybeSingle}}, usada en {{app/api/webhooks/ghl/route.ts:56}} y {{:93}}). Unicidad: {{guild_id}} único global; {{unipile_account_id}} único sólo por org ({{unipile_integrations_organization_id_unipile_account_id_key}}); {{ghl_integrations.location_id}} sin índice único. El flujo normal escribe esas columnas con admin client tras un OAuth/hosted auth ({{app/api/integrations/discord/callback/route.ts:112}}, {{lib/unipile/process-hosted-auth.ts}}, {{lib/ghl/integration.ts:112}}), pero la base no obliga a pasar por ahí.
+
+*Riesgo:* Si un miembro de la org A escribe el identificador de una cuenta de la org B, entonces: en Unipile, dos filas {{connected}} con el mismo {{unipile_account_id}} hacen fallar el {{maybeSingle}} y los DMs de B dejan de guardarse sin aviso (y si la fila de B no está {{connected}}, los recibe A); en Discord, A puede ocupar el {{guild_id}} de un servidor antes de que su dueño lo conecte, la conexión de B falla por la unicidad y los mensajes de ese servidor se guardan en A; en GHL, cuando exista la vía de la app del Marketplace ({{[FEAT-GHL-OAUTH]}}), los eventos firmados de la sub-cuenta de B irían a A o se rechazarían (la vía de workflow actual trae {{organizationId}} en la URL y no se ve afectada). Requiere conocer el identificador ajeno: el de Discord lo ve cualquier miembro del servidor; los otros dos son opacos. No se probó con un JWT real.
+
+*Impacto:* Mensajes de clientes (DMs de Instagram/LinkedIn vía Unipile, mensajes de la comunidad de Discord) de una org guardados en otra, o perdidos en silencio para su dueña. Afecta a toda org con Unipile o Discord conectado; GHL, a futuro.
+
+*Qué hay que hacer:* revocar a {{authenticated}} INSERT/UPDATE de {{guild_id}}, {{unipile_account_id}}, {{status}} y {{location_id}} (grants por columna, o dejar a los usuarios sólo SELECT/DELETE en esas tablas) y escribirlas sólo desde los callbacks con service role; índice único global en {{unipile_account_id}} (parcial por {{status = 'connected'}}) y en {{ghl_integrations.location_id}}.
+
+*Criterio de aceptación:* Con el JWT de un miembro de la org A, un PATCH/POST por PostgREST que cambie guild_id en discord_integrations, unipile_account_id o status en unipile_integrations, o location_id en ghl_integrations es rechazado; conectar Discord, Unipile y GHL desde la pantalla de Integraciones sigue funcionando; insertar dos filas connected con el mismo unipile_account_id (o dos ghl_integrations con el mismo location_id) falla por índice único; la migración está en supabase/migrations/ y en el historial de prod
+
+*Dónde:* {{discord_integrations}}, {{unipile_integrations}}, {{ghl_integrations}}, migración nueva; {{apps/discord-bot/src/lib/supabase.ts}}, {{apps/web/lib/unipile/integration.ts}}, {{apps/web/lib/ghl/ingest-opportunity-event.ts}}.
+
+Fuente: PENDIENTES.md [SEG-RLS-IDENTIFICADORES-EXTERNOS] · Doc del área: docs/arquitectura/vision-general.md",SEG-RLS-IDENTIFICADORES-EXTERNOS,"Infraestructura, seguridad y tests (transversal)",P1,Crítica,seguridad
+[INTEGRACIONES-ERROR-SIN-MARCA] Una integración con token vencido sigue figurando como conectada,Bug,High,infra,p1,sev-alta,bug,,,"*Tipo:* bug
+
+*Severidad:* Alta
+
+*Estado verificado:* {{syncGHLOrganizationSafe}} ({{lib/ghl/sync-pipeline.ts:28-…}}) atrapa el error del proveedor y devuelve ceros sin tocar la integración; lo mismo Calendly (org y closer, {{lib/calendly/sync-pipeline.ts}}, {{closer-sync.ts}}), Fathom org ({{lib/fathom/sync.ts}}), Typeform y Zernio. Sólo VTurb, Hyros, WebinarJam y Fathom por miembro guardan {{last_error}}, que es lo único que el tablero de Integraciones convierte en estado {{error}} ({{lib/integrations/health.ts}}, {{lastErrorIssue}}). En prod, {{[ghl-sync] Error org=46cce98c-…: Invalid Private Integration token}} se repitió 168 veces entre 2026-09-03 y 2026-09-23; {{The access token is invalid}} de Calendly apareció para la org {{997e94be-…}}. Si el refresh de Calendly sale bien y falla el {{update}} ({{lib/calendly/oauth-token.ts:120-131}}), el refresh token nuevo se pierde (si Calendly lo rota: a confirmar, su doc no está bajada).
+
+*Riesgo:* Si un cliente revoca o deja vencer un token, entonces la sync falla cada hora indefinidamente y el tablero sigue en verde; ni el cliente ni el equipo lo saben. Pasa hoy con al menos una org.
+
+*Impacto:* Turnos de GHL/Calendly, llamadas de Fathom y respuestas de formularios que dejan de entrar en las orgs afectadas; métricas de Ventas y Embudos por debajo de lo real.
+
+*Qué hay que hacer:* columnas {{last_error}}/{{last_error_at}} (o equivalente) en todas las integraciones con sync de fondo; escribirlas cuando el proveedor rechaza (401/403 y errores repetidos) y limpiarlas al primer éxito; que el tablero y el aviso del founder lo muestren; con 401/403 persistente, pasar la integración a ""reconectar"".
+
+*Criterio de aceptación:* Con un token inválido de GHL, Calendly, Fathom org, Typeform o Zernio, después de la siguiente corrida del cron la integración aparece en estado error en el tablero de Integraciones con el mensaje del proveedor y la acción de reconectar; tras reconectar y una corrida exitosa, el error se limpia; hay tests de la lógica de marcado
+
+*Dónde:* {{apps/web/lib/{ghl,calendly,fathom,typeform,zernio}/}}, {{apps/web/lib/integrations/health.ts}}, migración nueva.
+
+Fuente: PENDIENTES.md [INTEGRACIONES-ERROR-SIN-MARCA] · Doc del área: docs/arquitectura/vision-general.md",INTEGRACIONES-ERROR-SIN-MARCA,"Infraestructura, seguridad y tests (transversal)",P1,Alta,bug
+[OBS-SIN-ALERTAS] Nadie se entera cuando un proceso de fondo falla,Task,High,infra,p1,sev-alta,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Alta
+
+*Estado verificado:* {{Sentry.captureException}} sólo se usa en {{app/api/agent/send/route.ts}} y {{lib/holding/refresh-auth-session.ts}}; {{onRequestError}} ({{instrumentation.ts}}) sólo ve errores no atrapados, y los crons, workers de QStash y webhooks atrapan el error y hacen {{console.*}}. No hay tabla de corridas de crons ({{information_schema}} de prod), ni Sentry Cron Monitors, ni {{failureCallback}} en {{publishJSON}} ({{lib/queue/qstash-client.ts}}), ni Sentry en {{apps/discord-bot}} y {{apps/reel-worker}}. Los eventos no llevan {{org_id}}. El agregado de errores de Vercel (ventana de 7 días, consultado 2026-09-23) muestra fallas repetidas que nadie registró: 168 × token de GHL inválido de una org (desde 2026-09-03), ~3.000 × {{401 authentication_error}} de Anthropic en {{/api/integrations/fathom/process}} (2026-09-02 → 09-21), 849 × 429 de Zernio en el cron de métricas, 99 × {{Task timed out after 60 seconds}} en tres crons.
+
+*Riesgo:* Si un proceso de fondo falla de forma persistente (token vencido, clave de IA, proveedor caído, timeout), entonces nadie del equipo se entera hasta que un cliente nota datos faltantes, días o semanas después. Pasa hoy.
+
+*Impacto:* Todas las orgs: sync de turnos, llamadas, formularios, métricas, reportes de IA y cobros pueden quedar incompletos sin aviso. Las fallas de arriba duraron entre 3 y 8 semanas.
+
+*Qué hay que hacer:* (complementa {{[MONITOREO-Y-ALERTAS]}}, que cubre salud y disponibilidad) (1) en el helper común de crons/workers ({{[AUD-SALUD-3]}}) mandar cada error por org a Sentry con tags {{org_id}}, {{cron}}, {{provider}}; (2) {{Sentry.withMonitor}} (Cron Monitors) en los 19 crons de {{vercel.json}}; (3) reglas de alerta de Sentry a mail o Slack del equipo (issue nuevo, pico de eventos, cron que no corrió); (4) {{failureCallback}} de QStash hacia un endpoint que registre y alerte; (5) Sentry en el bot de Discord y en el reel-worker.
+
+*Criterio de aceptación:* Un error simulado dentro de un cron con fan-out (p. ej. token inválido en una org) aparece en Sentry con el tag org_id y dispara una alerta que le llega a alguien del equipo; si un cron de vercel.json no corre en su horario, Sentry alerta; un job de QStash que agota sus reintentos queda registrado y alerta; el bot de Discord y el reel-worker reportan sus errores a Sentry
+
+*Dónde:* {{apps/web/instrumentation.ts}}, {{apps/web/app/api/cron/*}}, {{apps/web/app/api/queue/*}}, {{apps/web/lib/queue/qstash-client.ts}}, {{apps/discord-bot/src/index.ts}}, {{apps/reel-worker/src/index.ts}}, Sentry (reglas de alerta).
+
+Fuente: PENDIENTES.md [OBS-SIN-ALERTAS] · Doc del área: docs/arquitectura/vision-general.md",OBS-SIN-ALERTAS,"Infraestructura, seguridad y tests (transversal)",P1,Alta,deuda técnica
+[MONITOREO-Y-ALERTAS] Sin chequeo de salud ni monitor de disponibilidad: una caída se detecta cuando un cliente avisa,Task,High,infra,p1,sev-alta,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Alta
+
+*Estado verificado:* no hay endpoint de salud en {{apps/web/app/api}}; la página ""Infraestructura"" del super admin ({{components/super-admin/infrastructure-page.tsx:18-42}}) muestra estados escritos a mano ({{status: ""ok""}}, {{""Configurado ✓""}}) salvo Resend; no hay registro de corridas de crons en la base; {{apps/discord-bot}} y {{apps/reel-worker}} no tienen Sentry ({{docs/arquitectura/jobs-webhooks-y-colas.md}}); no se pudo verificar si Sentry tiene alertas configuradas.
+
+*Riesgo:* Si un cron deja de correr, un webhook responde 4xx/5xx, una clave global se queda sin créditos o Supabase entra en sólo lectura, entonces nadie se entera hasta que un cliente reclama, y lo que no se reintenta (Commas, snapshots de anuncios, reportes) se pierde en el medio.
+
+*Impacto:* Todas las orgs; afecta el tiempo de detección de cualquier incidente del runbook {{docs/operacion/incidentes.md}}.
+
+*Qué hay que hacer:* {{/api/health}} (consulta mínima a la base y a Storage, variables críticas presentes, sin exponer valores) con un monitor externo de uptime; registro de cada corrida de cron (ruta, inicio, fin, estado, orgs fallidas); reemplazar los estados fijos de la página de Infraestructura por esos chequeos. Las alertas de errores de crons, colas y webhooks, y Sentry en bot y worker, van en {{[OBS-SIN-ALERTAS]}} (se hacen juntos).
+
+*Criterio de aceptación:* {{GET /api/health}} responde 200 con la base arriba y 503 si no puede consultarla; un monitor externo lo consulta y avisa a un canal del equipo; cada corrida de cron queda registrada con su estado; la página de Infraestructura ya no tiene estados fijos.
+
+*Dónde:* {{apps/web/app/api/health/}} (nuevo), {{apps/web/components/super-admin/infrastructure-page.tsx}}, crons en {{apps/web/app/api/cron/}}, Sentry, {{apps/discord-bot}}, {{apps/reel-worker}}.
+
+Fuente: PENDIENTES.md [MONITOREO-Y-ALERTAS] · Doc del área: docs/arquitectura/vision-general.md",MONITOREO-Y-ALERTAS,"Infraestructura, seguridad y tests (transversal)",P1,Alta,deuda técnica
+[SEC-MASTER-KEY-ROTACION] ENCRYPTION_MASTER_KEY no se puede rotar y no hay copia verificada,Bug,High,infra,p1,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:* {{apps/web/lib/security/encryption.ts}} usa una sola clave AES-256-GCM sin versión en el texto cifrado ({{iv.tag.ciphertext}}); no existe script de re-cifrado. En Vercel la variable es tipo {{sensitive}} (no se puede releer), target Preview y Production, creada el 2026-06-18 y nunca modificada. Con otra clave: BYOK de Claude cae a la global en silencio ({{lib/ai/credential-resolver.ts:136-141}}, la UI sigue mostrando la clave como válida); Zernio, GHL, Hyros, VTurb, WebinarJam y Fathom por miembro tiran al leer ({{readStoredSecret}}); los webhooks de Whop/Commas responden 404 ""no tiene … conectado"" ({{lib/payments/integration.ts:54-59}}, {{app/api/webhooks/whop/route.ts:42-46}}); el refresh de Mercado Pago falla ({{lib/mercadopago/tokens.ts:103-110}}).
+
+*Riesgo:* Si alguien cambia la variable (por ejemplo, rotando secretos tras una filtración) o se pierde sin copia, entonces se caen todas las integraciones cifradas de todas las orgs y los cobros de Commas del período se pierden (Commas no reintenta). Si se filtra junto con la service role, no hay forma de rotarla sin ese corte.
+
+*Impacto:* Todas las orgs con integraciones cifradas (BYOK, Zernio, GHL, Hyros, VTurb, WebinarJam, Fathom, pagos, Mercado Pago); cobros de Commas.
+
+*Qué hay que hacer:* (1) confirmar que la clave está guardada en un gestor de secretos fuera de Vercel, con acceso de al menos dos personas; (2) versionar el formato ({{v2.<iv>.<tag>.<ct>}}) y aceptar {{ENCRYPTION_MASTER_KEY_PREVIOUS}} para leer lo viejo; (3) script de re-cifrado con service role; (4) procedimiento de rotación en {{docs/operacion/}}; (5) distinguir en los webhooks ""no se pudo descifrar"" (500) de ""no conectado"" (404); (6) valor distinto para Preview (ver {{[ENTORNO-STAGING]}}). Al versionar: (7) usar AAD con {{organization_id}} + nombre de columna, para que un ciphertext copiado a otra fila no se descifre; (8) validar al leer la clave que decodifique a 32 bytes ({{lib/security/encryption.ts:5-11}}). (Hallazgos de {{docs/auditoria/secretos-y-autenticacion.md}}.)
+
+*Criterio de aceptación:* Hay constancia (anotada en V-INFRA-11) de que la clave existe fuera de Vercel; en un entorno de prueba con datos cifrados con la clave A, se configura B como actual y A como anterior, todas las integraciones siguen funcionando, el script re-cifra todo y después de sacar A siguen funcionando; un webhook de pagos con secreto indescifrable responde 500 y no 404; hay tests de cifrar/descifrar con clave actual y anterior; el procedimiento está en {{docs/operacion/}}.
+
+*Dónde:* {{apps/web/lib/security/encryption.ts}}, {{apps/web/lib/payments/integration.ts}}, script nuevo, Vercel.
+
+Fuente: PENDIENTES.md [SEC-MASTER-KEY-ROTACION] · Doc del área: docs/arquitectura/vision-general.md",SEC-MASTER-KEY-ROTACION,"Infraestructura, seguridad y tests (transversal)",P1,Crítica,seguridad
+[SUPABASE-PLAN-FREE-LIMITES] Storage al ~80 % del cupo del plan Free y la base pasa a sólo lectura a los 500 MB,Task,High,infra,p1,sev-alta,verificacion-manual,,,"*Tipo:* verificación manual
+
+*Severidad:* Alta
+
+*Estado verificado:* tamaño de la base 87 MB ({{pg_database_size}}); Storage ≈ 797 MB sumando {{metadata->>'size'}} de {{storage.objects}} por bucket ({{ai-brain-documents}} 354 MB, {{trial-reels}} 351 MB, {{business-context-documents}} 40 MB, resto < 25 MB). El plan Free incluye 1 GB de Storage y pone la base en sólo lectura al superar 500 MB (doc {{guides/platform/database-size}}); pausa proyectos con poca actividad durante 7 días; no tiene SLA. Los buckets {{sop-videos}} (1 GB por archivo) y {{trial-reels}} (500 MB) declaran límites mayores que el máximo de subida del Free (50 MB según la página de precios, sin confirmar en el panel).
+
+*Riesgo:* Si Storage pasa el cupo, fallan las subidas (comprobantes, documentos, reels, videos de SOP). Si la base llega a sólo lectura, los webhooks de pagos leen bien pero no pueden insertar y responden 200, así que los cobros se pierden ({{[EMBUDOS-WEBHOOK-PERDIDA]}}). Storage crece con cada documento del cerebro de IA y cada reel.
+
+*Impacto:* Todas las orgs que suben archivos; cobros de todas las orgs con pagos conectados durante un eventual modo sólo lectura.
+
+*Qué hay que hacer:* confirmar en el panel de Supabase el uso y los cupos reales; decidir el plan junto con {{[DR-BACKUPS-SUPABASE]}}; mientras siga en Free, revisar {{ai-brain-documents}} y los originales de {{trial-reels}}, y bajar el {{file_size_limit}} de los buckets al máximo real.
+
+*Criterio de aceptación:* Se ejecutó V-INFRA-11 (paso 1 y 2) con cuenta real y quedó anotado el uso real de base y Storage contra el cupo del plan; el proyecto está en un plan con margen de al menos 50 % en Storage o se liberó espacio hasta ese margen; los {{file_size_limit}} de los buckets no superan el máximo de subida del plan; si algo falló, se abrió un ítem nuevo.
+
+*Dónde:* Supabase (Billing, Storage), {{storage.buckets}}.
+
+Fuente: PENDIENTES.md [SUPABASE-PLAN-FREE-LIMITES] · Doc del área: docs/arquitectura/vision-general.md",SUPABASE-PLAN-FREE-LIMITES,"Infraestructura, seguridad y tests (transversal)",P1,Alta,verificación manual
 [ENV-ANTHROPIC-VERCEL] ANTHROPIC_API_KEY no figura en las variables del proyecto de Vercel,Task,High,infra,p1,sev-alta,verificacion-manual,,,"*Tipo:* verificación manual
 
 *Severidad:* Alta
@@ -1345,7 +1566,7 @@ Fuente: PENDIENTES.md [AUD-SEG-4] · Doc del área: docs/arquitectura/vision-gen
 
 *Impacto:* Con el worker abierto, cualquiera puede mandar jobs con {{organizationId}}/{{sourceStoragePath}} arbitrarios: el worker usa service role sobre el bucket {{trial-reels}} ({{processor.ts:35,46,113}}) y escribe {{reel_variation_jobs}}, o sea lectura/escritura de videos de otras orgs y consumo de cómputo. No se confirmó qué secrets tiene cargados hoy.
 
-*Qué hay que hacer:* comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar {{WORKER_AUTH_SECRET}} a {{fly.toml}}/README y confirmar con {{fly secrets list}} que está cargado.
+*Qué hay que hacer:* en el worker, verificar que {{reel_variation_jobs.organization_id}} del {{jobId}} sea el {{organizationId}} del payload, y que {{sourceStoragePath}}/{{reelMusicPath}} empiecen con {{${organizationId}/}} (ver {{[STORAGE-RUTA-DESDE-FILA]}}). Además: comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar {{WORKER_AUTH_SECRET}} a {{fly.toml}}/README y confirmar con {{fly secrets list}} que está cargado.
 
 *Criterio de aceptación:* Un POST sin credenciales al worker (curl sin header, también desde IP 10.*/172.* o con NODE_ENV no productivo) responde 401; un intento con secreto incorrecto no deja ningún fragmento del secreto en los logs; fly secrets list -a otc-reel-worker muestra WORKER_AUTH_SECRET, figura en fly.toml/README y un reel de prueba llega a preview_ready (V-INFRA-8)
 
@@ -1430,7 +1651,7 @@ Fuente: PENDIENTES.md [AUD-CONF-4] · Doc del área: docs/arquitectura/vision-ge
 
 *Impacto:* Cobros de Whop/Fanbasis/pagos que no aparecen en Finanzas ni en el cliente, en silencio; el crudo queda guardado pero no hay herramienta ni pantalla para reprocesarlo. Mismo efecto en oportunidades de GHL ({{ghl_webhook_events}}).
 
-*Qué hay que hacer:* en conflicto, re-procesar si el estado previo es {{error}}; sumar {{organization_id}} al índice de pagos.
+*Qué hay que hacer:* en conflicto, re-procesar si el estado previo es {{error}} o si quedó en {{pending}} hace más de unos minutos (el lambda murió entre el insert del crudo y el {{finish()}}, {{lib/payments/ingest.ts:33-69}}; mismo caso en GHL); sumar {{organization_id}} al índice de pagos.
 
 *Criterio de aceptación:* Un webhook de pagos o de GHL que quedó en estado error, al ser reenviado por el proveedor con el mismo ID de evento, se reprocesa y termina en estado ok en vez de descartarse; un duplicado de un evento ya procesado ok se sigue descartando; el índice de payment_webhook_events incluye organization_id; hay un test que cubre ambos casos
 
@@ -1451,14 +1672,14 @@ Fuente: PENDIENTES.md [AUD-CONF-5] · Doc del área: docs/arquitectura/vision-ge
 
 *Criterio de aceptación:* Los disparos de embeddings RAG, scoring de leads de ManyChat, sync inicial de YouTube, mails de waitlist y eventos de Meta están envueltos en after() (o con await) y no queda ninguno sin await tras responder; al anotarse en la waitlist llega el mail y al subir un documento de contexto queda indexado en producción
 
-*Dónde:* {{app/api/waitlist/route.ts}}, {{app/api/integrations/youtube/oauth/callback/route.ts}}, {{lib/business-context/}}, scoring de ManyChat.
+*Dónde:* {{app/api/waitlist/route.ts}}, {{app/api/integrations/youtube/oauth/callback/route.ts}}, {{lib/business-context/}}, scoring de ManyChat, {{lib/fathom/process-call.ts:508,515}} (análisis profundo inline y {{ingestDocument}} del transcript con {{void}}).
 
 Fuente: PENDIENTES.md [AUD-CONF-6] · Doc del área: docs/arquitectura/vision-general.md",AUD-CONF-6,"Infraestructura, seguridad y tests (transversal)",P1,Alta,bug
 "[ENV-LIMPIEZA] Variables de entorno desalineadas entre código, .env.example, turbo.json y Vercel",Task,High,infra,p1,sev-media,deuda-tecnica,,,"*Tipo:* deuda técnica
 
 *Severidad:* Media
 
-*Estado verificado:* faltan en {{.env.example}} y el código las usa: {{WORKER_AUTH_SECRET}}, {{ZERNIO_WEBHOOK_SECRET}}, {{ZERNIO_BASE_URL}}, {{CALENDLY_CLOSER_REDIRECT_URI}}, {{SUPER_ADMIN_GOOGLE_REDIRECT_URI}}, {{GHL_API_BASE}}, {{HYROS_API_BASE}}, {{VTURB_API_BASE}}, {{WEBINARJAM_API_BASE}}, {{SENTRY_*}}, {{NEXT_PUBLIC_SOP_VIDEO_MAX_MB}}. Sobra {{NEXT_PUBLIC_VSL_URL}}. {{.env.example}} dice que {{CRON_SECRET}} es ""opcional"" (es obligatoria). En Vercel sobran {{NEXT_PUBLIC_VSL_URL}}, {{NEXT_PUBLIC_NAV_STYLE}}, {{REDIS_URL}}, {{QSTASH_URL}}, {{GOOGLE_REDIRECT_URI}}, {{FATHOM_REDIRECT_URI}}; faltan {{LIMITLESS_WEBHOOK_SECRET}} (está {{OTC_}}), {{FATHOM_WEBHOOK_SECRET}}, {{NEXT_PUBLIC_UTM_ORGANIZATION_ID}}. {{turbo.json}} {{build.env}} no declara la mayoría de las nuevas y sigue listando {{OTC_WEBHOOK_SECRET}}.
+*Estado verificado:* faltan en {{.env.example}} y el código las usa: {{WORKER_AUTH_SECRET}}, {{ZERNIO_WEBHOOK_SECRET}}, {{ZERNIO_BASE_URL}}, {{CALENDLY_CLOSER_REDIRECT_URI}}, {{SUPER_ADMIN_GOOGLE_REDIRECT_URI}}, {{GHL_API_BASE}}, {{HYROS_API_BASE}}, {{VTURB_API_BASE}}, {{WEBINARJAM_API_BASE}}, {{SENTRY_*}}, {{NEXT_PUBLIC_SOP_VIDEO_MAX_MB}}. Sobra {{NEXT_PUBLIC_VSL_URL}}. {{INSTAGRAM_WEBHOOK_VERIFY_TOKEN}} tiene en {{.env.example:95}} un valor literal predecible en vez de vacío (si se usó el mismo en prod, rotarlo). {{.env.example}} dice que {{CRON_SECRET}} es ""opcional"" (es obligatoria). En Vercel sobran {{NEXT_PUBLIC_VSL_URL}}, {{NEXT_PUBLIC_NAV_STYLE}}, {{REDIS_URL}}, {{QSTASH_URL}}, {{GOOGLE_REDIRECT_URI}}, {{FATHOM_REDIRECT_URI}}; faltan {{LIMITLESS_WEBHOOK_SECRET}} (está {{OTC_}}), {{FATHOM_WEBHOOK_SECRET}}, {{NEXT_PUBLIC_UTM_ORGANIZATION_ID}}. {{turbo.json}} {{build.env}} no declara la mayoría de las nuevas y sigue listando {{OTC_WEBHOOK_SECRET}}.
 
 *Riesgo:* Si alguien arma un entorno nuevo desde {{.env.example}} o borra el respaldo {{OTC_WEBHOOK_SECRET}} sin cargar {{LIMITLESS_WEBHOOK_SECRET}}, entonces fallan en silencio el worker, el webhook de Zernio, el bot de Discord o el tracking UTM de la waitlist (sin {{NEXT_PUBLIC_UTM_ORGANIZATION_ID}} hoy no se registra ningún UTM de la waitlist, {{waitlist/route.ts:154}}).
 
@@ -1573,6 +1794,66 @@ Fuente: PENDIENTES.md [T-4] · Doc del área: docs/arquitectura/vision-general.m
 *Dónde:* {{apps/web/lib/utm/}}.
 
 Fuente: PENDIENTES.md [T-5] · Doc del área: docs/arquitectura/vision-general.md",T-5,"Infraestructura, seguridad y tests (transversal)",P1,Baja,tests
+[DB-CLAIM-HOLDING-SIN-REVALIDAR] Quien pierde el permiso de holding sigue operando dentro del negocio,Bug,Medium,plataforma,p2,sev-critica,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Crítica
+
+*Estado verificado:* {{custom_access_token_hook}} (prod; {{supabase/migrations/20260620100000_holding_jwt_claim_hook.sql}}) agrega {{active_business_org_id}} al JWT si existe fila en {{holding_active_sessions}} para el perfil y el vínculo de {{holding_businesses}} está {{active}}; no mira {{role}} ni {{is_holding_admin}}. {{get_my_organization_id()}} devuelve ese claim sin revalidar nada, y todas las policies de escritura lo usan. {{enterBusinessAction}} exige {{canManageHolding}} sólo al entrar; la fila de {{holding_active_sessions}} se borra sólo en {{exitBusinessAction}} y {{signOutAction}} ({{docs/arquitectura/auth-organizaciones-y-permisos.md}}, ""Holding: qué org ve cada request""). La duración del JWT no se pudo leer (config de Auth, no SQL).
+
+*Riesgo:* Si a un admin del holding le sacan {{is_holding_admin}} (o deja de ser founder) mientras está dentro de un negocio, entonces cada refresh del token le vuelve a poner el claim y sigue leyendo y escribiendo todo el negocio por PostgREST (y por la app mientras dure la cookie). Si se desactiva el vínculo holding–negocio, el claim sigue valiendo hasta que vence el JWT (default de Supabase: 1 h). Requiere que la persona haya sido admin y haya entrado al negocio antes.
+
+*Impacto:* Una persona que el holding ya no autoriza conserva acceso completo de org (clientes, ventas, finanzas) a un negocio que es otra organización. Alcance: holdings con más de un admin; hoy pocos.
+
+*Qué hay que hacer:* que el hook exija que el perfil sea founder o {{is_holding_admin}} del holding; borrar {{holding_active_sessions}} del perfil al cambiarle rol o {{is_holding_admin}} y al desactivar un vínculo; opcional: que {{get_my_organization_id()}} revalide el vínculo activo.
+
+*Dónde:* {{custom_access_token_hook}}, {{get_my_organization_id()}} (migración nueva), {{apps/web/app/(platform)/holding/actions.ts}}, {{apps/web/app/team/actions.ts}}.
+
+Fuente: PENDIENTES.md [DB-CLAIM-HOLDING-SIN-REVALIDAR] · Doc del área: docs/areas/plataforma.md",DB-CLAIM-HOLDING-SIN-REVALIDAR,Plataforma,P2,Crítica,seguridad
+"[DISCORD-BOT-SIN-RECUPERACION] Si el bot de Discord se cae, los mensajes de ese rato se pierden",Bug,Medium,plataforma,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* el bot sólo escucha {{messageCreate}} ({{apps/discord-bot/src/index.ts}}); al arrancar no recupera historial ({{src/events/ready.ts}} hace un diagnóstico); un error al guardar sólo va a {{console.error}} ({{src/lib/supabase.ts:168-172}}); no tiene Sentry. {{touchIntegrationEvent}} guarda la última actividad por servidor pero nada la compara.
+
+*Riesgo:* Si Railway reinicia el servicio, un deploy falla o el token se invalida, entonces todos los mensajes de ese período se pierden (Discord no reenvía eventos del gateway) y nadie se entera.
+
+*Impacto:* Wins, señales de {{daily-signals}} y atribución de mensajes a clientes con huecos, en todas las orgs con Discord conectado.
+
+*Qué hay que hacer:* al arrancar (y periódicamente), pedir a la API de Discord los mensajes posteriores al último {{discord_message_id}} guardado por canal monitoreado (el upsert por {{discord_message_id}} ya deduplica); alerta si un servidor conectado pasa N horas sin eventos (ver {{[OBS-SIN-ALERTAS]}}).
+
+*Dónde:* {{apps/discord-bot/src/events/ready.ts}}, {{apps/discord-bot/src/lib/supabase.ts}}.
+
+Fuente: PENDIENTES.md [DISCORD-BOT-SIN-RECUPERACION] · Doc del área: docs/areas/plataforma.md",DISCORD-BOT-SIN-RECUPERACION,Plataforma,P2,Media,bug
+[UI-PAGINAS-DE-ERROR] No hay páginas de error propias: ante una falla se ve la pantalla genérica de Next,Bug,Medium,plataforma,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* en {{apps/web/app}} no existe ningún {{error.tsx}} ni {{global-error.tsx}} (sólo {{not-found.tsx}}). {{instrumentation.ts}} captura errores del servidor con {{onRequestError}}, pero los errores de render del navegador no pasan por {{global-error.tsx}}, que es la vía que recomienda {{@sentry/nextjs}}.
+
+*Riesgo:* Si Supabase o una API cae, o un Server Component tira, entonces el usuario ve ""Application error: a server-side exception has occurred"" en inglés, sin forma de reintentar ni saber si perdió lo que estaba cargando; algunos errores del navegador no llegan a Sentry.
+
+*Impacto:* Todos los usuarios durante cualquier incidente.
+
+*Qué hay que hacer:* {{app/global-error.tsx}} (con {{Sentry.captureException}}) y {{error.tsx}} en el layout de plataforma, copy en español, botón de reintentar y sin mostrar el error interno.
+
+*Dónde:* {{apps/web/app/global-error.tsx}}, {{apps/web/app/(platform)/error.tsx}}.
+
+Fuente: PENDIENTES.md [UI-PAGINAS-DE-ERROR] · Doc del área: docs/areas/plataforma.md",UI-PAGINAS-DE-ERROR,Plataforma,P2,Media,bug
+[BAJA-ORG-SIN-RESPALDO] La baja de una organización borra todo sin exportación previa ni período de gracia,Story,Medium,plataforma,p2,sev-alta,feature,,,"*Tipo:* feature
+
+*Severidad:* Alta
+
+*Estado verificado:* {{lib/super-admin/execute-deletion.ts}} borra la fila de {{organizations}} (cascade sobre ~130 tablas), los archivos de 10 buckets y las cuentas de login; {{super_admin_deletions}} guarda quién, cuándo y el resultado, no los datos. No hay exportación ni papelera. Con el plan Free no hay backup ({{[DR-BACKUPS-SUPABASE]}}). Existe la alternativa reversible de pausar ({{app/super-admin/actions.ts:294}}).
+
+*Riesgo:* Si un super admin da de baja la org equivocada, o un cliente dado de baja pide volver, entonces sus datos y archivos no se pueden recuperar. La confirmación por nombre exacto reduce, pero no elimina, el error humano.
+
+*Impacto:* La org dada de baja: todo su historial.
+
+*Qué hay que hacer:* antes de borrar, exportar la org (JSON de sus filas por tabla + copia de sus archivos) a un bucket privado de respaldo con retención definida; o bien baja en dos pasos: ""pausada para baja"" durante N días y borrado real después.
+
+*Dónde:* {{apps/web/lib/super-admin/execute-deletion.ts}}, {{apps/web/app/super-admin/delete-actions.ts}}.
+
+Fuente: PENDIENTES.md [BAJA-ORG-SIN-RESPALDO] · Doc del área: docs/areas/plataforma.md",BAJA-ORG-SIN-RESPALDO,Plataforma,P2,Alta,feature
 [ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS] El gate muestra moneda y zona horaria ya elegidas (nuevo),Bug,Medium,plataforma,p2,bug,,,,"*Tipo:* bug
 
 *Estado verificado:* la migración {{20260831130000_organizations_drop_unit_defaults.sql}} sacó los defaults de {{organizations.currency/timezone/language}} para que un null signifique ""nadie lo eligió"" y el gate lo pregunte. Pero {{getOnboardingGateDefaultsAction}} ({{apps/web/app/onboarding/actions.ts:42-72}}) rellena el null con {{USD}} / {{America/Argentina/Buenos_Aires}} / {{es}}, y los {{<select>}} de {{components/onboarding/onboarding-gate.tsx:237-266}} no tienen opción vacía: el founder ve USD y Buenos Aires preseleccionados y puede avanzar sin elegir (la validación de la línea 91 sólo mira que haya valor). Es el mismo problema que la migración quiso cerrar, movido a la UI.
@@ -1969,6 +2250,36 @@ Fuente: PENDIENTES.md [AVISO-Y-SATISFACCION-SIN-PROBAR] · Doc del área: docs/a
 *Dónde:* {{apps/web/app/clients/win-actions.ts:351}}.
 
 Fuente: PENDIENTES.md [A-PROBAR-CAPTURAS] · Doc del área: docs/areas/clientes.md",A-PROBAR-CAPTURAS,Clientes,P2,,verificación manual
+[PAGO-SIN-IDEMPOTENCIA] Registrar un pago puede duplicarlo y la cuota puede quedar impaga,Bug,Medium,ventas,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* {{recordClientPaymentAction}} hace {{insert}} en {{client_payments}} sin clave de idempotencia ({{app/sales/payment-actions.ts:221-237}}); la tabla sólo tiene índices no únicos ({{20260715100000_client_payments.sql:17-21}}). La cuota se marca leyendo y reescribiendo {{clients.installments}} sin mirar el {{error}} del update ({{:249-263}}). La UI deshabilita el botón mientras corre ({{components/sales/client-payments-section.tsx:405}}), así que el doble click está cubierto, pero no un reintento tras perder la respuesta.
+
+*Riesgo:* Si la respuesta se pierde (red, timeout) y el usuario vuelve a registrar, entonces queda el cobro duplicado. Si falla el update de cuotas, el pago existe y la cuota figura impaga. Dos pagos simultáneos del mismo cliente pueden pisarse la lista de cuotas.
+
+*Impacto:* Cash collected inflado o cuotas ""atrasadas"" que no lo están, en Clientes y Finanzas; se corrige a mano borrando el duplicado.
+
+*Qué hay que hacer:* clave de idempotencia generada en el cliente (columna con índice único por org) y marca de cuota en SQL (RPC o {{jsonb_set}}) mirando el error. Coordinar con {{[CLOSING-CIERRE-ATOMICO]}}, que usa la misma action.
+
+*Dónde:* {{apps/web/app/sales/payment-actions.ts}}, {{apps/web/components/sales/client-payments-section.tsx}}, migración nueva.
+
+Fuente: PENDIENTES.md [PAGO-SIN-IDEMPOTENCIA] · Doc del área: docs/areas/ventas.md",PAGO-SIN-IDEMPOTENCIA,Ventas,P2,Media,bug
+[FATHOM-REINTENTOS-SIN-TOPE] Una llamada de Fathom que falla se reintenta una semana y después queda colgada,Bug,Medium,ventas,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* si {{processSingleFathomCall}} lanza, la llamada queda {{processing}} ({{lib/fathom/process-call.ts:112-114}}); {{reclaimStuckFathomCalls}} la devuelve a {{pending}} a los 15 min y la reintenta hasta 7 días ({{lib/fathom/reclaim-stuck.ts:28,36}}); después queda {{processing}} para siempre. No hay contador de intentos ni estado {{failed}}. En prod, ~10 llamadas fallaron ~296 veces cada una con {{401 authentication_error}} de Anthropic entre 2026-09-02 y 2026-09-21.
+
+*Riesgo:* Si el error es permanente (clave inválida, contenido que rompe el prompt), entonces la llamada consume cola y cuota cada 20-30 min durante una semana y al final queda invisible, sin análisis ni aviso.
+
+*Impacto:* Llamadas sin clasificar ni analizar en la org afectada; ruido en los logs que tapa otros errores; costo de IA si el error no es de autenticación.
+
+*Qué hay que hacer:* columna {{attempts}} y {{last_error}}; tras N intentos (p. ej. 5) pasar a {{failed}}, mostrarlo en Llamadas y permitir reintentar a mano; no reintentar errores permanentes (400/401/403) en bucle.
+
+*Dónde:* {{apps/web/lib/fathom/process-call.ts}}, {{apps/web/lib/fathom/reclaim-stuck.ts}}, migración nueva.
+
+Fuente: PENDIENTES.md [FATHOM-REINTENTOS-SIN-TOPE] · Doc del área: docs/areas/ventas.md",FATHOM-REINTENTOS-SIN-TOPE,Ventas,P2,Media,bug
 "[FATHOM-CRUCE-AGENDA-DESCONECTADO] El peldaño ""cruce con agenda"" del resolvedor nunca se activa",Bug,Medium,ventas,p2,bug,,,,"*Tipo:* bug
 
 *Estado verificado:* ítem nuevo. {{processSingleFathomCall}} llama {{classifyRecording({ hasCalendarCrossing, calendarLeadId: null })}} ({{lib/fathom/process-call.ts:188-193}}) y no pasa {{calendarClientId}}; el peldaño 4 de {{resolveCounterparty}} ({{resolve-counterparty.ts:210}}) exige uno de los dos. Además el peldaño 5 (nada resolvió) devuelve {{purpose: ""sales""}}, así que cualquier externo desconocido cuenta como venta aunque no haya cruzado turno — contradice la regla ""sólo es venta si cruza un turno"".
@@ -2095,6 +2406,36 @@ Fuente: PENDIENTES.md [SALES-ACTIONS-SIN-USO] · Doc del área: docs/areas/venta
 *Dónde:* {{apps/web/lib/calendly/}}, {{apps/web/lib/sales/}}.
 
 Fuente: PENDIENTES.md [CALENDLY-TESTS] · Doc del área: docs/areas/ventas.md",CALENDLY-TESTS,Ventas,P2,,tests
+[UTM-PUBLICO-ORG-EN-CUERPO] El tracking UTM público acepta cualquier org y campaña del navegador,Bug,Medium,marketing,p2,sev-media,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Media
+
+*Estado verificado:*  - {{/api/utm/track}} y {{/api/utm/click}} son públicos y toman {{organization_id}} y {{utm_campaign}} del JSON ({{app/api/utm/track/route.ts:27-50}}, {{app/api/utm/click/route.ts:21-31}}). - {{track}} inserta en {{utm_lead_captures}} y suma {{increment_utm_leads}} si la campaña existe en esa org ({{lib/utm/track-lead.ts:36-68}}). {{click}} suma con {{increment_utm_clicks}}. - Hay rate limit sólo por IP. La respuesta {{{ok}}} revela si la campaña existe en esa org.
+
+*Riesgo:* si alguien copia el UUID y el nombre de campaña del snippet de una landing, puede inflar clics y meter leads inventados en esa org rotando IPs. Es fácil, sin cuenta.
+
+*Impacto:* clics, leads y conversión por UTM de la org afectada dejan de ser confiables. No expone datos.
+
+*Qué hay que hacer:*  - Identificador público por link (no el UUID de la org) que el servidor resuelve a org y campaña. - Respuesta uniforme. - Límite por campaña además de por IP.
+
+*Dónde:* {{apps/web/app/api/utm/{track,click}/route.ts}}, {{apps/web/lib/utm/track-lead.ts}}.
+
+Fuente: PENDIENTES.md [UTM-PUBLICO-ORG-EN-CUERPO] · Doc del área: docs/areas/marketing.md",UTM-PUBLICO-ORG-EN-CUERPO,Marketing,P2,Media,seguridad
+[ZERNIO-METRICAS-429] El cron de métricas choca con el límite de pedidos de Zernio todos los días,Bug,Medium,marketing,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* {{syncContentMetricsForOrg}} lanza hasta 50 {{getPostAnalytics}} en paralelo ({{lib/marketing/sync-content-metrics.ts:8,56-77}}); {{zernioFetchJson}} ({{lib/zernio/client.ts:268-284}}) no reintenta. Zernio responde 429 con {{limit: 6}} y {{retryAfterSeconds: 1}}: 849 rechazos en {{/api/queue/process-cron-sync-metrics}} en 7 días (agregado de Vercel, 2026-09-23).
+
+*Riesgo:* Si una org tiene más de ~6 piezas, entonces la mayoría no se actualiza, y como el orden es ""más viejas primero"", las mismas vuelven a chocar al día siguiente.
+
+*Impacto:* Métricas de contenido desactualizadas en Marketing para las orgs con más publicaciones (3 afectadas en la ventana).
+
+*Qué hay que hacer:* limitar la concurrencia (p. ej. 4 pedidos a la vez) y, ante 429, esperar {{retryAfterSeconds}} y reintentar una o dos veces dentro de {{zernioFetchJson}}.
+
+*Dónde:* {{apps/web/lib/marketing/sync-content-metrics.ts}}, {{apps/web/lib/zernio/client.ts}}.
+
+Fuente: PENDIENTES.md [ZERNIO-METRICAS-429] · Doc del área: docs/areas/marketing.md",ZERNIO-METRICAS-429,Marketing,P2,Media,bug
 [AUDITORIA §3 confiabilidad 11] La sync de contenido escribe ceros si el analytics no se reconoce,Bug,Medium,marketing,p2,bug,,,,"*Tipo:* bug
 
 *Estado verificado:* {{mapExternalPostToRow}} usa {{resolvePostAnalytics(post.analytics).metrics}} sin mirar {{recognized}}, y el update de existentes pisa {{metrics}} y {{metrics_updated_at}}.
@@ -2176,15 +2517,17 @@ Fuente: PENDIENTES.md [MKT-SCOPE-YT-UPLOAD] · Doc del área: docs/areas/marketi
 *Dónde:* {{apps/web/app/marketing/content/actions.ts}}
 
 Fuente: PENDIENTES.md [AUDITORIA §3 seguridad 5] · Doc del área: docs/areas/marketing.md",AUDITORIA §3 seguridad 5,Marketing,P2,,seguridad
-[AUDITORIA §3 seguridad 9] content-thumbnails público con policy de listado,Bug,Medium,marketing,p2,seguridad,,,,"*Tipo:* seguridad
+[AUDITORIA §3 seguridad 9] content-thumbnails público con policy de listado,Bug,Medium,marketing,p2,sev-baja,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{20260805200000_content_thumbnails_bucket.sql}}: bucket {{public=true}} y policy {{SELECT}} para {{public}} sobre {{storage.objects}} → se pueden listar las carpetas (org ids) de todas las orgs.
+*Severidad:* Baja
+
+*Estado verificado:* {{20260805200000_content_thumbnails_bucket.sql}}: bucket {{public=true}} y policy {{SELECT}} para {{public}} sobre {{storage.objects}} → se pueden listar las carpetas (org ids) de todas las orgs. Lo mismo con {{avatars}} en prod: bucket público y policy {{Avatar read público}} (SELECT para {{public}}, {{bucket_id = 'avatars'}}), que no está en ninguna migración (ver {{[DB-DRIFT-STORAGE-REALTIME]}}). {{discord-bot-avatars}} es público sin policy de SELECT, que es lo correcto.
 
 *Qué hay que hacer:* borrar la policy de SELECT (las URLs públicas funcionan sin ella).
 
 *Dónde:* migración nueva
 
-Fuente: PENDIENTES.md [AUDITORIA §3 seguridad 9] · Doc del área: docs/areas/marketing.md",AUDITORIA §3 seguridad 9,Marketing,P2,,seguridad
+Fuente: PENDIENTES.md [AUDITORIA §3 seguridad 9] · Doc del área: docs/areas/marketing.md",AUDITORIA §3 seguridad 9,Marketing,P2,Baja,seguridad
 [AUDITORIA §3 confiabilidad 1] Zernio sin timeouts ni defensas uniformes,Task,Medium,marketing,p2,deuda-tecnica,,,,"*Tipo:* deuda técnica
 
 *Estado verificado:* ningún {{fetch}} de {{lib/zernio/client.ts}} usa {{AbortSignal.timeout}}; {{listAccounts}}, inbox, {{replyToComment}}, {{hideComment}}, {{createPost}} y los analytics de cuenta no pasan por {{zernioFetchJson}}.
@@ -2360,11 +2703,11 @@ Fuente: PENDIENTES.md [EMBUDOS-PERMISOS-ACCIONES] · Doc del área: docs/areas/e
 Fuente: PENDIENTES.md [EMBUDOS-GHL-WEBHOOK-HARDENING] · Doc del área: docs/areas/embudos.md",EMBUDOS-GHL-WEBHOOK-HARDENING,Embudos y Lanzamientos,P2,,seguridad
 [EMBUDOS-CRON-ERRORES] ghl-sync sigue devolviendo ok con ceros cuando falla una org,Bug,Medium,embudos,p2,bug,,,,"*Tipo:* bug
 
-*Estado verificado:* el route devuelve 500 sólo ante excepción no controlada, pero {{syncGHLOrganizationSafe}} atrapa todo y devuelve ceros; el cron responde {{ok: true}}. Igual en {{capture-ad-metrics}} las orgs en error van a {{errors}} con 200.
+*Estado verificado:* el route devuelve 500 sólo ante excepción no controlada, pero {{syncGHLOrganizationSafe}} atrapa todo y devuelve ceros; el cron responde {{ok: true}}. Igual en {{capture-ad-metrics}} las orgs en error van a {{errors}} con 200. Lo mismo en otros crons (auditoría de confiabilidad 2026-09-23): {{calendly-sync-closers}} responde {{200 { ok: true, orgs: 0 }}} ante una excepción ({{app/api/cron/calendly-sync-closers/route.ts:35-37}}); {{daily-signals}} devuelve los errores de cada paso sólo en el cuerpo y no los loguea ({{app/api/cron/daily-signals/route.ts:70-77}}); {{fathom/sync}} y {{typeform/sync}} responden 200 con los errores por org adentro.
 
 *Qué hay que hacer:* devolver el error por org y 500/207 si alguna falló, para que el monitor de Vercel lo vea.
 
-*Dónde:* {{apps/web/lib/ghl/sync-pipeline.ts}}, {{app/api/cron/{ghl-sync,capture-ad-metrics}/route.ts}}.
+*Dónde:* {{apps/web/lib/ghl/sync-pipeline.ts}}, {{app/api/cron/{ghl-sync,capture-ad-metrics,calendly-sync-closers,daily-signals}/route.ts}}, {{app/api/integrations/{fathom,typeform}/sync/route.ts}}.
 
 Fuente: PENDIENTES.md [EMBUDOS-CRON-ERRORES] · Doc del área: docs/areas/embudos.md",EMBUDOS-CRON-ERRORES,Embudos y Lanzamientos,P2,,bug
 [EMBUDOS-TIMEOUTS] Clientes HTTP sin timeout,Task,Medium,embudos,p2,deuda-tecnica,,,,"*Tipo:* deuda técnica
@@ -2432,7 +2775,7 @@ Fuente: PENDIENTES.md [REPORTES-SEMANA-ETIQUETA] · Doc del área: docs/areas/ag
 Fuente: PENDIENTES.md [REPORTES-DUPLICADOS] · Doc del área: docs/areas/agente-ia.md",REPORTES-DUPLICADOS,Agente de negocio e IA,P2,,deuda técnica
 [INTELIGENCIA-SIN-REINTENTO] (nuevo) Snapshot y tono no reintentan,Bug,Medium,agente-ia,p2,bug,,,,"*Tipo:* bug
 
-*Estado verificado:* {{generateAndSaveIntelligenceSnapshot}} y {{generateAndSaveFounderTone}} atrapan el error y devuelven {{""failed""}}; los workers {{process-cron-intelligence-snapshot}} y {{process-cron-founder-tone}} responden 200 → QStash no reintenta. El de reportes ejecutivos ya lo resolvió.
+*Estado verificado:* {{generateAndSaveIntelligenceSnapshot}} y {{generateAndSaveFounderTone}} atrapan el error y devuelven {{""failed""}}; los workers {{process-cron-intelligence-snapshot}} y {{process-cron-founder-tone}} responden 200 → QStash no reintenta. El de reportes ejecutivos ya lo resolvió. En prod el snapshot falla con ""Respuesta de IA con formato inválido"" (10 casos en el agregado de errores de Vercel al 2026-09-23), que es justo el tipo de error que un reintento resuelve.
 
 *Qué hay que hacer:* replicar el {{if (result === ""failed"") → 500}} en esos dos workers.
 
@@ -2691,20 +3034,101 @@ Fuente: PENDIENTES.md [WORKBOARD-CARGA-DUPLICADA] · Doc del área: docs/areas/o
 *Dónde:* carpetas citadas.
 
 Fuente: PENDIENTES.md [TESTS-OPS-FIN-PROD] · Doc del área: docs/areas/operaciones.md",TESTS-OPS-FIN-PROD,"Operaciones, Finanzas y Producto",P2,,tests
-[AUD-SEG-3] El portfolio del holding no mira el rol,Bug,Medium,infra,p2,seguridad,,,,"*Tipo:* seguridad
+[LOGS-DATOS-SENSIBLES] Logs con textos de DMs y filas de clientes; Sentry sin filtro de headers ni query string,Bug,Medium,infra,p2,sev-media,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* policies {{holding_reads_*}} en {{20260630100000_holding_portfolio_rls.sql}} sólo usan {{get_my_holding_business_org_ids()}}, que no filtra por rol: cualquier miembro de la org holding lee {{clients}}, {{closing_calls}}, {{conversations}} y {{organizations}} de todos los negocios.
+*Severidad:* Media
 
-*Qué hay que hacer:* restringir la función a founder/{{is_holding_admin}} o sumar la condición en las policies.
+*Estado verificado:* {{apps/web/lib/unipile/process-message.ts:91-99}} loguea {{messageText}} (texto completo del DM), nombre del lead y {{senderId}} de cada mensaje entrante; {{:51}} el nombre del lead. {{apps/web/app/integrations/clickup/import-actions.ts:200}} loguea {{JSON.stringify(clientRow)}} (fila completa del cliente) cuando falla un insert. {{app/api/queue/publish-reel-variation/route.ts:146,148}} loguea el email del admin. {{lib/google/drive-content.ts:36}} y {{drive-forms.ts:29,35}} loguean el cuerpo completo del error de Google. Sentry: {{sentry.edge.config.ts}} no tiene {{beforeSend}} (el middleware corre en Edge); {{client}} y {{server}} sólo borran {{request.cookies}}; ningún config filtra headers ({{Authorization}} con {{CRON_SECRET}}, {{x-worker-secret}}, {{upstash-signature}}, {{unipile-auth}}) ni query string ({{workerSecret}}, {{secret}} de Unipile, {{code}}/{{state}} de OAuth, {{token}} de invitaciones). No se pudo ver un evento real de Sentry.
 
-*Dónde:* migración nueva.
+*Riesgo:* Si alguien con acceso a los logs de Vercel o al proyecto de Sentry (más gente que a la base, y con otra retención) los consulta, entonces lee DMs de leads y datos de clientes, y puede encontrar secretos de cron/cola si alguna de esas rutas tira error. Probable que ya esté pasando con los DMs mientras el inbox legacy de Unipile reciba mensajes.
 
-Fuente: PENDIENTES.md [AUD-SEG-3] · Doc del área: docs/arquitectura/vision-general.md",AUD-SEG-3,"Infraestructura, seguridad y tests (transversal)",P2,,seguridad
+*Impacto:* Datos personales de terceros (leads, clientes de los clientes) fuera de la base y fuera de las bajas del super admin.
+
+*Qué hay que hacer:* loguear sólo ids en Unipile y ClickUp; {{beforeSend}} común a los tres configs de Sentry que borre {{authorization}}, {{cookie}}, {{x-worker-secret}}, {{upstash-signature}}, {{unipile-auth}} y limpie de la URL/query {{workerSecret}}, {{secret}}, {{code}}, {{state}}, {{token}}; mirar un evento real de Sentry de una ruta de cola para confirmar.
+
+*Dónde:* {{apps/web/lib/unipile/process-message.ts}}, {{apps/web/app/integrations/clickup/import-actions.ts}}, {{apps/web/app/api/queue/publish-reel-variation/route.ts}}, {{apps/web/lib/google/drive-*.ts}}, {{apps/web/sentry.{client,server,edge}.config.ts}}.
+
+Fuente: PENDIENTES.md [LOGS-DATOS-SENSIBLES] · Doc del área: docs/arquitectura/vision-general.md",LOGS-DATOS-SENSIBLES,"Infraestructura, seguridad y tests (transversal)",P2,Media,seguridad
+"[DB-DRIFT-STORAGE-REALTIME] Producción difiere del repo en Storage, Realtime y grants de funciones",Task,Medium,infra,p2,sev-media,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Media
+
+*Estado verificado:* comparado el 2026-09-23 el estado final de policies de las 175 migraciones contra {{pg_policies}} de prod. El historial de versiones coincide exactamente y {{public}} coincide salvo lo ya registrado en {{docs/historial/DB_DIFF_PRODUCCION_2026-09-22.md}} y: (1) {{manychat_events}} tiene en prod la policy {{org_members_manychat_events}} (ALL, por org) que no está en ninguna migración; (2) {{storage.objects}} tiene 15 policies en prod y 11 en el repo: sólo en prod {{Users can read/upload/delete import files}} (ver {{[SEG-BUCKET-IMPORT-FILES]}}) y {{Avatar delete/update/upload por org}} + {{Avatar read público}} (usan {{profiles.organization_id}}); sólo en el repo {{Org members insert/update/delete avatars}} (usan {{get_my_organization_id()}}); (3) {{conversations}} está en la publicación {{supabase_realtime}} sin migración que la agregue; (4) {{current_user_is_founder_or_admin()}} sin migración (ya anotado en el diff del 22); (5) {{anon}} tiene EXECUTE sobre {{get_my_organization_id()}}, {{get_my_holding_business_org_ids()}} y {{current_user_is_founder_or_admin()}} aunque el repo revoca {{FROM public}} (advisor {{anon_security_definer_function_executable}}). El diff del 22 no cubrió {{storage.objects}}, {{pg_publication_tables}} ni grants de funciones.
+
+*Riesgo:* Si alguien cambia reglas a mano en prod (como pasó con {{import-files}}), entonces el agujero no aparece en el código ni en el diff; y una base levantada desde el repo (staging, recuperación) queda con reglas distintas a prod (p. ej. sin {{conversations}} en realtime, con otras policies de avatars).
+
+*Impacto:* Control de cambios de la seguridad de la base. Hoy, fuera de {{import-files}}, ninguna de las diferencias cruza organizaciones.
+
+*Qué hay que hacer:* migración de reconciliación idempotente: declarar las policies de {{avatars}} que se quieran (y borrar las otras), borrar {{org_members_manychat_events}}, agregar {{conversations}} a la publicación, crear {{current_user_is_founder_or_admin()}} y revocar EXECUTE a {{anon}} de las tres funciones; sumar {{storage.objects}}, {{pg_publication_tables}} y grants de funciones a la comparación repo–prod.
+
+*Dónde:* migración nueva, {{supabase/ci/check-migrations.sh}}, {{docs/arquitectura/base-de-datos.md}}.
+
+Fuente: PENDIENTES.md [DB-DRIFT-STORAGE-REALTIME] · Doc del área: docs/arquitectura/vision-general.md",DB-DRIFT-STORAGE-REALTIME,"Infraestructura, seguridad y tests (transversal)",P2,Media,deuda técnica
+"[JOBS-TRABADOS-SIN-SALIDA] SOP desde video y Trial Reels quedan ""procesando"" para siempre si el proceso muere",Bug,Medium,infra,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* SOP: si el lambda de {{/api/queue/process-sop-video}} muere por tiempo o memoria, {{sop_generation_jobs.status}} queda en {{transcribing}}/{{generating}}; el botón de reintentar sólo aparece con {{failed}} ({{components/sops/sop-video-creator.tsx:275}}). Reels: si el worker de Fly muere a mitad, {{reel_variation_jobs}} queda {{processing}} y cualquier reentrega lo saltea ({{apps/reel-worker/src/processor.ts:176}}). Ninguno tiene rescate como {{lib/fathom/reclaim-stuck.ts}}.
+
+*Riesgo:* Si un video largo agota memoria o tiempo, o Fly reinicia la máquina, entonces el usuario ve un spinner eterno y no puede reintentar.
+
+*Impacto:* SOPs y reels que no salen; hay que tocar la base a mano. Frecuencia baja hoy (poco uso), sube con videos largos ({{[OPS-SOP-VIDEO-MEMORIA]}}).
+
+*Qué hay que hacer:* {{processing_started_at}} en los dos jobs; tratar como {{failed}} (con motivo) lo que lleve más de X minutos en un estado intermedio, ya sea al leerlo o con el cron de limpieza; mostrar ""Reintentar"" en ese caso.
+
+*Dónde:* {{apps/web/app/api/queue/process-sop-video/route.ts}}, {{apps/web/components/sops/sop-video-creator.tsx}}, {{apps/reel-worker/src/processor.ts}}, {{apps/web/app/marketing/content/reel-variation-actions.ts}}, migración nueva.
+
+Fuente: PENDIENTES.md [JOBS-TRABADOS-SIN-SALIDA] · Doc del área: docs/arquitectura/vision-general.md",JOBS-TRABADOS-SIN-SALIDA,"Infraestructura, seguridad y tests (transversal)",P2,Media,bug
+[CRONS-CORTE-60S] Los crons en serie se cortan a los 60 s y dejan orgs sin sincronizar,Bug,Medium,infra,p2,sev-media,bug,,,"*Tipo:* bug
+
+*Severidad:* Media
+
+*Estado verificado:* 99 × {{Vercel Runtime Timeout Error: Task timed out after 60 seconds}} en {{/api/cron/ghl-sync}}, {{/api/integrations/google-forms/sync}} y {{/api/cron/calendly-sync}} (agregado de Vercel, consultado 2026-09-23). Calendly y Google Forms recorren las orgs en serie sin orden explícito ({{lib/calendly/sync-pipeline.ts:186}}, {{lib/google-forms/sync.ts:281}}); GHL las corre todas en un solo {{Promise.all}} ({{lib/ghl/sync-pipeline.ts:118}}). Un timeout mata el proceso sin respuesta ni log de lo que quedó sin hacer.
+
+*Riesgo:* Si la suma de orgs pasa de 60 s, entonces las últimas de la lista quedan sin sincronizar, probablemente siempre las mismas; crece con cada org nueva.
+
+*Impacto:* Turnos de Calendly/GHL y respuestas de Google Forms que llegan tarde o no llegan para algunas orgs.
+
+*Qué hay que hacer:* pasar estos crons al fan-out por QStash que ya usan los de IA ({{publishCronFanout}}), o como mínimo ordenar por {{last_sync_at}} ascendente con presupuesto de tiempo (patrón de {{fathom/process}}). Encaja en {{[AUD-SALUD-3]}}.
+
+*Dónde:* {{apps/web/app/api/cron/{ghl-sync,calendly-sync}/route.ts}}, {{apps/web/app/api/integrations/google-forms/sync/route.ts}}, {{apps/web/lib/{ghl,calendly,google-forms}/}}.
+
+Fuente: PENDIENTES.md [CRONS-CORTE-60S] · Doc del área: docs/arquitectura/vision-general.md",CRONS-CORTE-60S,"Infraestructura, seguridad y tests (transversal)",P2,Media,bug
+[ENTORNO-STAGING] Los previews y cualquier rama corren contra la base y las claves de producción,Task,Medium,infra,p2,sev-alta,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Alta
+
+*Estado verificado:* todas las variables del proyecto {{otc-plaform}} en Vercel tienen target Preview y Production con el mismo valor, incluidas {{NEXT_PUBLIC_SUPABASE_URL}}, {{SUPABASE_SERVICE_ROLE_KEY}} y {{ENCRYPTION_MASTER_KEY}} (listado de tipo/target, sin valores, 2026-09-23). Supabase no tiene branches ({{list_branches}} vacío). {{CHANGES.md}} registra pruebas ""contra el preview con datos reales"". Los previews están protegidos por Vercel SSO ({{ssoProtection: all_except_custom_domains}}).
+
+*Riesgo:* Si una rama con un bug escribe o borra algo, entonces lo hace sobre datos reales de clientes (sin backup, {{[DR-BACKUPS-SUPABASE]}}). Tampoco hay dónde ensayar una migración con datos ni una restauración.
+
+*Impacto:* Todas las orgs; frena el ensayo de recuperación.
+
+*Qué hay que hacer:* proyecto de Supabase aparte (o Supabase Branching en plan pago) para Preview, con variables de Preview propias en Vercel y una {{ENCRYPTION_MASTER_KEY}} distinta; datos de prueba sembrados; documentarlo en {{docs/operacion/entorno-y-deploy.md}}.
+
+*Dónde:* Vercel (variables de Preview), Supabase, {{docs/operacion/entorno-y-deploy.md}}.
+
+Fuente: PENDIENTES.md [ENTORNO-STAGING] · Doc del área: docs/arquitectura/vision-general.md",ENTORNO-STAGING,"Infraestructura, seguridad y tests (transversal)",P2,Alta,deuda técnica
+"[SEC-ROTACION-PROCEDIMIENTO] No hay procedimiento para rotar secretos, repartidos entre Vercel, Fly y Railway",Task,Medium,infra,p2,sev-alta,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Alta
+
+*Estado verificado:* {{SUPABASE_SERVICE_ROLE_KEY}} vive en Vercel, Fly ({{apps/reel-worker}}) y Railway ({{apps/discord-bot}}); {{WORKER_AUTH_SECRET}} en Vercel y Fly; {{LIMITLESS_WEBHOOK_SECRET}}/{{OTC_WEBHOOK_SECRET}} en Vercel y Railway. No hay documento de rotación en {{docs/}}. Todas las variables de Vercel las creó y edita un solo usuario, y la organización de Supabase es de una sola cuenta.
+
+*Riesgo:* Si se filtra un secreto, la rotación se improvisa y deja partes caídas (bot o worker con 401); si la única persona con acceso no está disponible, nadie puede rotar ni restaurar.
+
+*Impacto:* Todas las orgs (la service role da acceso a los datos de todas).
+
+*Qué hay que hacer:* documentar en {{docs/operacion/}} una tabla ""secreto → dónde vive → cómo se rota → qué se rompe en el medio"" (base: §5.2 de la auditoría y §F del runbook); sumar un segundo owner en Supabase, Vercel, Fly y Railway; evaluar pasar a las claves nuevas de Supabase ({{sb_secret_…}}) que se rotan sin cambiar el JWT secret.
+
+*Dónde:* {{docs/operacion/}}, Supabase, Vercel, Fly, Railway.
+
+Fuente: PENDIENTES.md [SEC-ROTACION-PROCEDIMIENTO] · Doc del área: docs/arquitectura/vision-general.md",SEC-ROTACION-PROCEDIMIENTO,"Infraestructura, seguridad y tests (transversal)",P2,Alta,deuda técnica
 [AUD-SEG-5] Mass assignment e ids ajenos,Bug,Medium,infra,p2,seguridad,,,,"*Tipo:* seguridad
 
 *Estado verificado:* {{updateContentPieceAction}} ({{app/marketing/content/actions.ts:148}}) hace {{.update(updates)}} sin zod; {{customRoleId}} en invitaciones ({{app/team/actions.ts:242-289}}) y {{clientId}} en {{associateFathomCallAction}} ({{app/fathom/actions.ts:161}}) no se validan contra la org.
 
-*Qué hay que hacer:* schema zod con campos editables; verificar que {{custom_role_id}} y {{client_id}} pertenezcan a la org antes de escribir.
+*Qué hay que hacer:* schema zod con campos editables; verificar que {{custom_role_id}} y {{client_id}} pertenezcan a la org antes de escribir. Contexto (auditoría de aislamiento, 2026-09-23): ninguna de las 57 FKs de producción hacia {{clients}}, {{workboard_tasks}}, {{team_roles}} y {{profiles}} es compuesta con {{organization_id}}, así que RLS acepta filas propias que apuntan a ids ajenos. Se vuelve cruce real cuando un proceso con service role sigue la FK sin filtrar. Casos encontrados: - {{[FATHOM-CLIENTID-SIN-VALIDAR]}}; - {{attributeSaleToUTM}} ({{lib/utm/attribute-booking.ts:198-210}}), que lee {{closing_calls.lead_name}} por un {{closingCallId}} que manda el cliente al crear un cliente; - {{customRoleId}}.
 
 *Dónde:* archivos citados.
 
@@ -2718,15 +3142,6 @@ Fuente: PENDIENTES.md [AUD-SEG-5] · Doc del área: docs/arquitectura/vision-gen
 *Dónde:* {{apps/web/lib/ai/wrap-untrusted-content.ts}} y los call sites.
 
 Fuente: PENDIENTES.md [AUD-SEG-6] · Doc del área: docs/arquitectura/vision-general.md",AUD-SEG-6,"Infraestructura, seguridad y tests (transversal)",P2,,seguridad
-[AUD-SEG-7] Rate limit de login por email,Bug,Medium,infra,p2,seguridad,,,,"*Tipo:* seguridad
-
-*Estado verificado:* {{app/auth/actions.ts:119}} usa {{authRateLimit(\}}signin:${email}\{{)}}: cualquiera bloquea a otro 15 min con 5 intentos, y el spraying (muchos emails, una contraseña) no tiene límite.
-
-*Qué hay que hacer:* clave por IP + email y un límite por IP; evaluar captcha.
-
-*Dónde:* {{apps/web/app/auth/actions.ts}}, {{apps/web/lib/rate-limit.ts}}.
-
-Fuente: PENDIENTES.md [AUD-SEG-7] · Doc del área: docs/arquitectura/vision-general.md",AUD-SEG-7,"Infraestructura, seguridad y tests (transversal)",P2,,seguridad
 [AUD-SEG-8] Errores internos devueltos al cliente,Bug,Medium,infra,p2,seguridad,,,,"*Tipo:* seguridad
 
 *Estado verificado:* {{app/api/invite/validate/route.ts}} devuelve {{error.message}} de Supabase con 500; según la auditoría también Calendly webhook/callback, {{rag/ingest}}, ManyChat y Unipile; Whop y Commas revelan si la org tiene la integración.
@@ -2758,20 +3173,22 @@ Fuente: PENDIENTES.md [SEG-WORKER-SECRET-QUERY] · Doc del área: docs/arquitect
 
 *Estado verificado:* ni {{vercel.json}} ni {{next.config.ts}} definen CSP, {{frame-ancestors}}/{{X-Frame-Options}}, {{Referrer-Policy}}, {{Permissions-Policy}} ni {{X-Content-Type-Options}}.
 
-*Qué hay que hacer:* {{headers()}} en {{next.config.ts}} con lo básico (empezar por {{frame-ancestors 'none'}}, {{nosniff}}, {{Referrer-Policy}}); CSP en modo report-only primero.
+*Qué hay que hacer:* {{headers()}} en {{next.config.ts}} con lo básico (empezar por {{frame-ancestors 'none'}}, {{nosniff}}, {{Referrer-Policy}}); CSP en modo report-only primero. La CSP es la defensa principal de la sesión: las cookies {{sb-*}} de {{@supabase/ssr}} guardan access y refresh token, son legibles por JavaScript (lo necesita el cliente de navegador) y duran 400 días, así que un XSS se lleva la sesión hasta un logout global. Revisar también en Supabase Auth la duración máxima de sesión (time-box / inactividad).
 
 *Dónde:* {{apps/web/next.config.ts}}.
 
 Fuente: PENDIENTES.md [SEG-HEADERS] · Doc del área: docs/arquitectura/vision-general.md",SEG-HEADERS,"Infraestructura, seguridad y tests (transversal)",P2,,seguridad
-[DB-ORGS-SELECT-COLUMNAS] SELECT de tabla entera sobre organizations en prod,Bug,Medium,infra,p2,seguridad,,,,"*Tipo:* seguridad
+[DB-ORGS-SELECT-COLUMNAS] SELECT de tabla entera sobre organizations en prod,Bug,Medium,infra,p2,sev-media,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* según {{docs/historial/DB_DIFF_PRODUCCION_2026-09-22.md}}, en prod {{authenticated}} tiene SELECT de tabla sobre {{organizations}} (en el repo es por columna), así que un miembro lee el ciphertext de la key de Claude de su org. Inofensivo sin {{ENCRYPTION_MASTER_KEY}}.
+*Severidad:* Media
+
+*Estado verificado:* según {{docs/historial/DB_DIFF_PRODUCCION_2026-09-22.md}}, en prod {{authenticated}} tiene SELECT de tabla sobre {{organizations}} (en el repo es por columna), así que un miembro lee el ciphertext de la key de Claude de su org. Inofensivo sin {{ENCRYPTION_MASTER_KEY}}. Confirmado en catálogo el 2026-09-23 ({{relacl}}: {{authenticated=r}}; UPDATE sí es por columna, 7 columnas). Además, la policy de portfolio {{Users read own or linked business orgs}} hace que cualquier miembro de un holding lea esas mismas columnas ({{claude_api_key_encrypted}}, {{mrr_usd}}, {{enabled_add_ons}}) de todos los negocios vinculados: el ciphertext cruza organizaciones.
 
 *Qué hay que hacer:* relevar qué {{select(""*"")}} de {{organizations}} hace la app con cliente de usuario, pasarlos a columnas explícitas y alinear el grant de prod con el repo.
 
 *Dónde:* {{apps/web/app/**}} (grep {{from(""organizations"")}}), migración nueva.
 
-Fuente: PENDIENTES.md [DB-ORGS-SELECT-COLUMNAS] · Doc del área: docs/arquitectura/vision-general.md",DB-ORGS-SELECT-COLUMNAS,"Infraestructura, seguridad y tests (transversal)",P2,,seguridad
+Fuente: PENDIENTES.md [DB-ORGS-SELECT-COLUMNAS] · Doc del área: docs/arquitectura/vision-general.md",DB-ORGS-SELECT-COLUMNAS,"Infraestructura, seguridad y tests (transversal)",P2,Media,seguridad
 [AUD-CONF-2] Techo de 1000 filas y lecturas que no miran error,Bug,Medium,infra,p2,bug,,,,"*Tipo:* bug
 
 *Estado verificado:* {{fetchAllRows}} existe ({{lib/supabase/fetch-all-rows.ts}}) y se aplicó en leads, costos y llamadas; la auditoría marca {{lib/intelligence/collect-context.ts:220}} y {{lib/super-admin/client-health.ts}} como candidatos. El conteo de 290 lecturas sin {{error}} no se re-midió.
@@ -2855,7 +3272,7 @@ Fuente: PENDIENTES.md [AUD-SALUD-1] · Doc del área: docs/arquitectura/vision-g
 Fuente: PENDIENTES.md [AUD-SALUD-2] · Doc del área: docs/arquitectura/vision-general.md",AUD-SALUD-2,"Infraestructura, seguridad y tests (transversal)",P2,,deuda técnica
 [AUD-SALUD-3] Los crons no siguen un patrón común,Task,Medium,infra,p2,deuda-tecnica,,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* 6 crons hacen fan-out por QStash, el resto corre en serie; aislamiento de errores por org desparejo; ningún lock.
+*Estado verificado:* 6 crons hacen fan-out por QStash, el resto corre en serie; aislamiento de errores por org desparejo; ningún lock. Consecuencias ya visibles en prod: crons cortados a los 60 s ({{[CRONS-CORTE-60S]}}), errores por org que no llegan a Sentry ni a ningún registro ({{[OBS-SIN-ALERTAS]}}, {{[EMBUDOS-CRON-ERRORES]}}).
 
 *Qué hay que hacer:* helper {{runPerOrg()}} con aislamiento de errores, lock (fila en tabla o advisory lock) y resultado uniforme.
 
@@ -3033,6 +3450,21 @@ Fuente: PENDIENTES.md [T-19] · Doc del área: docs/arquitectura/vision-general.
 *Dónde:* {{.github/workflows/ci.yml}}.
 
 Fuente: PENDIENTES.md [T-INFRA-E2E-CI] · Doc del área: docs/arquitectura/vision-general.md",T-INFRA-E2E-CI,"Infraestructura, seguridad y tests (transversal)",P2,,decisión de negocio
+[DISCORD-BACKFILL] Los mensajes enviados mientras el bot está caído no se recuperan,Story,Low,plataforma,p3,sev-media,feature,,,"*Tipo:* feature
+
+*Severidad:* Media
+
+*Estado verificado:* {{apps/discord-bot/src/events/ready.ts}} sólo loguea al conectar (servidores, clave, acceso a datos); no pide el historial de los canales vinculados. Railway reinicia el bot {{ON_FAILURE}} hasta 10 veces ({{apps/discord-bot/railway.json}}).
+
+*Riesgo:* Si el bot se cae (Railway, deploy fallido, token revocado), entonces los mensajes de ese período nunca llegan a {{discord_messages}} ni a la clasificación de {{daily-signals}}.
+
+*Impacto:* Orgs con Discord conectado: huecos en el historial y en los hitos propuestos.
+
+*Qué hay que hacer:* al conectar, por cada canal vinculado, pedir los mensajes posteriores al último guardado ({{channel.messages.fetch({ after })}}) y procesarlos con el mismo handler, con dedupe por id de mensaje.
+
+*Dónde:* {{apps/discord-bot/src/events/ready.ts}}, {{apps/discord-bot/src/handlers/message-handler.ts}}.
+
+Fuente: PENDIENTES.md [DISCORD-BACKFILL] · Doc del área: docs/areas/plataforma.md",DISCORD-BACKFILL,Plataforma,P3,Media,feature
 [WAITLIST-HUERFANO] /api/waitlist sin llamador (nuevo),Task,Low,plataforma,p3,deuda-tecnica,,,,"*Tipo:* deuda técnica
 
 *Estado verificado:* ningún componente llama {{/api/waitlist}} (la landing se borró); sigue pública en {{public-paths.ts}}.
@@ -3204,6 +3636,32 @@ Fuente: PENDIENTES.md [TRACKERS-RIESGO-PAGOS] · Doc del área: docs/areas/clien
 *Dónde:* —
 
 Fuente: PENDIENTES.md [TRACKERS-RECOMENDACIONES-6-10] · Doc del área: docs/areas/clientes.md",TRACKERS-RECOMENDACIONES-6-10,Clientes,P3,,feature
+[FATHOM-WEBHOOK-LEGACY] El webhook Fathom legacy usa un único secreto para todas las orgs,Task,Low,ventas,p3,sev-baja,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Baja
+
+*Estado verificado:*  - {{connectFathom}} guarda {{webhook_secret: process.env.FATHOM_WEBHOOK_SECRET}} en todas las filas de {{fathom_integrations}} ({{lib/fathom/connect.ts:52}}). - {{/api/integrations/fathom/webhook}} elige la única org cuyo secreto valida, o responde 409 si hay varias ({{route.ts:58-86}}). - {{FATHOM_WEBHOOK_SECRET}} no está en Vercel (listado del 2026-09-23), así que hoy responde 401 siempre. La UI sólo ofrece {{/webhook/[token]}}.
+
+*Qué hay que hacer:* borrar la ruta legacy (y {{fathom_integrations.webhook_secret}}), o generar un secreto por org.
+
+*Dónde:* {{apps/web/app/api/integrations/fathom/webhook/route.ts}}, {{apps/web/lib/fathom/connect.ts}}.
+
+Fuente: PENDIENTES.md [FATHOM-WEBHOOK-LEGACY] · Doc del área: docs/areas/ventas.md",FATHOM-WEBHOOK-LEGACY,Ventas,P3,Baja,deuda técnica
+"[WEBHOOK-FECHAS-INVENTADAS] Webhooks de Fathom y Calendly inventan la fecha, y la reentrega de Fathom pisa el análisis",Bug,Low,ventas,p3,sev-baja,bug,,,"*Tipo:* bug
+
+*Severidad:* Baja
+
+*Estado verificado:* {{ingestFathomWebhookCall}} guarda {{call_date = now()}} si no viene {{recorded_at}} y hace {{upsert}} con {{status: ""pending""}}, {{processed_after}}, {{association_candidates: []}} y {{ai_next_steps: []}} ({{lib/fathom/process-call.ts:544-575}}): una reentrega del mismo evento vuelve a encolar la llamada y borra esos campos. El webhook de Calendly usa {{new Date()}} si no encuentra {{start_time}} ({{app/api/integrations/calendly/webhook/route.ts:162}}) y su {{catch}} no loguea nada ({{:187-191}}).
+
+*Riesgo:* Si el proveedor manda un payload sin fecha o reentrega un evento, entonces queda un turno o llamada con fecha falsa y un reproceso de IA pagado otra vez. Va contra CLAUDE.md §3 (""nunca inventes un valor"").
+
+*Impacto:* Métricas por período corridas; costo de IA duplicado. Poco frecuente (el webhook org de Fathom es legacy).
+
+*Qué hay que hacer:* dejar la fecha en {{null}} o rechazar con 4xx y que la sync lo traiga; en Fathom, si la fila existe, actualizar sólo los campos del proveedor sin tocar estado ni análisis; loguear el error de Calendly.
+
+*Dónde:* {{apps/web/lib/fathom/process-call.ts}}, {{apps/web/app/api/integrations/calendly/webhook/route.ts}}.
+
+Fuente: PENDIENTES.md [WEBHOOK-FECHAS-INVENTADAS] · Doc del área: docs/areas/ventas.md",WEBHOOK-FECHAS-INVENTADAS,Ventas,P3,Baja,bug
 [VENTAS-E2E] Ninguna pantalla de Ventas tiene Playwright,Task,Low,ventas,p3,tests,,,,"*Tipo:* tests
 
 *Estado verificado:* {{apps/web/e2e/}} sólo tiene {{auth.setup.ts}}, {{constants.ts}} y {{holding.spec.ts}} (único spec). Incluye la tabla de seguimiento de {{[LLAMADAS-FASE-2-PULIR]}}.
@@ -3517,6 +3975,81 @@ Fuente: PENDIENTES.md [EQUIPO-ADMIN] · Doc del área: docs/areas/operaciones.md
 *Dónde:* {{apps/web/lib/operations/weekly-utils.ts}}.
 
 Fuente: PENDIENTES.md [OPS-SEMANA-UTC] · Doc del área: docs/areas/operaciones.md",OPS-SEMANA-UTC,"Operaciones, Finanzas y Producto",P3,,bug
+[FATHOM-LINK-EN-TEST] Un link compartido de Fathom con aspecto real en un test commiteado,Bug,Low,infra,p3,sev-baja,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Baja
+
+*Estado verificado:* {{apps/web/lib/fathom/__tests__/share-link.test.ts:57-69}} (commit {{42534ba}}, 2026-09-20, sigue en el árbol) usa {{https://fathom.video/share/<token de 32 caracteres>}} con aspecto de token real, mientras el resto del archivo usa {{TOKENDEPRUEBA}} y aclara que los datos son inventados. No se abrió el link.
+
+*Riesgo:* Si el token es de una grabación real, entonces cualquiera con acceso al repo (o a un clon) ve la llamada y su transcript; los links compartidos de Fathom no vencen solos.
+
+*Impacto:* Una grabación de venta o de entrega de un cliente (datos personales y comerciales). Media si resulta real.
+
+*Qué hay que hacer:* abrir el link una vez; si lleva a una grabación, revocar el link compartido desde Fathom y reemplazar el token del test por uno inventado (no hace falta reescribir el historial una vez revocado).
+
+*Dónde:* {{apps/web/lib/fathom/__tests__/share-link.test.ts}}, Fathom.
+
+Fuente: PENDIENTES.md [FATHOM-LINK-EN-TEST] · Doc del área: docs/arquitectura/vision-general.md",FATHOM-LINK-EN-TEST,"Infraestructura, seguridad y tests (transversal)",P3,Baja,seguridad
+[SERVER-ONLY-GUARDS] El admin client y el cifrado no están marcados como sólo-servidor,Task,Low,infra,p3,sev-baja,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Baja
+
+*Estado verificado:* {{apps/web/lib/supabase/admin.ts}} y {{apps/web/lib/security/encryption.ts}} no tienen {{import ""server-only""}} (sí lo tienen 6 archivos menos sensibles, p. ej. {{lib/auth/add-ons.ts}}). {{lib/supabase/env.ts}}, que incluye {{getSupabaseServiceRoleKey()}}, llega al bundle del navegador desde 65 archivos {{""use client""}} vía {{lib/supabase/client.ts}}; en el navegador la variable vale {{undefined}} (Next sólo inyecta {{NEXT_PUBLIC_*}}), así que hoy no hay fuga. Ningún archivo cliente importa {{admin.ts}} ni {{encryption.ts}} (grafo de imports de los 428 archivos cliente, 2026-09-23).
+
+*Riesgo:* Si un cambio futuro importa el admin client o el cifrado desde un componente cliente, entonces el build no falla y el error aparece en runtime, con la tentación de ""arreglarlo"" exponiendo la variable como {{NEXT_PUBLIC_}}.
+
+*Impacto:* Prevención; hoy no afecta a nadie.
+
+*Qué hay que hacer:* {{import ""server-only""}} en {{admin.ts}}, {{encryption.ts}} y {{lib/ai/credential-resolver.ts}}; mover {{getSupabaseServiceRoleKey}} de {{env.ts}} a {{admin.ts}}.
+
+*Dónde:* {{apps/web/lib/supabase/{admin,env}.ts}}, {{apps/web/lib/security/encryption.ts}}, {{apps/web/lib/ai/credential-resolver.ts}}.
+
+Fuente: PENDIENTES.md [SERVER-ONLY-GUARDS] · Doc del área: docs/arquitectura/vision-general.md",SERVER-ONLY-GUARDS,"Infraestructura, seguridad y tests (transversal)",P3,Baja,deuda técnica
+[SERVICE-ROLE-FUERA-DE-VERCEL] El bot de Discord y el worker de Fly tienen la clave de service role completa,Bug,Low,infra,p3,sev-media,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Media
+
+*Estado verificado:* {{apps/discord-bot/src}} y {{apps/reel-worker/src}} leen {{SUPABASE_SERVICE_ROLE_KEY}} (grep de {{process.env}}), que saltea RLS en todas las tablas, incluidas las de secretos en claro ({{[AUD-SEG-2]}}). El bot sólo necesita tablas de Discord y clientes; el worker, {{reel_variation_jobs}}, Storage de {{trial-reels}} y la música de la org.
+
+*Riesgo:* Si se compromete la cuenta o el contenedor de Railway o de Fly (dependencia maliciosa, token de deploy filtrado), entonces el atacante tiene lectura y escritura sobre toda la base de todas las orgs.
+
+*Impacto:* Todas las orgs y todas las credenciales guardadas en claro.
+
+*Qué hay que hacer:* evaluar un rol de Postgres propio por servicio (JWT firmado con {{role}} restringido, o funciones RPC {{SECURITY DEFINER}} acotadas) con permisos sólo sobre sus tablas; como mínimo, inventariar quién tiene acceso a Railway y Fly y rotar la clave de service role si alguien sale del equipo.
+
+*Dónde:* {{apps/discord-bot/src/lib/supabase.ts}}, {{apps/reel-worker/src/}}, Railway, Fly.io.
+
+Fuente: PENDIENTES.md [SERVICE-ROLE-FUERA-DE-VERCEL] · Doc del área: docs/arquitectura/vision-general.md",SERVICE-ROLE-FUERA-DE-VERCEL,"Infraestructura, seguridad y tests (transversal)",P3,Media,seguridad
+[DB-FK-MISMA-ORG] La base no impide que una fila apunte a filas de otra organización,Bug,Low,infra,p3,sev-media,seguridad,,,"*Tipo:* seguridad
+
+*Severidad:* Media
+
+*Estado verificado:* en prod hay 115 FKs desde tablas con {{organization_id}} hacia otras tablas con {{organization_id}}, todas de una sola columna (ninguna compuesta con {{organization_id}}, {{pg_constraint}}). Las policies de INSERT/UPDATE miran sólo el {{organization_id}} de la fila escrita, así que un miembro puede guardar en su org filas con {{client_id}}, {{sop_id}}, {{custom_role_id}}, etc. de otra org. {{notification_preferences}} (policy {{own_preferences}}) filtra sólo por {{profile_id = auth.uid()}}: el usuario puede escribir filas con el {{organization_id}} de otra org; hoy sólo las lee su dueño ({{app/settings/actions.ts:295-370}}).
+
+*Riesgo:* Si un proceso con service role sigue una de esas FKs (como {{[FATHOM-CLIENTID-SIN-VALIDAR]}} del lado de la app), entonces muestra o procesa datos de otra org dentro de la propia. Además la FK responde si un UUID ajeno existe. Requiere conocer UUIDs de otra org.
+
+*Impacto:* Mezcla de datos entre orgs en reportes o jobs; hoy no se identificó un consumidor con admin client que lo explote además del de Fathom.
+
+*Qué hay que hacer:* en las relaciones críticas ({{client_id}}, {{sop_id}}, {{win_id}}, {{task_id}}, {{custom_role_id}}) FK compuesta {{(organization_id, x_id)}} → {{(organization_id, id)}} o trigger de misma org; en {{notification_preferences}}, sumar {{organization_id = get_my_organization_id()}} al WITH CHECK.
+
+*Dónde:* migración nueva; tablas hijas de {{clients}}, {{sops}}, {{client_wins}}, {{workboard_tasks}}, {{team_roles}}; {{notification_preferences}}.
+
+Fuente: PENDIENTES.md [DB-FK-MISMA-ORG] · Doc del área: docs/arquitectura/vision-general.md",DB-FK-MISMA-ORG,"Infraestructura, seguridad y tests (transversal)",P3,Media,seguridad
+"[LOGS-SIN-CONTEXTO] Logs sin request_id, con org_id desparejo y niveles mezclados",Task,Low,infra,p3,sev-baja,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Severidad:* Baja
+
+*Estado verificado:* ningún log lleva {{request_id}} (grep sin resultados); {{org_id}} aparece a veces en el texto, a veces en un objeto, a veces no; mensajes informativos con {{console.error}} ({{lib/rag/ingest.ts:75}}, que suma 31 ""errores"" en el agregado de Vercel); {{fathom/process}} imprime varias líneas de diagnóstico por corrida. ~514 llamadas a {{console.*}} en 181 archivos de {{apps/web}}.
+
+*Riesgo:* Si hay que reconstruir qué le pasó a un cliente o a una corrida, entonces lleva mucho más tiempo, y el ruido tapa errores reales en el agregado de errores.
+
+*Impacto:* Tiempo del equipo al investigar incidentes.
+
+*Qué hay que hacer:* helper mínimo {{log({ level, scope, orgId, requestId, ... })}} en JSON; empezar por crons y webhooks; bajar a {{info}} lo que no es error.
+
+*Dónde:* {{apps/web/lib/}} (helper nuevo), {{apps/web/app/api/**}}.
+
+Fuente: PENDIENTES.md [LOGS-SIN-CONTEXTO] · Doc del área: docs/arquitectura/vision-general.md",LOGS-SIN-CONTEXTO,"Infraestructura, seguridad y tests (transversal)",P3,Baja,deuda técnica
 [T-17] E2E del flujo de embudos,Task,Low,infra,p3,tests,,,,"*Tipo:* tests
 
 *Estado verificado:* sin spec. (Coordinar con el backlog de Embudos, que tiene T-6…T-8.)

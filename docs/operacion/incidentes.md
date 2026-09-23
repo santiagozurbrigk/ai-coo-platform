@@ -110,7 +110,7 @@ Después: revisar logs del proveedor por uso indebido, y si hubo acceso a datos,
 Es el incidente más grave (fuga entre clientes).
 1. **Contener**: si se identifica la pantalla o action, rollback del último deploy si coincide; si no, pausar la org afectada o desactivar el módulo desde el super admin. No borrar nada.
 2. **Preservar evidencia**: capturas del usuario, hora exacta, org de quien vio y org de los datos, logs de Vercel de ese momento, dump (§0).
-3. **Diagnosticar**: suele ser una lectura con `createAdminClient()` sin filtro por `organization_id`, una policy sin filtro, el portfolio del holding (`[AUD-SEG-3]`) o la org activa del holding mal resuelta. Ver `docs/arquitectura/auth-organizaciones-y-permisos.md`.
+3. **Diagnosticar**: suele ser una lectura con `createAdminClient()` sin filtro por `organization_id`, una policy sin filtro, el portfolio del holding (`[HOLDING-PORTFOLIO-ROL]`) o la org activa del holding mal resuelta. Ver `docs/arquitectura/auth-organizaciones-y-permisos.md`.
 4. **Avisar** a las organizaciones cuyos datos quedaron expuestos (a definir por el equipo quién y cómo; considerar obligaciones legales de protección de datos).
 
 ### H · Se borraron datos por error (baja de org, script, migración)

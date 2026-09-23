@@ -39,7 +39,7 @@ sprint, al refinarlo.
 4. Si el proyecto no tiene los tipos `Bug`/`Story`/`Task` con esos nombres (por ejemplo, está en castellano),
    mapear los valores en el paso de "valores de campo" del asistente.
 
-Sugerencia: importar primero sólo P0 y P1 (las primeras filas: 91 al 2026-09-23; el script imprime el conteo por prioridad) para armar los dos primeros sprints, y el
+Sugerencia: importar primero sólo P0 y P1 (las primeras filas: 105 al 2026-09-23; el script imprime el conteo por prioridad) para armar los dos primeros sprints, y el
 resto después.
 
 ## Épicas

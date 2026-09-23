@@ -291,7 +291,7 @@ vacío).
 - **Recomendación:** lo de `[EMBUDOS-CRON-ERRORES]` (207/500 si alguna org falló) extendido a estos crons, y loguear
   cada error por org.
 
-Además, con evidencia nueva sobre ítems existentes (detalle en `cambios-confiabilidad.md`): `[AUD-CONF-5]` (el caso
+Además, con evidencia nueva sobre ítems existentes (ya aplicada en esos ítems de `PENDIENTES.md`): `[AUD-CONF-5]` (el caso
 `pending`), `[1A1-CLAVE-ANTHROPIC-ROTA]` (errores reales en prod), `[INTELIGENCIA-SIN-REINTENTO]` (formato
 inválido), `[AUD-CONF-6]` (análisis profundo e ingesta RAG de Fathom con `void`), `[AUD-SALUD-3]` (timeouts). Y un
 nuevo ítem sobre el bot de Discord:

@@ -20,6 +20,7 @@ Reorganizada el 2026-09-23: cada documento de esta carpeta se verificó contra e
 | [`FUNCIONAL.md`](./FUNCIONAL.md) | **Documento funcional**: qué puede hacer el usuario en cada área y si funciona hoy, con sus pendientes. Base del backlog |
 | [`ESTADO_PARA_EQUIPO.md`](./ESTADO_PARA_EQUIPO.md) | Resumen de una página: estado por área, problemas graves y decisiones pendientes |
 | [`backlog/`](./backlog/README.md) | `PENDIENTES.md` exportado a CSV para importar a Jira, y el script que lo genera |
+| [`auditoria/`](./auditoria/README.md) | **Informe de auditoría** del 2026-09-23: resumen ejecutivo, aislamiento entre organizaciones, secretos y autenticación, modelo de amenazas, confiabilidad, backups y el plan de remediación |
 
 ## Áreas del producto
 
@@ -50,6 +51,8 @@ integraciones, reglas de negocio no obvias, limitaciones, tests y archivos clave
 | [`arquitectura/base-de-datos.md`](./arquitectura/base-de-datos.md) | Migraciones, RLS, funciones SQL, tablas por área, tablas huérfanas |
 | [`arquitectura/jobs-webhooks-y-colas.md`](./arquitectura/jobs-webhooks-y-colas.md) | Los crons, los webhooks entrantes, QStash, rate limit, Sentry |
 | [`arquitectura/seguridad.md`](./arquitectura/seguridad.md) | Secretos y cifrado, auth de crons y webhooks, headers |
+| [`arquitectura/diagramas.md`](./arquitectura/diagramas.md) | El sistema en 7 diagramas: contexto, contenedores, del lead al cliente, agente de IA, ingesta, multi-tenant |
+| [`arquitectura/decisiones/`](./arquitectura/decisiones/README.md) | Registro de decisiones de arquitectura (ADR): por qué el sistema es como es, y cuándo escribir uno nuevo |
 
 ## Integraciones
 
@@ -67,6 +70,7 @@ integraciones, reglas de negocio no obvias, limitaciones, tests y archivos clave
 | [`operacion/testing.md`](./operacion/testing.md) | Typecheck, lint, Vitest, Playwright, CI y cobertura por área |
 | [`operacion/verificacion-manual.md`](./operacion/verificacion-manual.md) | Lo que hay que probar a mano con cuentas reales, por área |
 | [`operacion/discord-bot-deploy.md`](./operacion/discord-bot-deploy.md) | Runbook del bot de Discord en Railway |
+| [`operacion/incidentes.md`](./operacion/incidentes.md) | Qué hacer cuando algo se rompe en producción (runbook de incidentes) |
 
 ## Diseño
 

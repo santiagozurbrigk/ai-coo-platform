@@ -224,7 +224,7 @@ Preguntas para que el equipo decida:
 - **Hecho:** §2. Sin down migrations, el CI prueba sólo sobre base vacía, destructivas aplicadas sin dump.
 - **Riesgo:** una migración que borra o transforma mal datos no se puede deshacer; un rollback de Vercel no revierte la base.
 - **Recomendación:** regla escrita en `docs/arquitectura/base-de-datos.md`: toda migración destructiva lleva dump previo de las tablas afectadas y un plan de reversión en el comentario del archivo; migraciones "expand/contract" (primero agregar, después borrar en otro deploy) para que el rollback de Vercel siga funcionando.
-- **PENDIENTES:** dentro de `[DR-BACKUPS-SUPABASE]` (dump previo) y como regla de docs (propuesta en `cambios-recuperacion.md`).
+- **PENDIENTES:** dentro de `[DR-BACKUPS-SUPABASE]` (dump previo) y como regla en [`../arquitectura/base-de-datos.md`](../arquitectura/base-de-datos.md) § Cómo aplicar una migración (paso 5).
 
 ### R8 · Reconstruir producción desde el repo no da una copia fiel — **Media**
 - **Hecho:** objetos sólo en prod, 5 buckets sin migración, Auth Hook y configuración de Auth manuales (§2).
