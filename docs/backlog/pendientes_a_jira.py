@@ -130,6 +130,20 @@ def validar(items):
         vistos[it["id"]] = True
         if it["prioridad"] in ("P0", "P1") and not it["campos"].get("Criterio de aceptación"):
             errores.append(f"{it['prioridad']} sin criterio de aceptación: [{it['id']}]")
+
+    # El índice por área del encabezado tiene que coincidir con los ítems reales.
+    conteo = {}
+    for it in items:
+        conteo[(it["area"], it["prioridad"])] = conteo.get((it["area"], it["prioridad"]), 0) + 1
+    for linea in SRC.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^\| \[([^\]]+)\]\(#[^)]*\) \|[^|]*\|" + r"\s*(\d+)\s*\|" * 4 + r"$", linea)
+        if not m:
+            continue
+        nombre, _ = area_de(m.group(1))
+        if nombre:
+            esperado = [conteo.get((nombre, p), 0) for p in PRIORIDAD_JIRA]
+            if [int(m.group(i)) for i in range(2, 6)] != esperado:
+                errores.append(f"Índice por área desactualizado en {nombre}: debería ser {esperado}")
     return errores
 
 

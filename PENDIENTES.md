@@ -48,13 +48,13 @@
 
 | Área | Doc | P0 | P1 | P2 | P3 |
 |---|---|---|---|---|---|
-| [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 12 | 27 | 16 |
-| [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 10 |
-| [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 13 | 14 | 6 |
-| [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 18 | 4 |
+| [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 12 | 29 | 16 |
+| [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 11 |
+| [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 14 | 14 | 6 |
+| [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 18 | 5 |
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
-| [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 17 | 6 |
-| [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 14 | 9 |
+| [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 18 | 7 |
+| [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 15 | 10 |
 | [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 1 | 18 | 38 | 8 |
 
 ---
@@ -1521,7 +1521,8 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Estado verificado:** `deactivateMemberAction` y `updateMemberRoleAction` (`app/team/actions.ts`) sólo ponen
   `profiles.is_active = false`. Nada lo lee: no está en `lib/supabase/middleware.ts` (que sí lee
   `must_change_password`), ni en `lib/auth/bootstrap.ts`, ni en `get_my_organization_id()`, ni en ninguna policy.
-  El único lector es `app/fathom/member-actions.ts` y `lib/super-admin/queries.ts`. `docs/archivo/OPERATIONAL_NOTES.md`
+  Los únicos lectores son `app/fathom/member-actions.ts`, `lib/super-admin/queries.ts` y `lib/team/mapper.ts`
+  (que sólo lo muestra en la lista de Equipo). `docs/archivo/OPERATIONAL_NOTES.md`
   afirma lo contrario ("Un miembro desactivado no puede iniciar sesión").
 - **Qué hay que hacer:** al desactivar, banear el usuario en Auth (`auth.admin.updateUserById(id, { ban_duration })`)
   o revocar sesiones, y además cortar en el middleware si `is_active = false`. Idealmente que
@@ -1579,7 +1580,7 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Tipo:** bug
 - **Estado verificado:** `process-sop-video/route.ts` hace `Buffer.from(await file.arrayBuffer())` y
   `writeFile` en `tmpdir()`; el bucket acepta hasta 1 GB (`20260903110000`) y el límite de subida es
-  `SOP_VIDEO_MAX_BYTES` (env). `/tmp` de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande
+  `SOP_VIDEO_MAX_BYTES` (`NEXT_PUBLIC_SOP_VIDEO_MAX_MB`, 50 MB por defecto). `/tmp` de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande
   falla antes de ffmpeg. `probeDurationSeconds` decodifica el video completo (`-f null -`) sólo para leer la
   duración. Si la duración sale 0, `computeAudioChunks(0)` manda todo el audio en un pedido (límite de 25 MB de Whisper).
 - **Qué hay que hacer:** bajar por stream a disco (o pasar a ffmpeg una URL firmada como input), leer la
@@ -1608,6 +1609,16 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Dónde:** `supabase/migrations/` (nueva), `apps/web/lib/{sops,workboard}/constants.ts`.
 
 ### Operaciones, Finanzas y Producto · P2
+
+#### [WORKBOARD-CIERRE-ARRASTRANDO] Cerrar una tarea arrastrándola no registra quién la cerró [Operaciones y equipo]
+- **Tipo:** bug
+- **Estado verificado:** en el Kanban, arrastrar una tarjeta a "Hecho" termina en `performMove` →
+  `moveWorkboardTaskAction` (`providers/workboard-provider.tsx:216`), que sólo actualiza `status` y `position`
+  (`app/workboard/actions.ts:187-232`). `completed_by`/`completed_at` sólo los escribe `updateWorkboardTaskAction`
+  (`app/workboard/actions.ts:274-282`), que se usa al cerrar desde el detalle. Igual al reabrir arrastrando: no se limpian.
+- **Qué hay que hacer:** que `moveWorkboardTaskAction` aplique la misma regla de cierre (setear al pasar a `done`,
+  limpiar al salir), idealmente compartiendo la función con `updateWorkboardTaskAction` y con `[WORKBOARD-ASIGNACION-AGENTE]`.
+- **Dónde:** `apps/web/app/workboard/actions.ts`, `apps/web/providers/workboard-provider.tsx`.
 
 #### [EQUIPO-TARIFA-SIN-UI] (nuevo) No hay pantalla para cargar la tarifa por hora
 - **Tipo:** bug
@@ -1645,8 +1656,9 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Estado verificado:** `computeTeamPayrollAction` (`app/finance/actions.ts`) cubre cinco bases; 
   `enrichTeamCompensationWithCommissions` sólo `per_deal`/`custom`. `per_booking` multiplica **todas** las
   `conversations` `booked` de la org (no las del setter; y `conversations` tiene 0 filas: el inbox legacy no se
-  usa). `monthly_revenue` usa `clients.total_amount` de activos como "MRR". `custom` en la liquidación es
-  `estimated_this_month − fijo`, que a su vez sale del enrich.
+  usa; al 2026-09-23). `monthly_revenue` usa `clients.total_amount` de activos como "MRR". `custom` en la
+  liquidación es `max(0, estimated_this_month − fijo)` leyendo la columna de la base, que se crea en 0 y ninguna
+  pantalla actualiza (el enrich calcula sólo en el navegador): hoy la comisión `custom` de la liquidación da 0.
 - **Qué hay que hacer:** una sola función pura por base (con tests), atribución por miembro para bookings (de
   dónde sale: Calendly/GHL), y definir qué es MRR.
 - **Dónde:** `apps/web/app/finance/actions.ts`, `apps/web/lib/metrics/enrich-team-compensation.ts`.
@@ -1655,7 +1667,7 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Tipo:** decisión de negocio
 - **Estado verificado:** `providers/finance-data-provider.tsx`: sin facturación en vivo y con `metrics_snapshots`,
   si el snapshot no trae `cash_collected` se muestra `max(0, facturación − gastos)` como "Cash collected", y la serie
-  mensual pinta el último mes igual. Va contra la regla de CLAUDE.md de no inventar valores.
+  mensual pinta el último mes con `max(0, facturación − gastos)` **siempre**, aunque el snapshot traiga `cash_collected`. Va contra la regla de CLAUDE.md de no inventar valores.
 - **Qué hay que hacer:** mostrar "sin dato" y rotular que la facturación viene del import.
 - **Dónde:** `apps/web/providers/finance-data-provider.tsx`.
 
@@ -1724,13 +1736,26 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [TESTS-OPS-FIN-PROD] Lógica pura sin tests en las tres áreas [transversal]
 - **Tipo:** tests
-- **Estado verificado:** sin `__tests__` en `lib/{operations,team,expenses,mercadopago,stripe,product}`;
+- **Estado verificado:** sin `__tests__` en `lib/{operations,team,expenses,mercadopago,stripe,product}` (de
+  `lib/team/mapper.ts` sólo `permissionsFromRow` se prueba, desde `constants/__tests__/permisos-consolidados.test.ts`);
   `parseVideoSopResponse` y `lib/workboard/{mapper,sprint,time-report}` sin cubrir. Incluye `[T-22]`.
 - **Qué hay que hacer:** prioridad: verificación de firma de MP (si MP sigue), bases de comisión, mapper de
   responsables del tablero, `parseVideoSopResponse`, `lib/product/mapper.ts`.
 - **Dónde:** carpetas citadas.
 
 ### Operaciones, Finanzas y Producto · P3
+
+#### [OPS-SOP-VIDEO-CAPTURAS] Las capturas del SOP desde video no están conectadas [Operaciones y equipo]
+- **Tipo:** bug
+- **Estado verificado:** el worker busca capturas en `sop_attachments` con `draft_id = id del job`
+  (`app/api/queue/process-sop-video/route.ts:129` y `:210`) y el prompt las usa como marcadores, pero
+  `components/sops/sop-video-creator.tsx` sólo sube el video: ninguna pantalla sube capturas contra un job. Al guardar,
+  `sop-creator-form.tsx:180` manda como `draftId` el UUID propio del formulario (sólo si hubo adjuntos en modo texto),
+  no el id del job. Resultado: un SOP desde video nunca tiene capturas.
+- **Qué hay que hacer:** decidir si el modo video acepta capturas; si sí, subirlas con `draftId = job.id` antes de
+  encolar y pasar ese id a `saveSOPAction`; si no, sacar del worker y del prompt la carga de capturas.
+- **Dónde:** `apps/web/components/sops/sop-video-creator.tsx`, `apps/web/components/sops/sop-creator-form.tsx`,
+  `apps/web/app/api/queue/process-sop-video/route.ts`.
 
 #### [EQUIPO-INVITE-LEGADO] Invitaciones por token sin productor [Operaciones y equipo]
 - **Tipo:** deuda técnica
@@ -1775,10 +1800,11 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 
 #### [OPS-LIMPIEZA] Rutas y componentes sobrantes [Operaciones y equipo · Finanzas]
 - **Tipo:** deuda técnica
-- **Estado verificado:** `/sops` (`app/(platform)/sops/page.tsx`) duplica `/operations/sops` sin sugerencias y sin
-  constante en `paths.ts`; `components/finance/payment-platforms-section.tsx` no se importa en ningún lado;
-  `timer_started_at`/`timer_running` en `workboard_tasks` sin uso.
-- **Qué hay que hacer:** redirect de `/sops` a `/operations/sops` y borrar el componente.
+- **Estado verificado:** `/sops` ya redirige a `/operations/sops` (`lib/navigation/redirects.ts`, vía `next.config.ts`),
+  así que `app/(platform)/sops/page.tsx` es código muerto; `components/finance/payment-platforms-section.tsx` no se
+  importa en ningún lado; `timer_started_at`/`timer_running` en `workboard_tasks` sin uso (sólo
+  `logTaskTimeAction` los pone en false/null).
+- **Qué hay que hacer:** borrar `app/(platform)/sops/page.tsx` y el componente huérfano.
 - **Dónde:** rutas citadas.
 
 #### [EQUIPO-ADMIN] El rol `admin` no puede gestionar el equipo [Operaciones y equipo]

@@ -8,7 +8,7 @@ python3 docs/backlog/pendientes_a_jira.py           # regenera el CSV
 python3 docs/backlog/pendientes_a_jira.py --check   # valida sin escribir
 ```
 
-La validación falla si hay un ID repetido o un ítem P0/P1 sin criterio de aceptación.
+La validación falla si hay un ID repetido, un ítem P0/P1 sin criterio de aceptación o si el índice por área de `PENDIENTES.md` no coincide con los ítems.
 
 Una vez que el backlog viva en Jira, lo que se cambie allá no vuelve solo a `PENDIENTES.md`. Hay que decidir
 cuál de los dos manda. Mientras no se decida, un ítem cerrado en Jira también se borra de `PENDIENTES.md`
@@ -38,7 +38,7 @@ sprint, al refinarlo.
 4. Si el proyecto no tiene los tipos `Bug`/`Story`/`Task` con esos nombres (por ejemplo, está en castellano),
    mapear los valores en el paso de "valores de campo" del asistente.
 
-Sugerencia: importar primero sólo P0 y P1 (las primeras filas: 90 al 2026-09-23; el script imprime el conteo por prioridad) para armar los dos primeros sprints, y el
+Sugerencia: importar primero sólo P0 y P1 (las primeras filas: 91 al 2026-09-23; el script imprime el conteo por prioridad) para armar los dos primeros sprints, y el
 resto después.
 
 ## Épicas

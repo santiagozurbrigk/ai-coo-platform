@@ -34,6 +34,65 @@ al terminar cada bloque de trabajo, aunque sea chico.
 
 ---
 
+### 2026-09-23 — Verificación final de toda la documentación contra el código
+
+**Rama:** `claude/loving-pascal-yui3l1`
+**Commit(s):** los "verificación final contra el código" de esta rama
+**Módulo(s) afectado(s):** documentación: 51 archivos `.md` de Limitless (raíz, `docs/` salvo `archivo/`, `historial/`
+y las copias de APIs de terceros, los `RESUMEN-LIMITLESS.md`, `.cursor/rules/`, READMEs de `apps/`), `PENDIENTES.md`,
+`docs/FUNCIONAL.md`, `docs/backlog/`. No se tocó código.
+
+**Qué se hizo:**
+- **Chequeo mecánico**: un script extrajo cada ruta de archivo, número de línea, link, ruta de la app e identificador
+  citado en los 51 docs y los buscó en el repo (486 candidatos; los que quedan son falsos positivos: abreviaturas,
+  ejemplos o nombres que el doc cita justamente como inexistentes).
+- **Verificación de contenido** en 11 frentes en paralelo (una por área + integraciones, arquitectura, docs generales
+  y verificación manual): cada afirmación verificable contra el código, cada ítem de `PENDIENTES.md` de su sección y
+  cada fila de `FUNCIONAL.md`. Cerca de 220 afirmaciones corregidas en 47 docs. Las más relevantes:
+  - Specs presentadas como futuras que ya están hechas (`ONBOARDING_PLAN.md` fases 0–4, pulso diario del reporte) y
+    specs que daban por hecho lo que no existe (`diagnoseFunnel()`, `/funnels/comparar`, panel de diagnóstico).
+  - RESUMEN de proveedores que pedían "corregir el código" ya corregido (Whop, Commas) o describían endpoints/headers
+    distintos a los que el código usa (GHL `Version`, Hyros `/attribution/ad-account`, Fathom `calendar_invitees`).
+  - Comportamientos mal descritos: la cola RAG no reintenta; invitar a un miembro crea la cuenta con contraseña
+    temporal (no hay mail ni `team_invitations`); `/sops` redirige; arrastrar a "Hecho" no registra quién cerró;
+    `deleteProductAction` desactiva, no borra; hay una policy de `profiles` que sí filtra por rol.
+  - `verificacion-manual.md`: textos de pantalla que no existían, la variable real del tope de video
+    (`NEXT_PUBLIC_SOP_VIDEO_MAX_MB`, 50 MB), y el ID de cada ítem "verificación manual" en el bloque que lo cubre.
+  - `CLAUDE.md`: los comandos de §8 corren los scripts de `apps/web` (no turbo); los comentarios de Zernio se leen en
+    vivo pero el webhook guarda una copia en `zernio_comments`.
+- **`PENDIENTES.md`**: 84 correcciones de estado, líneas y alcance, y 9 ítems nuevos: `[FATHOM-WEBHOOK-MIEMBRO-ROTO]`
+  (P1: el webhook por miembro escribe `raw_payload`, que `fathom_calls` no tiene, y no manda `title`, que es
+  obligatorio; responde 500 siempre), `[SUPERADMIN-ONBOARDING-SIN-GUARD]`, `[ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS]`,
+  `[RAG-INGESTA-SIN-REINTENTO]`, `[WORKBOARD-CIERRE-ARRASTRANDO]`, `[ZERNIO-WEBHOOK-DISCONNECTED]`,
+  `[KB-GOOGLE-SIN-RESYNC]`, `[OPS-SOP-VIDEO-CAPTURAS]`, `[CLIENTES-PLAN-DURATIONS-DIALOG-MUERTO]`. Total: 323 ítems
+  (9 P0, 82 P1). Índice por área recalculado.
+- **`docs/FUNCIONAL.md`**: filas corregidas por área; estados que cambiaron: F-VEN-21 → No funciona (webhook Fathom),
+  F-IA-15 → A medias (el resync de Google Docs no actualiza el índice), F-OPS-04, F-CLI-03 y F-IA-24 → Con fallas.
+  Barrido de consistencia: ninguna fila "Funciona" cita un bug/seguridad P0–P1 salvo el de permisos, que sigue la
+  convención documentada. Totales: 228 funcionalidades, 106 funcionan, 63 con fallas, 12 no funcionan, 22 a medias,
+  25 sin verificar.
+- **`pendientes_a_jira.py --check`** ahora también falla si el índice por área de `PENDIENTES.md` no coincide con los
+  ítems. CSV regenerado (323 filas).
+
+**Por qué / finalidad:** que toda la documentación del repo quede alineada con el código antes de arrancar a
+trabajar con Fernando y Martín sobre el backlog.
+
+**Decisiones de diseño relevantes:**
+- Los agentes editaron directamente los docs de su frente; los cambios a `PENDIENTES.md` y `FUNCIONAL.md` se
+  propusieron como reemplazos exactos y se aplicaron con un script (84 de 85; el restante ya estaba cubierto por otro
+  frente).
+- Datos de producción (filas por tabla, variables en Vercel, deploys de Railway/Fly) no se re-verificaron: quedaron
+  con su fecha.
+
+**Riesgos / deuda técnica pendiente:**
+- Lo que sólo se ve en el navegador (tours, realtime, drag, bloqueo por permisos en navegación cliente) se verificó
+  leyendo el código, no en pantalla: queda en `verificacion-manual.md`.
+- `docs/archivo/` y `docs/historial/` no se verificaron a propósito: son registros con fecha, no referencia.
+- Un comentario de código en `lib/vturb/resolve-stats.ts` dice que sin `pitch_time` "cae a la curva" y el código
+  devuelve `null`; no se tocó porque es código.
+
+---
+
 ### 2026-09-23 — Documento funcional, criterios de aceptación y backlog exportable a Jira
 
 **Rama:** `claude/loving-pascal-yui3l1` (sobre `claude/sharp-shannon-4o38ys`)

@@ -19,17 +19,17 @@ datos de clientes.
 
 ## Cómo está cada área
 
-228 funcionalidades en total: **110 funcionan**, 60 funcionan con fallas, 11 no funcionan, 21 están a medias
-y 26 nunca se probaron con cuentas reales.
+228 funcionalidades en total: **106 funcionan**, 63 funcionan con fallas, 12 no funcionan, 22 están a medias
+y 25 nunca se probaron con cuentas reales.
 
 | Área | En una frase |
 |---|---|
 | **Producto** | La más sana: 13 de 15 funcionan. Los "insights" del avatar sólo repiten lo cargado |
-| **Clientes** | Sólida: 21 de 28 funcionan. El onboarding por link nunca se usó en producción |
+| **Clientes** | Sólida: 20 de 28 funcionan. El onboarding por link nunca se usó en producción |
 | **Operaciones y equipo** | Funciona casi todo, pero un miembro "desactivado" sigue entrando, y la tarifa por hora no tiene dónde cargarse |
 | **Agente de IA** | El agente y la base de conocimiento andan. Reportes e inteligencia leen tablas viejas vacías, y el reporte mensual casi nunca sale |
 | **Finanzas** | Anda, pero suma dólares y pesos sin convertir, y cualquier miembro puede editar montos |
-| **Ventas** | La bandeja y Closing andan con fallas: Closing pierde los turnos más nuevos pasando los 1.000. La pantalla de Llamadas siempre está vacía, y las métricas de DMs, en cero |
+| **Ventas** | La bandeja y Closing andan con fallas: Closing pierde los turnos más nuevos pasando los 1.000. La pantalla de Llamadas siempre está vacía, las métricas de DMs están en cero y el Fathom conectado por cada miembro no guarda ninguna grabación automática (sólo entra con el botón de sincronizar) |
 | **Embudos** | El motor funciona, pero los avisos de pago de Whop, Commas y GoHighLevel se pueden perder sin aviso. VTurb, WebinarJam y Hyros nunca se probaron |
 | **Marketing** | La más afectada: sin Zernio propio, una organización puede ver datos de la cuenta global de Zernio. Varias pantallas leen datos viejos de Instagram |
 | **Plataforma** | Permisos sólo de fachada, "¿Olvidaste tu contraseña?" no hace nada y las notificaciones por mail no existen |
@@ -83,7 +83,7 @@ Además, lo que quedó abierto en la reunión: el rol de Matías y las horas sem
 ## Próximos pasos sugeridos
 
 1. Agustín completa la columna Octubre y las decisiones de arriba.
-2. Martín importa a Jira las primeras 90 filas del CSV (P0 y P1) y crea las épicas por área.
+2. Martín importa a Jira las primeras 91 filas del CSV (P0 y P1) y crea las épicas por área.
 3. Fernando revisa los 9 P0 contra su propia auditoría de seguridad.
 4. Con eso, se arman los dos sprints hasta la segunda semana de octubre: primero los P0, después los P1 de
    lo que Agustín marque para octubre.

@@ -45,7 +45,7 @@ Fuente: PENDIENTES.md [LLAMADAS-EMBED-ROTO] · Doc del área: docs/areas/ventas.
 Fuente: PENDIENTES.md [CLOSING-LIST-1000] · Doc del área: docs/areas/ventas.md",CLOSING-LIST-1000,Ventas,P0,bug
 [ZERNIO-KEY-GLOBAL] Una org sin Zernio usa la key global de Zernio,Bug,Highest,marketing,p0,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{getZernioApiKeyForOrganization}} ({{lib/zernio/integration.ts:113-121}}) devuelve {{process.env.ZERNIO_API_KEY}} cuando la org no tiene fila activa. Todo {{getZernioClientForOrganization}} (anuncios, comentarios, inbox, sync) lo hereda. {{captureAdMetricsForAllOrganizations}} ({{lib/marketing/ad-metrics-snapshot.ts:158}}) recorre {{zernio_integrations}} sin filtrar {{is_active}}, y una fila inactiva cae al fallback → escribiría en {{ad_metrics_daily}} anuncios de la cuenta global. {{.env.example}} la trae como {{sk_pending}}. No verifiqué si está seteada en Vercel.
+*Estado verificado:* {{getZernioApiKeyForOrganization}} ({{lib/zernio/integration.ts:113-121}}) devuelve {{process.env.ZERNIO_API_KEY}} cuando la org no tiene fila activa o su fila no tiene {{api_key}}. Todo {{getZernioClientForOrganization}} (anuncios, comentarios, inbox, sync) lo hereda. {{captureAdMetricsForAllOrganizations}} ({{lib/marketing/ad-metrics-snapshot.ts:158}}) recorre {{zernio_integrations}} sin filtrar {{is_active}}, y una fila inactiva cae al fallback → escribiría en {{ad_metrics_daily}} anuncios de la cuenta global. {{.env.example}} la trae como {{sk_pending}}. No verifiqué si está seteada en Vercel.
 
 *Qué hay que hacer:* confirmar en Vercel si {{ZERNIO_API_KEY}} existe en Production; quitar el fallback fuera de dev ({{NODE_ENV !== ""production""}}) o borrarlo; filtrar {{is_active}} en el cron.
 
@@ -78,7 +78,7 @@ Fuente: PENDIENTES.md [EMBUDOS-WEBHOOK-PERDIDA] · Doc del área: docs/areas/emb
 Fuente: PENDIENTES.md [1A1-CLAVE-ANTHROPIC-ROTA] · Doc del área: docs/areas/agente-ia.md",1A1-CLAVE-ANTHROPIC-ROTA,Agente de negocio e IA,P0,verificación manual
 [EQUIPO-DESACTIVAR-NO-BLOQUEA] Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo],Bug,Highest,ops-fin-prod,p0,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{deactivateMemberAction}} y {{updateMemberRoleAction}} ({{app/team/actions.ts}}) sólo ponen {{profiles.is_active = false}}. Nada lo lee: no está en {{lib/supabase/middleware.ts}} (que sí lee {{must_change_password}}), ni en {{lib/auth/bootstrap.ts}}, ni en {{get_my_organization_id()}}, ni en ninguna policy. El único lector es {{app/fathom/member-actions.ts}} y {{lib/super-admin/queries.ts}}. {{docs/archivo/OPERATIONAL_NOTES.md}} afirma lo contrario (""Un miembro desactivado no puede iniciar sesión"").
+*Estado verificado:* {{deactivateMemberAction}} y {{updateMemberRoleAction}} ({{app/team/actions.ts}}) sólo ponen {{profiles.is_active = false}}. Nada lo lee: no está en {{lib/supabase/middleware.ts}} (que sí lee {{must_change_password}}), ni en {{lib/auth/bootstrap.ts}}, ni en {{get_my_organization_id()}}, ni en ninguna policy. Los únicos lectores son {{app/fathom/member-actions.ts}}, {{lib/super-admin/queries.ts}} y {{lib/team/mapper.ts}} (que sólo lo muestra en la lista de Equipo). {{docs/archivo/OPERATIONAL_NOTES.md}} afirma lo contrario (""Un miembro desactivado no puede iniciar sesión"").
 
 *Qué hay que hacer:* al desactivar, banear el usuario en Auth ({{auth.admin.updateUserById(id, { ban_duration })}}) o revocar sesiones, y además cortar en el middleware si {{is_active = false}}. Idealmente que {{get_my_organization_id()}} devuelva null para inactivos.
 
@@ -91,7 +91,7 @@ Fuente: PENDIENTES.md [EQUIPO-DESACTIVAR-NO-BLOQUEA] · Doc del área: docs/area
 
 *Parte de:* {{[PERMISOS-SERVER-ACTIONS]}} (ítem transversal en Plataforma). Acá, lo específico del área.
 
-*Estado verificado:* ninguna policy RLS filtra por rol (todas por {{organization_id}}); no existe ningún helper {{requireRole}}/{{requirePermission}} en {{app/}} ni {{lib/}} (grep vacío). El único bloqueo es el render en {{app/(platform)/layout.tsx}} ({{<SinAcceso/>}}). Un viewer puede, vía PostgREST con su JWT, escribir {{team_roles.permissions}}, tablas de finanzas y lo que tenga policy {{FOR ALL}} por org ({{discord_integrations}}, {{unipile_integrations}}); vía actions, {{saveClaudeApiKeyAction}}, los {{disconnect*Action}}, el Drive del founder y {{updateCloserCommissionAction}}. {{organizations}} ya está protegido por grants por columna.
+*Estado verificado:* ninguna policy RLS filtra por rol salvo {{Founders update org profiles}} (UPDATE de {{profiles}}, {{20260616100000_workboard_time_tracking.sql}}: founder/admin editan perfiles de su org); el resto va sólo por {{organization_id}}. No existe ningún helper {{requireRole}}/{{requirePermission}} en {{app/}} ni {{lib/}} (grep vacío). El único bloqueo es el render en {{app/(platform)/layout.tsx}} ({{<SinAcceso/>}}). Un viewer puede, vía PostgREST con su JWT, escribir {{team_roles.permissions}}, tablas de finanzas y lo que tenga policy {{FOR ALL}} por org ({{discord_integrations}}, {{unipile_integrations}}); vía actions, {{saveClaudeApiKeyAction}}, los {{disconnect*Action}}, el Drive del founder y {{updateCloserCommissionAction}}. {{organizations}} ya está protegido por grants por columna.
 
 *Qué hay que hacer:* (1) helper {{requireRole(minRole | modulo, nivel)}} sobre {{requireOrganizationId()}} y aplicarlo primero en actions de plata, equipo, integraciones y BYOK; (2) policies de escritura por rol en {{team_roles}}, finanzas y {{*_integrations}} editables (función SQL {{current_user_role()}} o similar); (3) test que recorra los exports críticos.
 
@@ -236,7 +236,7 @@ Fuente: PENDIENTES.md [PERMISOS-VERIFICAR-SESION] · Doc del área: docs/areas/p
 
 *Parte de:* {{[PERMISOS-SERVER-ACTIONS]}} (ítem transversal en Plataforma). Acá, lo específico del área.
 
-*Estado verificado:* {{app/(platform)/layout.tsx}} corta el render por módulo y {{clients-list.tsx}} esconde botones con {{useModuleAccess(""clients"") === ""full""}}, pero ninguna action de {{app/clients/*.ts}} mira el rol ni el permiso de módulo: sólo {{requireOrganizationId()}}. Un usuario con Clientes en «Solo lectura» o «Sin acceso» puede invocar {{deleteClientAction}}, {{updateClientAction}}, {{recordCheckpointAction}}, {{deleteWinAction}}, {{saveClientRevenueAction}}, etc. Las policies de RLS de todas las tablas del área filtran sólo por org. Sólo el catálogo (campos, recorrido, duración de planes, umbral de silencio) exige founder ({{requireFounder()}}).
+*Estado verificado:* {{app/(platform)/layout.tsx}} corta el render por módulo y {{clients-list.tsx}} esconde botones con {{useModuleAccess(""clients"") === ""full""}}, pero ninguna action de {{app/clients/*.ts}} mira el rol ni el permiso de módulo: sólo {{requireOrganizationId()}}. Un usuario con Clientes en «Solo lectura» o «Sin acceso» puede invocar {{deleteClientAction}}, {{updateClientAction}}, {{recordCheckpointAction}}, {{deleteWinAction}}, {{saveClientRevenueAction}}, etc. Las policies de RLS de todas las tablas del área filtran sólo por org. Sólo el catálogo (campos, recorrido, duración de planes, umbral de silencio) exige founder ({{requireFounder()}}; el umbral, con un chequeo de {{profile.role}} en {{setClientSilenceDaysAction}}).
 
 *Qué hay que hacer:* helper {{requireModuleAccess(""clients"", ""full"")}} en las actions de escritura del área (es transversal: coordinar con el ítem general de la auditoría §3.1).
 
@@ -249,9 +249,9 @@ Fuente: PENDIENTES.md [PERMISOS-SERVER-ACTIONS/clientes] · Doc del área: docs/
 
 *Estado verificado:* la ficha usa {{resolveEffectiveStage}} (gana la más avanzada entre manual y derivada: {{components/clients/checkpoints/client-journey-section.tsx:139}}). La tabla hace {{status?.currentStageName ?? manualStageName}} ({{components/clients/clients-list.tsx:793}}): si el cliente tiene cualquier hito registrado, muestra la fase derivada aunque la manual sea más avanzada, y el color y el «n de m» salen siempre de la derivada. El comentario de {{getManualStagesAction}} dice «para resolver la efectiva en la tabla», pero nadie la resuelve.
 
-*Qué hay que hacer:* resolver la fase efectiva en el servidor ({{getClientsBoardAction}} o {{getClientsJourneyStatusAction}}) con {{resolveEffectiveStage}} y que la tabla, los filtros y la revisión semanal lean eso. Agregar un test.
+*Qué hay que hacer:* resolver la fase efectiva en el servidor ({{getClientsBoardAction}} o {{getClientsJourneyStatusAction}}) con {{resolveEffectiveStage}} y que la tabla lea eso (hoy no hay filtro por fase y la revisión semanal no muestra fase). Agregar un test.
 
-*Criterio de aceptación:* Un cliente con un hito registrado en una fase temprana y la fase fijada a mano en una más avanzada muestra en la tabla de /clients la misma fase (nombre, color y «n de m») que en su ficha; los filtros por fase y la revisión semanal lo ubican en esa misma fase; hay un test que cubre la resolución de la fase efectiva que usa la tabla
+*Criterio de aceptación:* Un cliente con un hito registrado en una fase temprana y la fase fijada a mano en una más avanzada muestra en la tabla de /clients la misma fase (nombre, color y «n de m») que en su ficha; hay un test que cubre la resolución de la fase efectiva que usa la tabla
 
 *Dónde:* {{apps/web/components/clients/clients-list.tsx}}, {{apps/web/app/clients/clients-board-actions.ts}}, {{apps/web/lib/checkpoints/effective-stage.ts}}.
 
@@ -280,7 +280,7 @@ Fuente: PENDIENTES.md [CLIENTES-IMPORT-EXCEL-MONTOS] · Doc del área: docs/area
 Fuente: PENDIENTES.md [CLIENTES-PENDING-CALLS-HUERFANA] · Doc del área: docs/areas/clientes.md",CLIENTES-PENDING-CALLS-HUERFANA,Clientes,P1,bug
 [CLIENTES-SIN-MAIL] Los clientes viejos no tienen mail,Bug,High,clientes,p1,bug,decision-de-negocio,,"*Tipo:* bug + decisión de negocio
 
-*Estado verificado:* {{clients.email}} existe y se hereda del lead al cerrar ({{types/clients.ts}}). No hay pantalla para completarlo en masa. El CSV ({{parse-client-import.ts}}) no tiene columna de mail. ⚠️ El Excel *sí la lee* ({{excel-parser.ts:172,200}}) pero {{importClientsFromExcelAction}} *no la inserta* ({{import-actions.ts}}, el {{insertPayload}} no tiene {{email}}): el dato se parsea y se tira. El conteo «334 de 335» es de CHANGES; no se re-midió (sería leer datos).
+*Estado verificado:* {{clients.email}} existe y se hereda del lead al cerrar ({{providers/platform-data-provider.tsx:175}}). No hay pantalla para completarlo en masa. El CSV ({{parse-client-import.ts}}) no tiene columna de mail. ⚠️ El Excel *sí la lee* ({{excel-parser.ts:172,200}}) pero {{importClientsFromExcelAction}} *no la inserta* ({{import-actions.ts}}, el {{insertPayload}} no tiene {{email}}): el dato sólo queda como texto «Email: …» en {{ai_insights}} ({{buildClientInsights}}, {{import-actions.ts:263}}), no en {{clients.email}}. El conteo «334 de 335» es de CHANGES; no se re-midió (sería leer datos).
 
 *Qué hay que hacer:* agregar {{email: row.email ?? null}} al insert del Excel (una línea); decidir de dónde se completan los viejos (import, {{sales_leads}}, pagos). Es la palanca del peldaño determinista del resolvedor.
 
@@ -293,9 +293,9 @@ Fuente: PENDIENTES.md [CLIENTES-SIN-MAIL] · Doc del área: docs/areas/clientes.
 
 *Estado verificado:* migración aplicada; {{client_onboarding_links}} y {{client_onboarding_submissions}} con 0 filas y {{field_definitions}} con 48 filas en toda la base (las 86 preguntas no se cargaron en ninguna org).
 
-*Qué hay que hacer:* bloques A–G de {{docs/operacion/verificacion-manual.md}} § Clientes (Onboarding). Avisar al equipo que el formulario viejo ({{client-onboarding-nine-chi.vercel.app}}) queda reemplazado; sus respuestas no se importan.
+*Qué hay que hacer:* bloque 14 «Onboarding por link» de {{docs/operacion/verificacion-manual.md}} § Clientes. Avisar al equipo que el formulario viejo ({{client-onboarding-nine-chi.vercel.app}}) queda reemplazado; sus respuestas no se importan.
 
-*Criterio de aceptación:* Se ejecutaron los bloques A–G de Clientes (Onboarding) de docs/operacion/verificacion-manual.md con la organización real que tiene el add-on y el resultado quedó anotado; si algo falló, se abrió un ítem nuevo; el equipo fue avisado de que el formulario viejo queda reemplazado y sus respuestas no se importan
+*Criterio de aceptación:* Se ejecutó el bloque 14 «Onboarding por link» de docs/operacion/verificacion-manual.md § Clientes con la organización real que tiene el add-on y el resultado quedó anotado; si algo falló, se abrió un ítem nuevo; el equipo fue avisado de que el formulario viejo queda reemplazado y sus respuestas no se importan
 
 *Dónde:* {{/clients/campos}}, ficha de un growth partner, {{/onboarding-cliente/[token]}}.
 
@@ -322,6 +322,17 @@ Fuente: PENDIENTES.md [CLIENTES-DE-CLIENTES-PROBAR] · Doc del área: docs/areas
 *Dónde:* ficha → Sesiones 1-1; {{apps/web/lib/fathom/share-link.ts}}.
 
 Fuente: PENDIENTES.md [1A1-MANUALES-SIN-PROBAR] · Doc del área: docs/areas/clientes.md",1A1-MANUALES-SIN-PROBAR,Clientes,P1,verificación manual
+[FATHOM-WEBHOOK-MIEMBRO-ROTO] El webhook de Fathom por miembro no puede guardar ninguna grabación,Bug,High,ventas,p1,bug,,,"*Tipo:* bug
+
+*Estado verificado:* ítem nuevo (2026-09-23). {{app/api/integrations/fathom/webhook/[token]/route.ts:76-87}} hace {{upsert}} en {{fathom_calls}} con {{{ organization_id, fathom_call_id, user_id, raw_payload, status }}}. En producción {{fathom_calls}} *no tiene* columna {{raw_payload}} (ni en migraciones ni en {{information_schema}}, consultado 2026-09-23) y {{title}} es {{NOT NULL}} sin default ({{20260522000000_phase11_integrations.sql}}), así que PostgREST rechaza el upsert y la ruta responde 500. Aunque se guardara, la fila quedaría sin {{processed_after}} (el cron exige {{.lte(""processed_after"", now)}}, {{lib/fathom/process-call.ts:97-103}}), sin {{calendar_invitees}} ni transcript (el pipeline no vuelve a pedir la reunión, sólo el título y con la key de la org) y con {{ingest_source}} en {{'sync'}}. Hoy las grabaciones de un miembro sólo entran con el botón ""Sincronizar mis llamadas"" ({{syncMemberFathomAction}}). Lo tapa {{[B-FATHOM-NUNCA-PROBADO]}}: nunca se probó con una cuenta real.
+
+*Qué hay que hacer:* que el webhook reuse {{upsertFathomCallFromMeeting}} ({{lib/fathom/sync.ts}}) con el cuerpo del webhook mapeado, o que sólo encole el id y el cron pida la reunión con la key del miembro; guardar el crudo en una columna que exista (o crearla) antes de interpretarlo; setear {{processed_after}}, {{user_id}} e {{ingest_source = 'webhook'}}.
+
+*Criterio de aceptación:* Un POST firmado al webhook de un miembro con el cuerpo real de {{new-meeting-content-ready}} responde 200 y deja una fila en fathom_calls con title, calendar_invitees, user_id del miembro, ingest_source = 'webhook' y processed_after; la siguiente corrida de /api/integrations/fathom/process la clasifica; hay un test de la ruta con un payload de ejemplo
+
+*Dónde:* {{apps/web/app/api/integrations/fathom/webhook/[token]/route.ts}}, {{apps/web/lib/fathom/sync.ts}}.
+
+Fuente: PENDIENTES.md [FATHOM-WEBHOOK-MIEMBRO-ROTO] · Doc del área: docs/areas/ventas.md",FATHOM-WEBHOOK-MIEMBRO-ROTO,Ventas,P1,bug
 [CLOSER-AMOUNT-CLOSED] La pestaña Equipo de Closing siempre sale vacía,Bug,High,ventas,p1,bug,,,"*Tipo:* bug
 
 *Estado verificado:* {{[AUDITORIA-ABIERTOS]}} punto 8 / auditoría §3 ""Dinero y datos"". {{getCloserMetricsAction}} ({{app/sales/closer-actions.ts:151}}) selecciona {{closing_calls.amount_closed}}, que no existe en ninguna migración ni en producción; el error devuelve {{[]}}. Lo consume {{components/closing/closers-ranking.tsx}}.
@@ -425,7 +436,7 @@ Fuente: PENDIENTES.md [PERMISOS-SERVER-ACTIONS/ventas] · Doc del área: docs/ar
 Fuente: PENDIENTES.md [B-SEMBRAR-IDENTIDADES] · Doc del área: docs/areas/ventas.md",B-SEMBRAR-IDENTIDADES,Ventas,P1,verificación manual
 [B-FATHOM-NUNCA-PROBADO] Keys de Fathom por miembro nunca probadas contra Fathom,Task,High,ventas,p1,verificacion-manual,,,"*Tipo:* verificación manual
 
-*Estado verificado:* el código existe ({{app/fathom/member-actions.ts}}, {{lib/fathom/webhooks.ts}}, {{app/api/integrations/fathom/webhook/[token]/route.ts}}). La firma se asume HMAC-SHA256 con tres headers posibles. CHANGES.md no registra una prueba real.
+*Estado verificado:* el código existe ({{app/fathom/member-actions.ts}}, {{lib/fathom/webhooks.ts}}, {{app/api/integrations/fathom/webhook/[token]/route.ts}}). La firma se asume HMAC-SHA256 con tres headers posibles. CHANGES.md no registra una prueba real. Aunque la firma valide, el guardado del webhook falla hoy por código (ver {{[FATHOM-WEBHOOK-MIEMBRO-ROTO]}}); la sincronización manual por miembro sí guarda.
 
 *Qué hay que hacer:* ver {{docs/operacion/verificacion-manual.md}} § Ventas (""Fathom por miembro"").
 
@@ -438,7 +449,7 @@ Fuente: PENDIENTES.md [B-FATHOM-NUNCA-PROBADO] · Doc del área: docs/areas/vent
 
 *Estado verificado:* {{lib/fathom/match-appointment.ts}} (ventanas de 12 h por mail y 45 min sólo horario) sin medición real.
 
-*Qué hay que hacer:* ver {{docs/operacion/verificacion-manual.md}} § Ventas (""Cruce con agenda"").
+*Qué hay que hacer:* ver {{docs/operacion/verificacion-manual.md}} § Ventas 7 (""Cruce grabación ↔ turno y clasificación"").
 
 *Criterio de aceptación:* Se ejecutó el paso de verificacion-manual.md § Ventas 7 («Cruce grabación ↔ turno y clasificación») con datos reales y quedó anotado cuántas grabaciones de venta cruzaron un turno y si las ventanas de 12 h / 45 min son correctas; si falló, se abrió un ítem nuevo
 
@@ -491,11 +502,11 @@ Fuente: PENDIENTES.md [TRIAL-SECRET-EN-URL] · Doc del área: docs/areas/marketi
 Fuente: PENDIENTES.md [MKT-HOLDING-ORG] · Doc del área: docs/areas/marketing.md",MKT-HOLDING-ORG,Marketing,P1,bug
 [TRIAL-REELS-MUSICA] La música propia de Trial Reels no se usa ni se puede subir,Bug,High,marketing,p1,bug,,,"*Tipo:* bug
 
-*Estado verificado:* (a) {{jobPayloadSchema}} del worker ({{apps/reel-worker/src/index.ts}}) no declara {{reelMusicPath}}; {{safeParse}} de zod descarta la clave, así que {{processor.ts}} nunca la recibe y V3 cae a {{luts/background-music.mp3}}, que no existe → sale en silencio. (b) {{ReelMusicUpload}} no se monta en ninguna pantalla (sólo lo exporta su archivo; ni siquiera {{trial-reels/index.ts}}).
+*Estado verificado:* (a) {{jobPayloadSchema}} del worker ({{apps/reel-worker/src/index.ts}}) no declara {{reelMusicPath}}; {{safeParse}} de zod descarta la clave, así que {{processor.ts}} nunca la recibe y V3 cae a {{luts/background-music.mp3}}, que no existe → sale sin música (conserva el audio original con {{-c:a copy}}; sólo cambian crop y metadatos, {{ffmpeg-variants.ts:110-145}}). (b) {{ReelMusicUpload}} no se monta en ninguna pantalla (sólo lo exporta su archivo; ni siquiera {{trial-reels/index.ts}}).
 
 *Qué hay que hacer:* agregar {{reelMusicPath: z.string().nullable().optional()}} al schema y redeployar Fly; montar {{ReelMusicUpload}} en Marketing → Contenido.
 
-*Criterio de aceptación:* Con una org que subió su música desde Marketing → Contenido, la variante V3 de un Trial Reel nuevo suena con esa música (no sale en silencio); hay un test del schema del worker que confirma que reelMusicPath llega a processor
+*Criterio de aceptación:* Con una org que subió su música desde Marketing → Contenido, la variante V3 de un Trial Reel nuevo suena con esa música de fondo (hoy sale con el audio original y sin música); hay un test del schema del worker que confirma que reelMusicPath llega a processor
 
 *Dónde:* {{apps/reel-worker/src/index.ts}}, {{apps/web/components/marketing/trial-reels/reel-music-upload.tsx}}, {{apps/web/app/(platform)/marketing/content/page.tsx}}
 
@@ -568,9 +579,9 @@ Fuente: PENDIENTES.md [ZERNIO-WEBHOOK-SIN-EVENTOS] · Doc del área: docs/areas/
 Fuente: PENDIENTES.md [EMBUDOS-MEDIDAS-POR-EMBUDO] · Doc del área: docs/areas/embudos.md",EMBUDOS-MEDIDAS-POR-EMBUDO,Embudos y Lanzamientos,P1,bug / decisión de negocio
 [EMBUDOS-INSTRUMENTATION-DESACTUALIZADA] Texto visible en /funnels que dice cosas falsas,Bug,High,embudos,p1,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{INSTRUMENTATION_TOOLS}} en {{lib/funnels/instrumentation.ts}} se muestra en {{/funnels}} ({{blockingTools()}} → {{otcNote}}). La nota de {{crm_pipeline}} dice que GHL ""NO consume /opportunities ni /pipelines"" (existen {{lib/ghl/sync-pipelines.ts}} y el webhook). La de {{checkout}} dice ""Cubierto por Stripe y Mercado Pago"" con estado {{equivalent}}, pero el resolver sólo lee Whop/Commas ({{payment_orders}}): los datos de Stripe/MP no llegan a ningún embudo. Hoy en pantalla se ve sólo la nota de GHL ({{partial}}): {{blockingTools()}} filtra {{missing}}/{{partial}}, así que la de checkout ({{equivalent}}) está mal pero no se muestra (revisado 2026-09-23). También el comentario de {{DEFAULT_DM_BINDINGS}} dice que no hay fuente de disparadores (existe {{zernio_comment_triggers}}).
+*Estado verificado:* {{INSTRUMENTATION_TOOLS}} en {{lib/funnels/instrumentation.ts}} se muestra en {{/funnels}} y en {{/funnels/[funnelId]/configurar}} ({{blockingTools()}} → {{otcNote}}). Hay otras dos notas viejas que no se ven en pantalla: {{meta_ads}} dice ""Live fetch, no persiste"" (hoy se persiste en {{ad_metrics_daily}}) y {{REPORTING_CADENCE.daily}} dice {{missing}} / ""Falta el cron de pulso diario"" (existe {{executive-report-daily}}). La nota de {{crm_pipeline}} dice que GHL ""NO consume /opportunities ni /pipelines"" (existen {{lib/ghl/sync-pipelines.ts}} y el webhook). La de {{checkout}} dice ""Cubierto por Stripe y Mercado Pago"" con estado {{equivalent}}, pero el resolver sólo lee Whop/Commas ({{payment_orders}}): los datos de Stripe/MP no llegan a ningún embudo. Hoy en pantalla se ve sólo la nota de GHL ({{partial}}): {{blockingTools()}} filtra {{missing}}/{{partial}}, así que la de checkout ({{equivalent}}) está mal pero no se muestra (revisado 2026-09-23). También el comentario de {{DEFAULT_DM_BINDINGS}} dice que no hay fuente de disparadores (existe {{zernio_comment_triggers}}).
 
-*Qué hay que hacer:* corregir {{otcStatus}}/{{otcNote}} de GHL y checkout (checkout = {{available}} vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), actualizar el comentario, y ajustar {{instrumentation.test.ts}} si fija esos estados.
+*Qué hay que hacer:* corregir {{otcStatus}}/{{otcNote}} de GHL y checkout (checkout = {{available}} vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), la nota de {{meta_ads}} y {{REPORTING_CADENCE.daily}} (el pulso diario de la org existe, aunque no lee embudos), actualizar el comentario, y ajustar {{instrumentation.test.ts}} si fija esos estados.
 
 *Criterio de aceptación:* La lista de herramientas de /funnels ya no dice que GHL 'no consume /opportunities ni /pipelines'; checkout figura como disponible vía Whop/Commas y aclara que Stripe y Mercado Pago no alimentan los embudos; instrumentation.test.ts refleja esos estados y los tests pasan
 
@@ -590,7 +601,7 @@ Fuente: PENDIENTES.md [EMBUDOS-INSTRUMENTATION-DESACTUALIZADA] · Doc del área:
 Fuente: PENDIENTES.md [EMBUDOS-CUENTAS-REALES] · Doc del área: docs/areas/embudos.md",EMBUDOS-CUENTAS-REALES,Embudos y Lanzamientos,P1,verificación manual
 [EMBUDOS-GHL-ENTREGA] Cerrar cómo llegan los webhooks de oportunidades de GHL,Task,High,embudos,p1,verificacion-manual,,,"*Tipo:* verificación manual
 
-*Estado verificado:* {{app/api/webhooks/ghl/route.ts}} acepta firma Ed25519/RSA o secreto por org; el payload del Workflow no está documentado (se buscó en {{docs/external-apis/gohighlevel/}}). Si el Workflow no manda {{type: Opportunity*}}, la ruta descarta todo con 200 {{ignored}} sin guardar nada.
+*Estado verificado:* {{app/api/webhooks/ghl/route.ts}} acepta firma Ed25519/RSA o secreto por org; el payload del Workflow no está documentado (se buscó en {{docs/external-apis/gohighlevel/}}). Si el Workflow no manda {{type}} (o {{event}}/{{eventType}}) con valor {{Opportunity*}}, la ruta descarta todo con 200 {{ignored}} sin guardar nada. El id de oportunidad se busca capa por capa empezando por la raíz ({{lib/ghl/opportunity-event.ts}}): un {{id}} en la raíz del payload del Workflow (que puede ser el del contacto) gana sobre un {{opportunityId}} anidado.
 
 *Qué hay que hacer:* armar el Workflow en una sub-cuenta, mirar el crudo, confirmar {{type}}, id de oportunidad, {{pipelineStageId}} y {{webhookId}}. Si no hay {{pipelineStageId}}, priorizar {{[FEAT-GHL-OAUTH]}}.
 
@@ -658,18 +669,18 @@ Fuente: PENDIENTES.md [PERMISOS-SERVER-ACTIONS/agente-ia] · Doc del área: docs
 Fuente: PENDIENTES.md [REPORTES-MENSUAL-MES-EQUIVOCADO] · Doc del área: docs/areas/agente-ia.md",REPORTES-MENSUAL-MES-EQUIVOCADO,Agente de negocio e IA,P1,bug
 [INTELIGENCIA-FUENTES-LEGACY] (nuevo) Inteligencia y reportes leen tablas legacy,Bug,High,agente-ia,p1,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{lib/intelligence/collect-context.ts}} lee {{conversations}} (líneas 128 y 186; 0 filas en prod) y {{content_assets}} (línea 209; 6 filas) en vez de {{sales_leads}} (1252) y {{content_pieces}} (150). {{lib/intelligence/memory-chunks.ts}} también usa {{content_assets}}, y el tono del founder ({{lib/founder-tone/collect-sources.ts}}) también. Los reportes y el snapshot ven marketing y DMs vacíos.
+*Estado verificado:* {{lib/intelligence/collect-context.ts}} lee {{conversations}} (líneas 128 y 186; 0 filas en prod al 2026-09-23) y {{content_assets}} (línea 209; 6 filas) en vez de {{sales_leads}} (1252) y {{content_pieces}} (150). {{lib/intelligence/memory-chunks.ts}} también usa {{content_assets}}, y el tono del founder ({{lib/founder-tone/collect-sources.ts}}) también. Los reportes y el snapshot ven marketing y DMs vacíos.
 
 *Qué hay que hacer:* pasar a {{sales_leads}} y {{content_pieces}} (métricas vía {{content_pieces.metrics}}), revisar {{hasMeaningfulData}}.
 
 *Criterio de aceptación:* Para una org con leads en sales_leads y piezas en content_pieces, el snapshot de inteligencia y un reporte ejecutivo generados muestran datos de DMs/leads y de marketing (no vacíos); collect-context y memory-chunks ya no leen conversations ni content_assets
 
-*Dónde:* {{apps/web/lib/intelligence/collect-context.ts}}, {{lib/intelligence/memory-chunks.ts}}, {{lib/executive-reports/compute-departments.ts}}, {{lib/founder-tone/collect-sources.ts}}.
+*Dónde:* {{apps/web/lib/intelligence/collect-context.ts}}, {{lib/intelligence/memory-chunks.ts:34}}, {{lib/founder-tone/collect-sources.ts:65}}.
 
 Fuente: PENDIENTES.md [INTELIGENCIA-FUENTES-LEGACY] · Doc del área: docs/areas/agente-ia.md",INTELIGENCIA-FUENTES-LEGACY,Agente de negocio e IA,P1,bug
 [AGENTE-SIN-FALLBACK-CLAVE] (nuevo) El agente SSE no cae a la clave global,Bug,High,agente-ia,p1,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{streamClaudeAgent}} ({{lib/agent/stream-claude-agent.ts:204}}) usa {{resolveCredentialForOrg}} directo y ante un error lanza {{mapAnthropicCallError}}, sin el reintento con la global ni {{marcarClaveDeOrgComoRechazada}} que tiene {{executeWithCredentialFallback}}. Una clave que vence entre validaciones rompe el chat.
+*Estado verificado:* {{streamClaudeAgent}} ({{lib/agent/stream-claude-agent.ts:218}}) usa {{resolveCredentialForOrg}} directo y ante un error lanza {{mapAnthropicCallError}}, sin el reintento con la global ni {{marcarClaveDeOrgComoRechazada}} que tiene {{executeWithCredentialFallback}}. Una clave que vence entre validaciones rompe el chat.
 
 *Qué hay que hacer:* extraer el fallback a una función reusable y aplicarla al stream (reintentar sólo si el 401 llega antes de emitir deltas).
 
@@ -770,7 +781,7 @@ Fuente: PENDIENTES.md [WORKBOARD-ASIGNACION-AGENTE] · Doc del área: docs/areas
 Fuente: PENDIENTES.md [D-SOPS-VIDEO-NUNCA-CORRIO] · Doc del área: docs/areas/operaciones.md",D-SOPS-VIDEO-NUNCA-CORRIO,"Operaciones, Finanzas y Producto",P1,verificación manual
 [OPS-SOP-VIDEO-MEMORIA] El worker mete el video entero en memoria y en /tmp [Operaciones y equipo],Bug,High,ops-fin-prod,p1,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{process-sop-video/route.ts}} hace {{Buffer.from(await file.arrayBuffer())}} y {{writeFile}} en {{tmpdir()}}; el bucket acepta hasta 1 GB ({{20260903110000}}) y el límite de subida es {{SOP_VIDEO_MAX_BYTES}} (env). {{/tmp}} de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande falla antes de ffmpeg. {{probeDurationSeconds}} decodifica el video completo ({{-f null -}}) sólo para leer la duración. Si la duración sale 0, {{computeAudioChunks(0)}} manda todo el audio en un pedido (límite de 25 MB de Whisper).
+*Estado verificado:* {{process-sop-video/route.ts}} hace {{Buffer.from(await file.arrayBuffer())}} y {{writeFile}} en {{tmpdir()}}; el bucket acepta hasta 1 GB ({{20260903110000}}) y el límite de subida es {{SOP_VIDEO_MAX_BYTES}} ({{NEXT_PUBLIC_SOP_VIDEO_MAX_MB}}, 50 MB por defecto). {{/tmp}} de Vercel es de 512 MB y la memoria de la lambda es finita: un Loom grande falla antes de ffmpeg. {{probeDurationSeconds}} decodifica el video completo ({{-f null -}}) sólo para leer la duración. Si la duración sale 0, {{computeAudioChunks(0)}} manda todo el audio en un pedido (límite de 25 MB de Whisper).
 
 *Qué hay que hacer:* bajar por stream a disco (o pasar a ffmpeg una URL firmada como input), leer la duración con {{-i}} sin decodificar, y alinear {{SOP_VIDEO_MAX_BYTES}} con lo que la lambda aguanta. Si la duración no se puede leer, fallar con mensaje en vez de mandar un solo pedido.
 
@@ -847,7 +858,7 @@ Fuente: PENDIENTES.md [AUD-SEG-2] · Doc del área: docs/arquitectura/vision-gen
 Fuente: PENDIENTES.md [AUD-SEG-4] · Doc del área: docs/arquitectura/vision-general.md",AUD-SEG-4,"Infraestructura, seguridad y tests (transversal)",P1,seguridad
 [SEG-REEL-WORKER-AUTH] Autenticación débil del worker de Fly.io,Bug,High,infra,p1,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{apps/reel-worker/src/index.ts:67-130}}: compara {{WORKER_AUTH_SECRET}} con {{===}} (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de IPs {{10.*}}/{{172.*}} o si {{NODE_ENV}} no contiene {{prod}}. {{fly.toml}} y el README del worker no listan {{WORKER_AUTH_SECRET}} entre los secrets.
+*Estado verificado:* {{apps/reel-worker/src/index.ts:67-130}}: compara {{WORKER_AUTH_SECRET}} con {{===}} (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de {{127.0.0.1}} o IPs {{10.*}}/{{172.*}}, o si {{NODE_ENV}} no contiene {{prod}}. La lista de secrets comentada en {{fly.toml}} no incluye {{WORKER_AUTH_SECRET}} (el README del worker ya lo lista).
 
 *Qué hay que hacer:* comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar {{WORKER_AUTH_SECRET}} a {{fly.toml}}/README y confirmar con {{fly secrets list}} que está cargado.
 
@@ -869,7 +880,7 @@ Fuente: PENDIENTES.md [SEG-REEL-WORKER-AUTH] · Doc del área: docs/arquitectura
 Fuente: PENDIENTES.md [AUD-SEG-9] · Doc del área: docs/arquitectura/vision-general.md",AUD-SEG-9,"Infraestructura, seguridad y tests (transversal)",P1,verificación manual
 [AUD-CONF-1] Sin timeouts en los clientes de APIs externas,Task,High,infra,p1,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{AbortSignal.timeout}}/{{signal:}} sólo aparece en {{lib/discord/api.ts}}, {{lib/agent/*}}, {{lib/fathom/share-link.ts}} y {{lib/marketing/story-thumbnail-storage.ts}}. Ninguno en {{lib/zernio/client.ts}}, {{lib/ghl/client.ts}}, {{lib/hyros/client.ts}}, Stripe, Mercado Pago, Calendly, Typeform. Un proveedor colgado retiene la lambda hasta {{maxDuration}}.
+*Estado verificado:* {{AbortSignal.timeout}}/{{signal:}} sólo aparece en {{lib/discord/api.ts}}, {{lib/agent/*}}, {{app/api/agent/send/route.ts}} ({{req.signal}}, cancelación y no timeout), {{lib/fathom/share-link.ts}} y {{lib/marketing/story-thumbnail-storage.ts}}. Ninguno en {{lib/zernio/client.ts}}, {{lib/ghl/client.ts}}, {{lib/hyros/client.ts}}, Stripe, Mercado Pago, Calendly, Typeform. Un proveedor colgado retiene la lambda hasta {{maxDuration}}.
 
 *Qué hay que hacer:* {{signal: AbortSignal.timeout(15_000)}} (o similar) en cada {{*Fetch}} de cliente de proveedor.
 
@@ -999,9 +1010,27 @@ Fuente: PENDIENTES.md [T-4] · Doc del área: docs/arquitectura/vision-general.m
 *Dónde:* {{apps/web/lib/utm/}}.
 
 Fuente: PENDIENTES.md [T-5] · Doc del área: docs/arquitectura/vision-general.md",T-5,"Infraestructura, seguridad y tests (transversal)",P1,tests
+[ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS] El gate muestra moneda y zona horaria ya elegidas (nuevo),Bug,Medium,plataforma,p2,bug,,,"*Tipo:* bug
+
+*Estado verificado:* la migración {{20260831130000_organizations_drop_unit_defaults.sql}} sacó los defaults de {{organizations.currency/timezone/language}} para que un null signifique ""nadie lo eligió"" y el gate lo pregunte. Pero {{getOnboardingGateDefaultsAction}} ({{apps/web/app/onboarding/actions.ts:42-72}}) rellena el null con {{USD}} / {{America/Argentina/Buenos_Aires}} / {{es}}, y los {{<select>}} de {{components/onboarding/onboarding-gate.tsx:237-266}} no tienen opción vacía: el founder ve USD y Buenos Aires preseleccionados y puede avanzar sin elegir (la validación de la línea 91 sólo mira que haya valor). Es el mismo problema que la migración quiso cerrar, movido a la UI.
+
+*Qué hay que hacer:* que el default del gate sea vacío cuando la columna está en null (opción ""Elegí…"" sin valor) y que el botón no avance hasta elegir.
+
+*Dónde:* {{apps/web/app/onboarding/actions.ts}}, {{apps/web/components/onboarding/onboarding-gate.tsx}}. Paso 2 del bloque 2 de {{docs/operacion/verificacion-manual.md}} § Plataforma.
+
+Fuente: PENDIENTES.md [ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS] · Doc del área: docs/areas/plataforma.md",ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS,Plataforma,P2,bug
+[SUPERADMIN-ONBOARDING-SIN-GUARD] loadOnboardingProgress no llama a requireSuperAdmin (nuevo),Bug,Medium,plataforma,p2,seguridad,,,"*Tipo:* seguridad
+
+*Estado verificado:* {{lib/super-admin/onboarding-progress.ts:24}} llama la RPC {{onboarding_org_progress}} con {{createAdminClient()}} sin {{requireSuperAdmin()}}. Todas las demás lecturas del panel ({{queries.ts}}, {{org-health.ts}}, {{client-health.ts}}, {{waitlist-queries.ts}}, {{holding-queries.ts}}, {{holdings-admin.ts}}) sí lo llaman. Hoy sólo la protege el redirect de {{app/(super-admin)/super-admin/layout.tsx}}; es {{server-only}} y su único llamador es {{app/(super-admin)/super-admin/onboarding/page.tsx}}, así que no es explotable hoy, pero rompe la regla de guard doble.
+
+*Qué hay que hacer:* agregar {{await requireSuperAdmin()}} al principio de {{loadOnboardingProgress}}.
+
+*Dónde:* {{apps/web/lib/super-admin/onboarding-progress.ts}}.
+
+Fuente: PENDIENTES.md [SUPERADMIN-ONBOARDING-SIN-GUARD] · Doc del área: docs/areas/plataforma.md",SUPERADMIN-ONBOARDING-SIN-GUARD,Plataforma,P2,seguridad
 [NOTIFICACIONES-EMAIL-SIN-ENVIO] (nuevo) Las preferencias de notificación no mandan nada,Bug,Medium,plataforma,p2,bug,,,"*Tipo:* bug
 
-*Estado verificado:* Ajustes guarda 4 switches en {{notification_preferences}}, pero sólo {{app/settings/actions.ts}} lee esa tabla; ningún proceso manda mails según ellos. {{sendWelcomeEmail}} (Resend) no tiene llamador, aunque {{docs/areas/plataforma.md}} lista mails de bienvenida.
+*Estado verificado:* Ajustes guarda 9 switches (5 de mail y 4 en la app) en {{notification_preferences}}, pero sólo {{app/settings/actions.ts}} lee esa tabla; ningún proceso manda mails según ellos. {{sendWelcomeEmail}} (Resend) no tiene llamador, aunque {{docs/areas/plataforma.md}} lista mails de bienvenida.
 
 *Qué hay que hacer:* decidir qué notificaciones existen; implementarlas o sacar los switches de Ajustes. Llamar o borrar {{sendWelcomeEmail}}.
 
@@ -1154,7 +1183,7 @@ Fuente: PENDIENTES.md [DISCORD-PERMISOS] · Doc del área: docs/areas/plataforma
 Fuente: PENDIENTES.md [DISCORD-PERFIL-SIN-PROBAR] · Doc del área: docs/areas/plataforma.md",DISCORD-PERFIL-SIN-PROBAR,Plataforma,P2,verificación manual
 "[ONBOARDING-VERIFICAR] Gate, checklist, tours y panel de onboarding sin sesión real",Task,Medium,plataforma,p2,verificacion-manual,,,"*Tipo:* verificación manual
 
-*Estado verificado:* construido y con tests puros; PENDIENTES [ONBOARDING] dice que falta navegador.
+*Estado verificado:* construido y con tests puros ({{lib/onboarding/__tests__/}}, {{lib/super-admin/__tests__/onboarding-progress.test.ts}}); nunca se recorrió en un navegador con sesión real.
 
 *Qué hay que hacer:* bloques de onboarding de {{docs/operacion/verificacion-manual.md}} § Plataforma.
 
@@ -1172,7 +1201,7 @@ Fuente: PENDIENTES.md [ONBOARDING-VERIFICAR] · Doc del área: docs/areas/plataf
 Fuente: PENDIENTES.md [NAV-1] · Doc del área: docs/areas/plataforma.md",NAV-1,Plataforma,P2,verificación manual
 "[SETTINGS-CLOSER-POR-NOMBRE] ""Mi Calendly"" depende del nombre del rol (nuevo)",Task,Medium,plataforma,p2,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{lib/settings/initial-data.ts}} detecta closer por {{team_roles.name}} ILIKE closer.
+*Estado verificado:* {{lib/settings/initial-data.ts:120}} detecta closer si {{team_roles.name}} contiene ""closer"" ({{toLowerCase().includes}}), sin importar mayúsculas.
 
 *Qué hay que hacer:* usar {{profiles.is_closer}}/flag de multi-closer si existe, o un permiso explícito.
 
@@ -1262,7 +1291,7 @@ Fuente: PENDIENTES.md [FICHA-LENTA] · Doc del área: docs/areas/clientes.md",FI
 Fuente: PENDIENTES.md [FASE-REFRESCO-CARO] · Doc del área: docs/areas/clientes.md",FASE-REFRESCO-CARO,Clientes,P2,deuda técnica
 [FICHA-CUSTOM-EN-LA-LISTA] La lista trae custom entero de cada cliente,Task,Medium,clientes,p2,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{listClientsAction}} hace {{select(""*, satisfaction_author:…"")}} ({{app/clients/actions.ts:62}}). Viaja al navegador en cada carga de la plataforma. Techo de texto 20.000 por campo.
+*Estado verificado:* {{listClientsAction}} hace {{select(""*, satisfaction_author:…"")}} ({{app/clients/actions.ts:63}}). Viaja al navegador en cada carga de la plataforma. Techo de texto 20.000 por campo.
 
 *Qué hay que hacer:* seleccionar columnas explícitas y sólo las claves de {{custom}} con {{show_in_table}}; {{custom}} completo, en la ficha.
 
@@ -1352,7 +1381,7 @@ Fuente: PENDIENTES.md [OBJETIVO-DOS-LUGARES] · Doc del área: docs/areas/client
 Fuente: PENDIENTES.md [TRACKERS-PERMISOS-VACIOS] · Doc del área: docs/areas/clientes.md",TRACKERS-PERMISOS-VACIOS,Clientes,P2,decisión de negocio
 [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo,Task,Medium,clientes,p2,verificacion-manual,,,"*Tipo:* verificación manual
 
-*Estado verificado:* {{clients-list.tsx:216}} muestra la barra con {{useModuleAccess(""clients"") === ""full""}}. Los botones hoy son: Nuevo cliente, Cargar clientes, Revisión semanal, Wins, Recorrido, Campos («Crear planes» se fue a Cobros).
+*Estado verificado:* {{clients-list.tsx:216}} muestra la barra con {{useModuleAccess(""clients"") === ""full""}}. Los botones hoy son: Nuevo cliente, Cargar clientes (CSV o Excel), Revisión semanal, Wins, Cobros (sólo con acceso a Ventas) y el menú «Configurar» (Recorrido del cliente, Campos personalizados). «Crear planes» se fue a Cobros.
 
 *Qué hay que hacer:* entrar con un miembro con Clientes en «full», confirmar los botones y guardar un cliente de prueba; con «read», que no aparezcan.
 
@@ -1399,7 +1428,7 @@ Fuente: PENDIENTES.md [FATHOM-PRIVACIDAD-LEAD] · Doc del área: docs/areas/vent
 
 *Estado verificado:* ítem nuevo. {{showRate = asistencias / totalAgendas}} y {{totalAgendas = callRows.length}} ({{app/sales/metrics-actions.ts:95-140}}), incluye {{cancelled}}, que según {{call-status.ts}} son llamadas que nunca ocurrieron.
 
-*Qué hay que hacer:* usar {{callOccurred}}/excluir {{cancelled}} del denominador (definir con el negocio).
+*Qué hay que hacer:* excluir {{cancelled}} del denominador (p. ej. con {{callHappened}} de {{lib/closing/call-status.ts}}, que también excluye {{scheduled}}; definir con el negocio).
 
 *Dónde:* {{apps/web/app/sales/metrics-actions.ts}}.
 
@@ -1424,7 +1453,7 @@ Fuente: PENDIENTES.md [METRICAS-SNAPSHOT-FALLBACK] · Doc del área: docs/areas/
 Fuente: PENDIENTES.md [LEGACY-INBOX-BORRAR] · Doc del área: docs/areas/ventas.md",LEGACY-INBOX-BORRAR,Ventas,P2,deuda técnica
 [LLAMADAS-FASE-2-PULIR] Calificación previa sin UI,Story,Medium,ventas,p2,feature,,,"*Tipo:* feature
 
-*Estado verificado:* {{setLeadQualificationAction}} acepta {{moment: ""pre""}} ({{app/sales/lead-actions.ts:532-551}}) pero ningún componente la llama con {{pre}}; el drawer sólo la muestra. El resto del ítem (responsable) está resuelto.
+*Estado verificado:* {{setLeadQualificationAction}} acepta {{moment: ""pre""}} ({{app/sales/lead-actions.ts:530-556}}) pero ningún componente la llama con {{pre}}; el drawer sólo la muestra. El resto del ítem (responsable) está resuelto.
 
 *Qué hay que hacer:* exponer la calificación previa en el drawer del turno.
 
@@ -1460,7 +1489,7 @@ Fuente: PENDIENTES.md [LLAMADAS-CANCELED-BY] · Doc del área: docs/areas/ventas
 Fuente: PENDIENTES.md [ZERNIO-ANALISIS-UNTRUSTED] · Doc del área: docs/areas/ventas.md",ZERNIO-ANALISIS-UNTRUSTED,Ventas,P2,seguridad
 "[TOKENS-TEXTO-PLANO] (parte Ventas) Tokens de Calendly, Fathom org y ManyChat sin cifrar",Bug,Medium,ventas,p2,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* auditoría §3 ""Seguridad"" 2. {{calendly_integrations.access_token/refresh_token}} ({{lib/calendly/oauth-token.ts}}), {{fathom_integrations.api_key}} ({{lib/fathom/process-call.ts:143}}) en claro; RLS cerrado. La key por miembro sí se cifra.
+*Estado verificado:* auditoría §3 ""Seguridad"" 2. {{calendly_integrations.access_token/refresh_token}} ({{lib/calendly/oauth-token.ts}}), {{fathom_integrations.api_key}} ({{lib/fathom/process-call.ts:145-147}}) en claro; RLS cerrado. La key por miembro sí se cifra.
 
 *Qué hay que hacer:* cifrar al escribir con {{lib/security/encryption}} y migrar lo guardado.
 
@@ -1602,7 +1631,7 @@ Fuente: PENDIENTES.md [AUDITORIA §3 seguridad 9] · Doc del área: docs/areas/m
 *Dónde:* {{apps/web/lib/zernio/client.ts}}
 
 Fuente: PENDIENTES.md [AUDITORIA §3 confiabilidad 1] · Doc del área: docs/areas/marketing.md",AUDITORIA §3 confiabilidad 1,Marketing,P2,deuda técnica
-[ZERNIO-DOCS] Zernio no tiene documentación local ni entrada en API_DOCS_PENDIENTES,Task,Medium,marketing,p2,verificacion-manual,,,"*Tipo:* verificación manual
+[ZERNIO-DOCS] Zernio no tiene documentación local y sus supuestos casi no están registrados,Task,Medium,marketing,p2,deuda-tecnica,,,"*Tipo:* deuda técnica (documentación)
 
 *Estado verificado:* {{docs/external-apis/}} no tiene Zernio; {{/accounts/{id}/instagram/stories}}, {{/posts/sync-stories}}, {{/media/presign}}, formato de firma del webhook y forma de {{/analytics}} están implementados por prueba y error.
 
@@ -1610,7 +1639,7 @@ Fuente: PENDIENTES.md [AUDITORIA §3 confiabilidad 1] · Doc del área: docs/are
 
 *Dónde:* {{docs/external-apis/}}
 
-Fuente: PENDIENTES.md [ZERNIO-DOCS] · Doc del área: docs/areas/marketing.md",ZERNIO-DOCS,Marketing,P2,verificación manual
+Fuente: PENDIENTES.md [ZERNIO-DOCS] · Doc del área: docs/areas/marketing.md",ZERNIO-DOCS,Marketing,P2,deuda técnica (documentación)
 [MKT-LEAD-MAGNETS-CAPTURA] Los lead magnets sólo capturan leads desde el análisis de DMs,Story,Medium,marketing,p2,feature,,,"*Tipo:* feature
 
 *Estado verificado:* el único insert en {{lead_magnet_leads}} es {{registerLeadMagnetFromDm}}, disparado por {{analyzeZernioConversationAction}} si un mensaje saliente contiene la URL. Los canales {{typeform}}, {{google_forms}}, {{landing}}, {{manychat}} no tienen captura. {{redirect_url}} (""redirección para tracking de clicks"") y la tabla {{lead_magnet_clicks}} no tienen código.
@@ -1622,7 +1651,7 @@ Fuente: PENDIENTES.md [ZERNIO-DOCS] · Doc del área: docs/areas/marketing.md",Z
 Fuente: PENDIENTES.md [MKT-LEAD-MAGNETS-CAPTURA] · Doc del área: docs/areas/marketing.md",MKT-LEAD-MAGNETS-CAPTURA,Marketing,P2,feature
 [MKT-CODIGO-MUERTO] Componentes y acciones huérfanos,Task,Medium,marketing,p2,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* sin imports: {{components/marketing/{marketing-subnav,marketing-content-library,marketing-content-detail,youtube-video-performance,marketing-charts,instagram-empty-state}.tsx}}, {{overview/{conversion-strip,marketing-stat-card,metrics-sections,rate-bar,index}.ts(x)}} (metrics-sections todavía cae a {{mockMarketingOverview}}); por arrastre quedan inalcanzables {{cta-minute-input}}, {{content-label-badge}}, {{content-platform-metrics}} (minuto de CTA + retención real de YouTube y etiqueta manual). Acciones sin caller: {{publishVariantAsZernioDraftAction}}, {{generateVariantCaptionAction}}, {{getContentBenchmarkAction}}, {{deleteContentPieceAction}}, {{updateSalesAttributionAction}}, {{syncZernioMetricsAction}}, {{getContentPatternsAnalysisAction}}, {{getContentLabelDistributionAction}}, {{getInstagramIntegrationStatusAction}}, {{getContentAssetByIdAction}}, {{syncInstagramContentAction}}, {{syncInstagramMessagesAction}}, {{searchDriveFilesAction}}, {{getDriveFolderPathAction}}; en {{lib/zernio/client.ts}} {{validateApiKey}}, {{listPostAnalytics}}, {{getAccountAnalytics}}, {{getPostsAnalytics}} y todos los {{zernio*}} exportados. Cada export de un {{""use server""}} es un endpoint.
+*Estado verificado:* sin imports: {{components/marketing/{marketing-subnav,marketing-content-library,marketing-content-detail,youtube-video-performance,marketing-charts,instagram-empty-state}.tsx}}, {{overview/{conversion-strip,marketing-stat-card,metrics-sections,rate-bar,index}.ts(x)}} (metrics-sections todavía cae a {{mockMarketingOverview}}); por arrastre quedan inalcanzables {{cta-minute-input}}, {{content-label-badge}}, {{content-platform-metrics}} (minuto de CTA + retención real de YouTube y etiqueta manual). Acciones sin caller: {{publishVariantAsZernioDraftAction}}, {{generateVariantCaptionAction}}, {{getContentBenchmarkAction}}, {{deleteContentPieceAction}}, {{updateSalesAttributionAction}}, {{syncZernioMetricsAction}}, {{getContentPatternsAnalysisAction}}, {{getContentLabelDistributionAction}}, {{getInstagramIntegrationStatusAction}}, {{getContentAssetByIdAction}}, {{syncInstagramContentAction}}, {{syncInstagramMessagesAction}}, {{searchDriveFilesAction}}, {{getDriveFolderPathAction}}, {{getDriveFileAction}}, {{getUtmBaseUrlAction}}, {{getUTMLeadsAction}}, {{getReelMusicPathAction}}, {{getReelVariationJobAction}}; en {{lib/zernio/client.ts}} {{validateApiKey}}, {{listPostAnalytics}}, {{getAccountAnalytics}}, {{getPostsAnalytics}} y todos los {{zernio*}} exportados. Cada export de un {{""use server""}} es un endpoint.
 
 *Qué hay que hacer:* decidir si se recupera algo (retención/CTA de YouTube, publicar variante a Zernio) y borrar el resto.
 
@@ -1741,16 +1770,16 @@ Fuente: PENDIENTES.md [EMBUDOS-TIMEZONE] · Doc del área: docs/areas/embudos.md
 Fuente: PENDIENTES.md [EMBUDOS-MONEDAS] · Doc del área: docs/areas/embudos.md",EMBUDOS-MONEDAS,Embudos y Lanzamientos,P2,bug
 [EMBUDOS-SNAPSHOTS] Snapshots periódicos y pulso diario (Fase 5),Story,Medium,embudos,p2,feature,,,"*Tipo:* feature
 
-*Estado verificado:* {{funnel_period_snapshots}} existe en producción sin uso; {{REPORTING_CADENCE.daily}} dice ""Falta el cron de pulso diario"". Sin snapshots, los números de fuentes live (Zernio triggers) no tienen historia.
+*Estado verificado:* {{funnel_period_snapshots}} existe en producción sin uso. El pulso diario ya existe como reporte ejecutivo de la org (cron {{executive-report-daily}}, {{lib/executive-reports/generate-daily.ts}}, ver {{[REPORTES-PULSO-DIARIO]}}) pero no lee los embudos; {{REPORTING_CADENCE.daily}} igual sigue diciendo ""Falta el cron de pulso diario"". Sin snapshots, los números de fuentes live (Zernio triggers) no tienen historia.
 
-*Qué hay que hacer:* cron que resuelva cada instancia activa y guarde el snapshot; decidir si el pulso diario es un reporte o un aviso.
+*Qué hay que hacer:* cron que resuelva cada instancia activa y guarde el snapshot; decidir si el pulso diario existente ({{executive-report-daily}}) suma los números de los embudos (spend, leads, CPL, bookings, roturas) y corregir {{REPORTING_CADENCE.daily}}.
 
 *Dónde:* {{apps/web/lib/funnels/resolve.ts}}, nuevo cron.
 
 Fuente: PENDIENTES.md [EMBUDOS-SNAPSHOTS] · Doc del área: docs/areas/embudos.md",EMBUDOS-SNAPSHOTS,Embudos y Lanzamientos,P2,feature
 [EMBUDOS-PERMISOS-ACCIONES] Server actions de embudos e integraciones sin chequeo de permiso,Bug,Medium,embudos,p2,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{app/funnels/actions.ts}}, {{app/ghl/*}}, {{app/vturb/actions.ts}}, {{app/hyros/actions.ts}}, {{app/webinarjam/actions.ts}} sólo usan {{requireOrganizationId()}}; la página se bloquea por permiso {{funnels}} en el layout, pero la acción no. Un miembro con acceso ""ver"" puede crear embudos, cambiar bindings o regenerar el secreto del webhook de GHL (lo que corta la entrega). RLS de {{funnel_*}} es {{FOR ALL}} para cualquier miembro. Parte de {{[PERMISOS-SERVER-ACTIONS]}} (área Permisos).
+*Estado verificado:* {{app/funnels/actions.ts}}, {{app/ghl/*}}, {{app/vturb/actions.ts}}, {{app/hyros/actions.ts}}, {{app/webinarjam/actions.ts}}, {{app/payments/actions.ts}} sólo usan {{requireOrganizationId()}}; la página se bloquea por permiso {{funnels}} en el layout, pero la acción no. Un miembro con acceso ""ver"" puede crear embudos, cambiar bindings o regenerar el secreto del webhook de GHL (lo que corta la entrega). RLS de {{funnel_*}} es {{FOR ALL}} para cualquier miembro. Parte de {{[PERMISOS-SERVER-ACTIONS]}} (área Permisos).
 
 *Qué hay que hacer:* {{requireRole()}}/permiso de escritura en mutaciones y en conectar/regenerar secretos de integraciones.
 
@@ -1802,11 +1831,20 @@ Fuente: PENDIENTES.md [T-6] · Doc del área: docs/areas/embudos.md",T-6,Embudos
 *Dónde:* {{apps/web/e2e/}}.
 
 Fuente: PENDIENTES.md [T-8] · Doc del área: docs/areas/embudos.md",T-8,Embudos y Lanzamientos,P2,tests
-[REPORTES-VENTANA-FIJA] (nuevo) Las tres cadencias usan la misma ventana de 14 días,Bug,Medium,agente-ia,p2,bug,,,"*Tipo:* bug
+[RAG-INGESTA-SIN-REINTENTO] (nuevo) La cola de indexado no reintenta cuando falla la ingesta,Bug,Medium,agente-ia,p2,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{collectIntelligenceData}} no recibe ventana; {{PERIOD_DAYS = 14}} fijo. El pulso ""de hoy"" y el mensual ven lo mismo.
+*Estado verificado:* {{publishRagIngestionJob}} publica con {{retries: 3}} ({{apps/web/lib/queue/qstash-client.ts:169}}), pero {{processRagIngestion}} ({{lib/queue/processors/rag-ingestion.ts:104-127}}) devuelve {{{ chunkCount: 0, error }}} cuando falla la ingesta (texto vacío, OpenAI caído, verificación de chunks), porque {{indexBusinessContextInRag}} ({{lib/business-context/rag-indexing.ts:176-192}}) atrapa el error. El worker ({{app/api/queue/process-rag-ingestion/route.ts:58}}) responde 200 y QStash no reintenta; sólo un throw inesperado da 500. Un corte transitorio de OpenAI deja el documento en {{error}} para siempre.
 
-*Qué hay que hacer:* parametrizar {{sinceDays}} en {{collectIntelligenceData}} (1 / 7 / mes calendario).
+*Qué hay que hacer:* en el worker, responder 500 cuando {{result.error}} viene de una falla transitoria (no para ""sin texto""), para que QStash reintente.
+
+*Dónde:* {{apps/web/app/api/queue/process-rag-ingestion/route.ts}}, {{lib/queue/processors/rag-ingestion.ts}}.
+
+Fuente: PENDIENTES.md [RAG-INGESTA-SIN-REINTENTO] · Doc del área: docs/areas/agente-ia.md",RAG-INGESTA-SIN-REINTENTO,Agente de negocio e IA,P2,bug
+[REPORTES-VENTANA-FIJA] (nuevo) El pulso diario y el semanal usan la misma ventana de 14 días,Bug,Medium,agente-ia,p2,bug,,,"*Tipo:* bug
+
+*Estado verificado:* {{collectIntelligenceData}} no recibe ventana; {{PERIOD_DAYS = 14}} fijo. El pulso ""de hoy"" ({{generate-daily.ts:57}}), el semanal ({{generate-weekly.ts:30}}) y el snapshot de inteligencia ven lo mismo. El mensual no lo usa (resume los semanales del mes).
+
+*Qué hay que hacer:* parametrizar {{sinceDays}} en {{collectIntelligenceData}} (1 / 7).
 
 *Dónde:* {{apps/web/lib/intelligence/collect-context.ts}}, {{lib/executive-reports/generate-*.ts}}.
 
@@ -1840,7 +1878,7 @@ Fuente: PENDIENTES.md [REPORTES-DUPLICADOS] · Doc del área: docs/areas/agente-
 Fuente: PENDIENTES.md [INTELIGENCIA-SIN-REINTENTO] · Doc del área: docs/areas/agente-ia.md",INTELIGENCIA-SIN-REINTENTO,Agente de negocio e IA,P2,bug
 [CRONS-ORGS-INACTIVAS] (nuevo) Los crons de IA corren sobre orgs dadas de baja,Bug,Medium,agente-ia,p2,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{listActiveOrganizationIds()}} ({{lib/intelligence/generate-snapshot.ts:212}}, duplicada en {{lib/founder-tone/analyze-tone.ts}}) filtra sólo {{account_type = 'founder'}}, no {{status}}. Snapshot 2×/día + reportes + tono con Sonnet por cada una.
+*Estado verificado:* {{listActiveOrganizationIds()}} ({{lib/intelligence/generate-snapshot.ts:215}}, duplicada en {{lib/founder-tone/analyze-tone.ts:108}}) filtra sólo {{account_type = 'founder'}}, no {{status}}. Snapshot 2×/día + reportes + tono con Sonnet por cada una.
 
 *Qué hay que hacer:* filtrar {{status = 'active'}} (o equivalente) y unificar la función.
 
@@ -1912,7 +1950,7 @@ Fuente: PENDIENTES.md [AGENTE-LINKS-VENCIDOS] · Doc del área: docs/areas/agent
 Fuente: PENDIENTES.md [AGENTE-CAMINO-LEGACY] · Doc del área: docs/areas/agente-ia.md",AGENTE-CAMINO-LEGACY,Agente de negocio e IA,P2,deuda técnica
 [AUDITORIA-ABIERTOS §3.4] verifyQStashRequest no valida la URL,Bug,Medium,agente-ia,p2,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{lib/queue/qstash-verify.ts}} llama {{receiver.verify({ signature, body })}} sin {{url}}. Sólo aplica cuando no hay {{WORKER_AUTH_SECRET}}.
+*Estado verificado:* {{lib/queue/qstash-verify.ts}} llama {{receiver.verify({ signature, body })}} sin {{url}}. En los workers de crons sólo aplica cuando no hay {{WORKER_AUTH_SECRET}} ({{verify-queue-request.ts}}); {{process-rag-ingestion}} y {{process-reel-variations}} lo llaman directo, así que ahí aplica siempre.
 
 *Qué hay que hacer:* pasar {{url: request.url}} (o la URL pública esperada).
 
@@ -1930,7 +1968,7 @@ Fuente: PENDIENTES.md [AUDITORIA-ABIERTOS §3.4] · Doc del área: docs/areas/ag
 Fuente: PENDIENTES.md [AUDITORIA-ABIERTOS §3.8] · Doc del área: docs/areas/agente-ia.md",AUDITORIA-ABIERTOS §3.8,Agente de negocio e IA,P2,seguridad
 [AUDITORIA-ABIERTOS §🟠2] collect-context sin paginar ni mirar errores,Task,Medium,agente-ia,p2,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{lib/intelligence/collect-context.ts:220}} hace {{clients.select(""*"")}} sin {{fetchAllRows}} (337 filas hoy; se corta en 1000) y varias lecturas no miran {{error}}.
+*Estado verificado:* {{lib/intelligence/collect-context.ts:220}} hace {{clients.select(""*"")}} sin {{fetchAllRows}} (337 filas al 2026-09-23; se corta en 1000) y varias lecturas no miran {{error}}.
 
 *Qué hay que hacer:* {{fetchAllRows}} o agregado en SQL; manejar {{error}}.
 
@@ -1955,6 +1993,15 @@ Fuente: PENDIENTES.md [REPORTES-GENERACION-MANUAL] · Doc del área: docs/areas/
 *Dónde:* {{apps/web/lib/agent/stream-agent-message.ts}}, {{lib/agent/compact-conversation.ts}}.
 
 Fuente: PENDIENTES.md [AGENTE-COMPACTION-FRAGIL] · Doc del área: docs/areas/agente-ia.md",AGENTE-COMPACTION-FRAGIL,Agente de negocio e IA,P2,bug
+[WORKBOARD-CIERRE-ARRASTRANDO] Cerrar una tarea arrastrándola no registra quién la cerró [Operaciones y equipo],Bug,Medium,ops-fin-prod,p2,bug,,,"*Tipo:* bug
+
+*Estado verificado:* en el Kanban, arrastrar una tarjeta a ""Hecho"" termina en {{performMove}} → {{moveWorkboardTaskAction}} ({{providers/workboard-provider.tsx:216}}), que sólo actualiza {{status}} y {{position}} ({{app/workboard/actions.ts:187-232}}). {{completed_by}}/{{completed_at}} sólo los escribe {{updateWorkboardTaskAction}} ({{app/workboard/actions.ts:274-282}}), que se usa al cerrar desde el detalle. Igual al reabrir arrastrando: no se limpian.
+
+*Qué hay que hacer:* que {{moveWorkboardTaskAction}} aplique la misma regla de cierre (setear al pasar a {{done}}, limpiar al salir), idealmente compartiendo la función con {{updateWorkboardTaskAction}} y con {{[WORKBOARD-ASIGNACION-AGENTE]}}.
+
+*Dónde:* {{apps/web/app/workboard/actions.ts}}, {{apps/web/providers/workboard-provider.tsx}}.
+
+Fuente: PENDIENTES.md [WORKBOARD-CIERRE-ARRASTRANDO] · Doc del área: docs/areas/operaciones.md",WORKBOARD-CIERRE-ARRASTRANDO,"Operaciones, Finanzas y Producto",P2,bug
 [EQUIPO-TARIFA-SIN-UI] (nuevo) No hay pantalla para cargar la tarifa por hora,Bug,Medium,ops-fin-prod,p2,bug,,,"*Tipo:* bug
 
 *Estado verificado:* {{setMemberHourlyRateAction}} escribe {{profiles.hourly_rate}} pero no tiene llamador; {{/team}} recibe {{canEditRates}} y no lo usa. El reporte de costo por persona depende de esa tarifa y el paso 5.8 de {{verificacion-manual.md}} asume que se puede cargar.
@@ -1993,7 +2040,7 @@ Fuente: PENDIENTES.md [SOPS-EDITAR] · Doc del área: docs/areas/operaciones.md"
 Fuente: PENDIENTES.md [OPS-INPUT-RAPIDO-PISA] · Doc del área: docs/areas/operaciones.md",OPS-INPUT-RAPIDO-PISA,"Operaciones, Finanzas y Producto",P2,bug
 "[FIN-PAYROLL-BASES] La liquidación y ""Gastos de equipo"" calculan distinto [Finanzas]",Bug,Medium,ops-fin-prod,p2,bug,,,"*Tipo:* bug
 
-*Estado verificado:* {{computeTeamPayrollAction}} ({{app/finance/actions.ts}}) cubre cinco bases; {{enrichTeamCompensationWithCommissions}} sólo {{per_deal}}/{{custom}}. {{per_booking}} multiplica *todas* las {{conversations}} {{booked}} de la org (no las del setter; y {{conversations}} tiene 0 filas: el inbox legacy no se usa). {{monthly_revenue}} usa {{clients.total_amount}} de activos como ""MRR"". {{custom}} en la liquidación es {{estimated_this_month − fijo}}, que a su vez sale del enrich.
+*Estado verificado:* {{computeTeamPayrollAction}} ({{app/finance/actions.ts}}) cubre cinco bases; {{enrichTeamCompensationWithCommissions}} sólo {{per_deal}}/{{custom}}. {{per_booking}} multiplica *todas* las {{conversations}} {{booked}} de la org (no las del setter; y {{conversations}} tiene 0 filas: el inbox legacy no se usa; al 2026-09-23). {{monthly_revenue}} usa {{clients.total_amount}} de activos como ""MRR"". {{custom}} en la liquidación es {{max(0, estimated_this_month − fijo)}} leyendo la columna de la base, que se crea en 0 y ninguna pantalla actualiza (el enrich calcula sólo en el navegador): hoy la comisión {{custom}} de la liquidación da 0.
 
 *Qué hay que hacer:* una sola función pura por base (con tests), atribución por miembro para bookings (de dónde sale: Calendly/GHL), y definir qué es MRR.
 
@@ -2002,7 +2049,7 @@ Fuente: PENDIENTES.md [OPS-INPUT-RAPIDO-PISA] · Doc del área: docs/areas/opera
 Fuente: PENDIENTES.md [FIN-PAYROLL-BASES] · Doc del área: docs/areas/operaciones.md",FIN-PAYROLL-BASES,"Operaciones, Finanzas y Producto",P2,bug
 [FINANZAS-BASELINE-CASH-ESTIMADO] Cash collected inventado cuando se usa el Excel importado [Finanzas],Task,Medium,ops-fin-prod,p2,decision-de-negocio,,,"*Tipo:* decisión de negocio
 
-*Estado verificado:* {{providers/finance-data-provider.tsx}}: sin facturación en vivo y con {{metrics_snapshots}}, si el snapshot no trae {{cash_collected}} se muestra {{max(0, facturación − gastos)}} como ""Cash collected"", y la serie mensual pinta el último mes igual. Va contra la regla de CLAUDE.md de no inventar valores.
+*Estado verificado:* {{providers/finance-data-provider.tsx}}: sin facturación en vivo y con {{metrics_snapshots}}, si el snapshot no trae {{cash_collected}} se muestra {{max(0, facturación − gastos)}} como ""Cash collected"", y la serie mensual pinta el último mes con {{max(0, facturación − gastos)}} *siempre*, aunque el snapshot traiga {{cash_collected}}. Va contra la regla de CLAUDE.md de no inventar valores.
 
 *Qué hay que hacer:* mostrar ""sin dato"" y rotular que la facturación viene del import.
 
@@ -2074,7 +2121,7 @@ Fuente: PENDIENTES.md [PRODUCTO-GATE-OFERTA-DUP] · Doc del área: docs/areas/op
 Fuente: PENDIENTES.md [WORKBOARD-CARGA-DUPLICADA] · Doc del área: docs/areas/operaciones.md",WORKBOARD-CARGA-DUPLICADA,"Operaciones, Finanzas y Producto",P2,deuda técnica
 [TESTS-OPS-FIN-PROD] Lógica pura sin tests en las tres áreas [transversal],Task,Medium,ops-fin-prod,p2,tests,,,"*Tipo:* tests
 
-*Estado verificado:* sin {{__tests__}} en {{lib/{operations,team,expenses,mercadopago,stripe,product}}}; {{parseVideoSopResponse}} y {{lib/workboard/{mapper,sprint,time-report}}} sin cubrir. Incluye {{[T-22]}}.
+*Estado verificado:* sin {{__tests__}} en {{lib/{operations,team,expenses,mercadopago,stripe,product}}} (de {{lib/team/mapper.ts}} sólo {{permissionsFromRow}} se prueba, desde {{constants/__tests__/permisos-consolidados.test.ts}}); {{parseVideoSopResponse}} y {{lib/workboard/{mapper,sprint,time-report}}} sin cubrir. Incluye {{[T-22]}}.
 
 *Qué hay que hacer:* prioridad: verificación de firma de MP (si MP sigue), bases de comisión, mapper de responsables del tablero, {{parseVideoSopResponse}}, {{lib/product/mapper.ts}}.
 
@@ -2092,7 +2139,7 @@ Fuente: PENDIENTES.md [TESTS-OPS-FIN-PROD] · Doc del área: docs/areas/operacio
 Fuente: PENDIENTES.md [AUD-SEG-3] · Doc del área: docs/arquitectura/vision-general.md",AUD-SEG-3,"Infraestructura, seguridad y tests (transversal)",P2,seguridad
 [AUD-SEG-5] Mass assignment e ids ajenos,Bug,Medium,infra,p2,seguridad,,,"*Tipo:* seguridad
 
-*Estado verificado:* {{updateContentPieceAction}} ({{app/marketing/content/actions.ts:148}}) hace {{.update(updates)}} sin zod; {{customRoleId}} en invitaciones ({{app/team/actions.ts:242-289}}) y {{clientId}} en {{associateFathomCallAction}} ({{app/fathom/actions.ts:162}}) no se validan contra la org.
+*Estado verificado:* {{updateContentPieceAction}} ({{app/marketing/content/actions.ts:148}}) hace {{.update(updates)}} sin zod; {{customRoleId}} en invitaciones ({{app/team/actions.ts:242-289}}) y {{clientId}} en {{associateFathomCallAction}} ({{app/fathom/actions.ts:161}}) no se validan contra la org.
 
 *Qué hay que hacer:* schema zod con campos editables; verificar que {{custom_role_id}} y {{client_id}} pertenezcan a la org antes de escribir.
 
@@ -2308,7 +2355,7 @@ Fuente: PENDIENTES.md [INTEGRACIONES-REGISTRO-DESALINEADO] · Doc del área: doc
 Fuente: PENDIENTES.md [MOCK-DATA-AUDIT] · Doc del área: docs/arquitectura/vision-general.md",MOCK-DATA-AUDIT,"Infraestructura, seguridad y tests (transversal)",P2,deuda técnica
 [REBRAND-EXTERNO] Nombres externos que siguen diciendo OTC,Task,Medium,infra,p2,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* Vercel {{otc-plaform}}, Supabase {{OTC}}, Fly {{otc-reel-worker}}, Railway {{otc-discord-bot}}, verify token {{otc_instagram_webhook_2024}} (en {{.env.example}}), fallback {{https://otc-plaform.vercel.app}} en {{lib/email/welcome-email.ts:6}} y {{components/super-admin/infrastructure-page.tsx:52}}, cookie {{otc_active_org}} leída como respaldo ({{lib/holding/constants.ts:12}}), {{OTC_WEBHOOK_SECRET}}/{{OTC_API_URL}} leídas como respaldo, holding sembrado {{'Limitless Portfolio'}}.
+*Estado verificado:* Vercel {{otc-plaform}}, Supabase {{OTC}}, Fly {{otc-reel-worker}}, Railway {{otc-discord-bot}}, verify token {{otc_instagram_webhook_2024}} (en {{.env.example}}), fallback {{https://otc-plaform.vercel.app}} en {{lib/email/welcome-email.ts:6}} y {{components/super-admin/infrastructure-page.tsx:52}}, cookie {{otc_active_org}} leída como respaldo ({{lib/holding/constants.ts:12}}), {{OTC_WEBHOOK_SECRET}}/{{OTC_API_URL}} leídas como respaldo, holding sembrado {{'OTC Portfolio'}} ({{supabase/migrations/20260618100000_holding.sql:38}}).
 
 *Qué hay que hacer:* coordinar el renombre externo; borrar los respaldos de cookie (ya pasaron más de 24 h del cambio) y de variables una vez cargadas las nuevas ({{[ENV-LIMPIEZA]}}).
 
@@ -2495,6 +2542,15 @@ Fuente: PENDIENTES.md [TECH-5] · Doc del área: docs/areas/plataforma.md",TECH-
 [DISCORD-100-SERVIDORES] Verificación de la app de Discord al pasar 100 servidores,Task,Low,plataforma,p3,,,,"_Ítem sin detalle en PENDIENTES.md: completar al refinarlo._
 
 Fuente: PENDIENTES.md [DISCORD-100-SERVIDORES] · Doc del área: docs/areas/plataforma.md",DISCORD-100-SERVIDORES,Plataforma,P3,
+[CLIENTES-PLAN-DURATIONS-DIALOG-MUERTO] plan-durations-dialog.tsx no lo usa nadie *(nuevo)*,Task,Low,clientes,p3,deuda-tecnica,,,"*Tipo:* deuda técnica
+
+*Estado verificado:* {{apps/web/components/clients/plan-durations-dialog.tsx}} exporta {{PlanDurationsDialog}} y ningún archivo lo importa (grep en {{apps/web}}, 2026-09-23). CHANGES de agosto dice que {{PlanManagerDialog}} lo reemplazó; el archivo quedó.
+
+*Qué hay que hacer:* borrarlo (y confirmar que {{plan-duration-actions.ts}} sigue teniendo usos: {{getClientsTableEnrichmentAction}} lo usa {{components/sales/cobros-page.tsx}}).
+
+*Dónde:* {{apps/web/components/clients/plan-durations-dialog.tsx}}.
+
+Fuente: PENDIENTES.md [CLIENTES-PLAN-DURATIONS-DIALOG-MUERTO] · Doc del área: docs/areas/clientes.md",CLIENTES-PLAN-DURATIONS-DIALOG-MUERTO,Clientes,P3,deuda técnica
 [INVESTIGAR-LIBRERIAS-CRM] (nuevo) Investigar librerías tipo HubSpot / Pipedrive / Salesforce,Task,Low,clientes,p3,investigacion,,,"*Tipo:* investigación
 
 *Estado verificado:* pedido de Agustín en la reunión del 2026-09-23: varias pantallas buscan parecerse a esos CRM. No hay nada evaluado. Fernando se ofreció a tomarlo.
@@ -2587,7 +2643,7 @@ Fuente: PENDIENTES.md [TRACKERS-RIESGO-PAGOS] · Doc del área: docs/areas/clien
 Fuente: PENDIENTES.md [TRACKERS-RECOMENDACIONES-6-10] · Doc del área: docs/areas/clientes.md",TRACKERS-RECOMENDACIONES-6-10,Clientes,P3,feature
 [VENTAS-E2E] Ninguna pantalla de Ventas tiene Playwright,Task,Low,ventas,p3,tests,,,"*Tipo:* tests
 
-*Estado verificado:* {{apps/web/e2e/}} sólo tiene {{auth.setup.ts}} y {{holding.spec.ts}}. Incluye la tabla de seguimiento de {{[LLAMADAS-FASE-2-PULIR]}}.
+*Estado verificado:* {{apps/web/e2e/}} sólo tiene {{auth.setup.ts}}, {{constants.ts}} y {{holding.spec.ts}} (único spec). Incluye la tabla de seguimiento de {{[LLAMADAS-FASE-2-PULIR]}}.
 
 *Qué hay que hacer:* smoke de Closing (seguimiento, editar celda) y Cobros (registrar cuota).
 
@@ -2596,7 +2652,7 @@ Fuente: PENDIENTES.md [TRACKERS-RECOMENDACIONES-6-10] · Doc del área: docs/are
 Fuente: PENDIENTES.md [VENTAS-E2E] · Doc del área: docs/areas/ventas.md",VENTAS-E2E,Ventas,P3,tests
 [ZERNIO-EMOJIS-JSX] Emojis como íconos en la bandeja,Task,Low,ventas,p3,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{TAG_CONFIG}} en {{components/sales/zernio-inbox-panel.tsx:39-48}} usa emojis en las etiquetas, contra la regla de UI.
+*Estado verificado:* {{TAG_CONFIG}} en {{components/sales/zernio-inbox-panel.tsx:39-48}} y su copia en {{components/sales/zernio-side-panel.tsx:16-25}} usan emojis en las etiquetas, contra la regla de UI.
 
 *Qué hay que hacer:* reemplazar por íconos Lucide.
 
@@ -2639,6 +2695,15 @@ Fuente: PENDIENTES.md [METRICAS-SENA] · Doc del área: docs/areas/ventas.md",ME
 *Dónde:* esas rutas.
 
 Fuente: PENDIENTES.md [ERRORES-INTERNOS-AL-CLIENTE] · Doc del área: docs/areas/ventas.md",ERRORES-INTERNOS-AL-CLIENTE,Ventas,P3,seguridad
+[ZERNIO-WEBHOOK-DISCONNECTED] El webhook de Zernio ignora account.disconnected,Bug,Low,marketing,p3,bug,,,"*Tipo:* bug
+
+*Estado verificado:* {{app/api/integrations/zernio/webhook/route.ts}} sólo maneja {{message.received}}/{{message.sent}}, {{comment.received}} y {{account.connected}} (líneas 94, 136, 168). {{account.disconnected}} figura en el comentario de eventos a suscribir (línea 3) pero no tiene rama: una cuenta desconectada en Zernio sigue en {{zernio_integrations.connected_accounts}} hasta que alguien corre {{refreshZernioAccountsAction}}, y la sync de contenido y {{/comentarios}} la siguen consultando.
+
+*Qué hay que hacer:* manejar {{account.disconnected}} sacando la cuenta de {{connected_accounts}} (o llamar al refresh de cuentas).
+
+*Dónde:* {{apps/web/app/api/integrations/zernio/webhook/route.ts}}
+
+Fuente: PENDIENTES.md [ZERNIO-WEBHOOK-DISCONNECTED] · Doc del área: docs/areas/marketing.md",ZERNIO-WEBHOOK-DISCONNECTED,Marketing,P3,bug
 [BUG-1] Historias de Instagram — verificar en producción,Task,Low,marketing,p3,verificacion-manual,,,"*Tipo:* verificación manual
 
 *Estado verificado:* la estrategia sigue igual ({{listInstagramStories}} primero). Sin evidencia en CHANGES de prueba con historia real.
@@ -2711,7 +2776,7 @@ Fuente: PENDIENTES.md [EMBUDOS-COMPARAR] · Doc del área: docs/areas/embudos.md
 Fuente: PENDIENTES.md [EMBUDOS-GESTION-INSTANCIAS] · Doc del área: docs/areas/embudos.md",EMBUDOS-GESTION-INSTANCIAS,Embudos y Lanzamientos,P3,feature
 [EMBUDOS-CODIGO-MUERTO] Código y tablas sin uso,Task,Low,embudos,p3,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* sin llamadas: {{searchGHLOpportunities}} (ver backfill), {{getVTurbQuotaUsage}} (además lee {{data.usage}} y el spec devuelve {{{ quotas: [...] }}}), {{countHyrosLeadsInPeriod}} y el cliente de {{/leads/journey}} (M07 sin fuente), {{REPORTING_CADENCE}}, {{ATTRIBUTION_STACK}}; tablas {{funnel_benchmarks}}, {{funnel_period_snapshots}}; {{payment_integrations.api_key_encrypted}} se guarda y no se usa (backfill de pagos no construido).
+*Estado verificado:* sin llamadas: {{searchGHLOpportunities}} (ver backfill), {{getVTurbQuotaUsage}} (además lee {{data.usage}} y el spec devuelve {{{ quotas: [...] }}}), {{countHyrosLeadsInPeriod}} y el cliente de {{/leads/journey}} ({{getHyrosLeadJourneys}}; sólo lo llama {{getHyrosLeadJourneyAction}}, que ninguna pantalla usa — M07 sin fuente), {{REPORTING_CADENCE}}, {{ATTRIBUTION_STACK}}; tablas {{funnel_benchmarks}}, {{funnel_period_snapshots}}; {{payment_integrations.api_key_encrypted}} se guarda y no se usa (backfill de pagos no construido).
 
 *Qué hay que hacer:* usar o borrar; corregir {{getVTurbQuotaUsage}} si se va a usar.
 
@@ -2736,6 +2801,15 @@ Fuente: PENDIENTES.md [EMBUDOS-PAGOS-BACKFILL] · Doc del área: docs/areas/embu
 *Dónde:* {{apps/web/app/(platform)/lanzamientos/*}}, {{components/lanzamientos/*}}, {{app/lanzamientos/actions.ts}}.
 
 Fuente: PENDIENTES.md [LANZAMIENTOS-DORMIDO] · Doc del área: docs/areas/embudos.md",LANZAMIENTOS-DORMIDO,Embudos y Lanzamientos,P3,decisión de negocio
+[KB-GOOGLE-SIN-RESYNC] (nuevo) Los Google Docs/Sheets importados no se pueden volver a sincronizar,Story,Low,agente-ia,p3,feature,,,"*Tipo:* feature
+
+*Estado verificado:* re-importar un archivo ya importado falla con ""Este archivo de Google ya está en tu base de conocimiento."" ({{assertGoogleSourceNotImported}}, {{apps/web/app/business-context/actions.ts:328-343}}). {{resyncDocumentMarkdownAction}} ({{actions.ts:672}}) sólo regenera {{content_markdown}} de un Google Doc para el visor, y el botón sólo aparece si el doc no tiene Markdown ({{components/business-context/context-viewer.tsx:132}}); no actualiza {{content_text}} ni re-indexa en RAG. Si el Doc cambia en Google, el agente sigue viendo la versión vieja.
+
+*Qué hay que hacer:* acción ""Sincronizar"" que re-exporte el archivo, actualice {{content_text}}/{{content_markdown}} y llame {{scheduleBusinessContextRagIndexing}}.
+
+*Dónde:* {{apps/web/app/business-context/actions.ts}}, {{components/business-context/context-viewer.tsx}}.
+
+Fuente: PENDIENTES.md [KB-GOOGLE-SIN-RESYNC] · Doc del área: docs/areas/agente-ia.md",KB-GOOGLE-SIN-RESYNC,Agente de negocio e IA,P3,feature
 [T-14] Tests de lib/agent/compact-conversation.ts,Task,Low,agente-ia,p3,tests,,,"*Tipo:* tests
 
 *Estado verificado:* no existe {{lib/agent/__tests__}}.
@@ -2765,7 +2839,7 @@ Fuente: PENDIENTES.md [IA-TESTS] · Doc del área: docs/areas/agente-ia.md",IA-T
 Fuente: PENDIENTES.md [IA-OAUTH-COLUMNAS] · Doc del área: docs/areas/agente-ia.md",IA-OAUTH-COLUMNAS,Agente de negocio e IA,P3,deuda técnica
 [RAG-IVFFLAT-FILTRO] (nuevo) Búsqueda vectorial filtra por org después del índice,Task,Low,agente-ia,p3,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{search_rag_chunks}} ordena por distancia con índice {{ivfflat (lists=100)}} y filtra {{organization_id}} en el WHERE; con {{probes}} por defecto puede devolver menos de {{match_count}} resultados de la org cuando haya muchas orgs. Con 2010 chunks hoy el planner probablemente hace seq scan; no se midió.
+*Estado verificado:* {{search_rag_chunks}} ordena por distancia con índice {{ivfflat (lists=100)}} y filtra {{organization_id}} en el WHERE; con {{probes}} por defecto puede devolver menos de {{match_count}} resultados de la org cuando haya muchas orgs. Con 2010 chunks (al 2026-09-23) el planner probablemente hace seq scan; no se midió.
 
 *Qué hay que hacer:* medir con {{EXPLAIN}}; evaluar HNSW o subir {{ivfflat.probes}} dentro de la función.
 
@@ -2790,6 +2864,15 @@ Fuente: PENDIENTES.md [AGENTE-CACHE-INEFECTIVO] · Doc del área: docs/areas/age
 *Dónde:* {{apps/web/app/(platform)/intelligence/*}}, {{routes/paths.ts}}.
 
 Fuente: PENDIENTES.md [PENDING-FEATURES: ruta intelligence sub-páginas] · Doc del área: docs/areas/agente-ia.md",PENDING-FEATURES: ruta intelligence sub-páginas,Agente de negocio e IA,P3,feature
+[OPS-SOP-VIDEO-CAPTURAS] Las capturas del SOP desde video no están conectadas [Operaciones y equipo],Bug,Low,ops-fin-prod,p3,bug,,,"*Tipo:* bug
+
+*Estado verificado:* el worker busca capturas en {{sop_attachments}} con {{draft_id = id del job}} ({{app/api/queue/process-sop-video/route.ts:129}} y {{:210}}) y el prompt las usa como marcadores, pero {{components/sops/sop-video-creator.tsx}} sólo sube el video: ninguna pantalla sube capturas contra un job. Al guardar, {{sop-creator-form.tsx:180}} manda como {{draftId}} el UUID propio del formulario (sólo si hubo adjuntos en modo texto), no el id del job. Resultado: un SOP desde video nunca tiene capturas.
+
+*Qué hay que hacer:* decidir si el modo video acepta capturas; si sí, subirlas con {{draftId = job.id}} antes de encolar y pasar ese id a {{saveSOPAction}}; si no, sacar del worker y del prompt la carga de capturas.
+
+*Dónde:* {{apps/web/components/sops/sop-video-creator.tsx}}, {{apps/web/components/sops/sop-creator-form.tsx}}, {{apps/web/app/api/queue/process-sop-video/route.ts}}.
+
+Fuente: PENDIENTES.md [OPS-SOP-VIDEO-CAPTURAS] · Doc del área: docs/areas/operaciones.md",OPS-SOP-VIDEO-CAPTURAS,"Operaciones, Finanzas y Producto",P3,bug
 [EQUIPO-INVITE-LEGADO] Invitaciones por token sin productor [Operaciones y equipo],Task,Low,ops-fin-prod,p3,deuda-tecnica,,,"*Tipo:* deuda técnica
 
 *Estado verificado:* nada inserta en {{team_invitations}} (0 filas en prod). Siguen vivos {{/invite}}, {{/api/invite/validate}} (que además devuelve {{error.message}} interno, {{AUDITORIA_BACKEND}} §3.8), {{acceptInvitationAction}}, {{completeInvitationForCurrentUserAction}}, {{revokeInvitationAction}} y la lista de pendientes en Equipo.
@@ -2846,9 +2929,9 @@ Fuente: PENDIENTES.md [OPS-ADDONS-SOLO-MENU] · Doc del área: docs/areas/operac
 Fuente: PENDIENTES.md [WORKBOARD-TIEMPO-PRIMER-RESPONSABLE] · Doc del área: docs/areas/operaciones.md",WORKBOARD-TIEMPO-PRIMER-RESPONSABLE,"Operaciones, Finanzas y Producto",P3,decisión de negocio
 [OPS-LIMPIEZA] Rutas y componentes sobrantes [Operaciones y equipo · Finanzas],Task,Low,ops-fin-prod,p3,deuda-tecnica,,,"*Tipo:* deuda técnica
 
-*Estado verificado:* {{/sops}} ({{app/(platform)/sops/page.tsx}}) duplica {{/operations/sops}} sin sugerencias y sin constante en {{paths.ts}}; {{components/finance/payment-platforms-section.tsx}} no se importa en ningún lado; {{timer_started_at}}/{{timer_running}} en {{workboard_tasks}} sin uso.
+*Estado verificado:* {{/sops}} ya redirige a {{/operations/sops}} ({{lib/navigation/redirects.ts}}, vía {{next.config.ts}}), así que {{app/(platform)/sops/page.tsx}} es código muerto; {{components/finance/payment-platforms-section.tsx}} no se importa en ningún lado; {{timer_started_at}}/{{timer_running}} en {{workboard_tasks}} sin uso (sólo {{logTaskTimeAction}} los pone en false/null).
 
-*Qué hay que hacer:* redirect de {{/sops}} a {{/operations/sops}} y borrar el componente.
+*Qué hay que hacer:* borrar {{app/(platform)/sops/page.tsx}} y el componente huérfano.
 
 *Dónde:* rutas citadas.
 
