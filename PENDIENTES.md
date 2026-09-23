@@ -390,7 +390,7 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 #### [PERMISOS-SERVER-ACTIONS/clientes] Los permisos del módulo Clientes no se hacen cumplir en el servidor
 - **Parte de:** `[PERMISOS-SERVER-ACTIONS]` (ítem transversal en Plataforma). Acá, lo específico del área.
 - **Tipo:** seguridad
-- **Estado verificado:** `app/(platform)/layout.tsx` corta el render por módulo y `clients-list.tsx` esconde botones con `useModuleAccess("clients") === "full"`, pero ninguna action de `app/clients/*.ts` mira el rol ni el permiso de módulo: sólo `requireOrganizationId()`. Un usuario con Clientes en «Solo lectura» o «Sin acceso» puede invocar `deleteClientAction`, `updateClientAction`, `recordCheckpointAction`, `deleteWinAction`, `saveClientRevenueAction`, etc. Las policies de RLS de todas las tablas del área filtran sólo por org. Sólo el catálogo (campos, recorrido, duración de planes, umbral de silencio) exige founder (`requireFounder()`).
+- **Estado verificado:** `app/(platform)/layout.tsx` corta el render por módulo y `clients-list.tsx` esconde botones con `useModuleAccess("clients") === "full"`, pero ninguna action de `app/clients/*.ts` mira el rol ni el permiso de módulo: sólo `requireOrganizationId()`. Un usuario con Clientes en «Solo lectura» o «Sin acceso» puede invocar `deleteClientAction`, `updateClientAction`, `recordCheckpointAction`, `deleteWinAction`, `saveClientRevenueAction`, etc. Las policies de RLS de todas las tablas del área filtran sólo por org. Sólo el catálogo (campos, recorrido, duración de planes, umbral de silencio) exige founder (`requireFounder()`; el umbral, con un chequeo de `profile.role` en `setClientSilenceDaysAction`).
 - **Qué hay que hacer:** helper `requireModuleAccess("clients", "full")` en las actions de escritura del área (es transversal: coordinar con el ítem general de la auditoría §3.1).
 - **Criterio de aceptación:** Con un miembro que tiene Clientes en «Solo lectura» o «Sin acceso», invocar directamente una action de escritura del área (borrar cliente, editar cliente, registrar hito, borrar win, guardar facturación, subir 1-1) devuelve error de permiso y no cambia ninguna fila; con Clientes en «full» las mismas acciones siguen funcionando; hay un test que cubre el rechazo por permiso de módulo
 - **Dónde:** `apps/web/app/clients/*.ts`, `apps/web/app/fathom/manual-upload-actions.ts`, `apps/web/lib/auth/`.
@@ -398,8 +398,8 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 #### [CLIENTES-ETAPA-TABLA-VS-FICHA] La tabla ignora la fase manual cuando hay una derivada *(nuevo)*
 - **Tipo:** bug
 - **Estado verificado:** la ficha usa `resolveEffectiveStage` (gana la más avanzada entre manual y derivada: `components/clients/checkpoints/client-journey-section.tsx:139`). La tabla hace `status?.currentStageName ?? manualStageName` (`components/clients/clients-list.tsx:793`): si el cliente tiene cualquier hito registrado, muestra la fase derivada aunque la manual sea más avanzada, y el color y el «n de m» salen siempre de la derivada. El comentario de `getManualStagesAction` dice «para resolver la efectiva en la tabla», pero nadie la resuelve.
-- **Qué hay que hacer:** resolver la fase efectiva en el servidor (`getClientsBoardAction` o `getClientsJourneyStatusAction`) con `resolveEffectiveStage` y que la tabla, los filtros y la revisión semanal lean eso. Agregar un test.
-- **Criterio de aceptación:** Un cliente con un hito registrado en una fase temprana y la fase fijada a mano en una más avanzada muestra en la tabla de /clients la misma fase (nombre, color y «n de m») que en su ficha; los filtros por fase y la revisión semanal lo ubican en esa misma fase; hay un test que cubre la resolución de la fase efectiva que usa la tabla
+- **Qué hay que hacer:** resolver la fase efectiva en el servidor (`getClientsBoardAction` o `getClientsJourneyStatusAction`) con `resolveEffectiveStage` y que la tabla lea eso (hoy no hay filtro por fase y la revisión semanal no muestra fase). Agregar un test.
+- **Criterio de aceptación:** Un cliente con un hito registrado en una fase temprana y la fase fijada a mano en una más avanzada muestra en la tabla de /clients la misma fase (nombre, color y «n de m») que en su ficha; hay un test que cubre la resolución de la fase efectiva que usa la tabla
 - **Dónde:** `apps/web/components/clients/clients-list.tsx`, `apps/web/app/clients/clients-board-actions.ts`, `apps/web/lib/checkpoints/effective-stage.ts`.
 
 #### [CLIENTES-IMPORT-EXCEL-MONTOS] El import de Excel inventa montos y fechas *(nuevo; viene de la auditoría §3 «Dinero y datos»)*
@@ -418,7 +418,7 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 
 #### [CLIENTES-SIN-MAIL] Los clientes viejos no tienen mail
 - **Tipo:** bug + decisión de negocio
-- **Estado verificado:** `clients.email` existe y se hereda del lead al cerrar (`types/clients.ts`). No hay pantalla para completarlo en masa. El CSV (`parse-client-import.ts`) no tiene columna de mail. ⚠️ El Excel **sí la lee** (`excel-parser.ts:172,200`) pero `importClientsFromExcelAction` **no la inserta** (`import-actions.ts`, el `insertPayload` no tiene `email`): el dato se parsea y se tira. El conteo «334 de 335» es de CHANGES; no se re-midió (sería leer datos).
+- **Estado verificado:** `clients.email` existe y se hereda del lead al cerrar (`providers/platform-data-provider.tsx:175`). No hay pantalla para completarlo en masa. El CSV (`parse-client-import.ts`) no tiene columna de mail. ⚠️ El Excel **sí la lee** (`excel-parser.ts:172,200`) pero `importClientsFromExcelAction` **no la inserta** (`import-actions.ts`, el `insertPayload` no tiene `email`): el dato sólo queda como texto «Email: …» en `ai_insights` (`buildClientInsights`, `import-actions.ts:263`), no en `clients.email`. El conteo «334 de 335» es de CHANGES; no se re-midió (sería leer datos).
 - **Qué hay que hacer:** agregar `email: row.email ?? null` al insert del Excel (una línea); decidir de dónde se completan los viejos (import, `sales_leads`, pagos). Es la palanca del peldaño determinista del resolvedor.
 - **Criterio de aceptación:** Importar desde Excel una fila con columna Email deja ese mail guardado en el cliente creado; Agustín decidió de dónde se completan los mails de los clientes viejos (import, leads de ventas o pagos) y la decisión quedó registrada en PENDIENTES.md o CHANGES.md
 - **Dónde:** `apps/web/app/clients/import-actions.ts`, `apps/web/lib/clients/parse-client-import.ts`.
@@ -460,7 +460,7 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 
 #### [FICHA-CUSTOM-EN-LA-LISTA] La lista trae `custom` entero de cada cliente
 - **Tipo:** deuda técnica
-- **Estado verificado:** `listClientsAction` hace `select("*, satisfaction_author:…")` (`app/clients/actions.ts:62`). Viaja al navegador en cada carga de la plataforma. Techo de texto 20.000 por campo.
+- **Estado verificado:** `listClientsAction` hace `select("*, satisfaction_author:…")` (`app/clients/actions.ts:63`). Viaja al navegador en cada carga de la plataforma. Techo de texto 20.000 por campo.
 - **Qué hay que hacer:** seleccionar columnas explícitas y sólo las claves de `custom` con `show_in_table`; `custom` completo, en la ficha.
 - **Dónde:** `apps/web/app/clients/actions.ts`.
 
@@ -520,7 +520,7 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 
 #### [ALTA-CLIENTES-PROBAR] Confirmar el alta con una cuenta de equipo
 - **Tipo:** verificación manual
-- **Estado verificado:** `clients-list.tsx:216` muestra la barra con `useModuleAccess("clients") === "full"`. Los botones hoy son: Nuevo cliente, Cargar clientes, Revisión semanal, Wins, Recorrido, Campos («Crear planes» se fue a Cobros).
+- **Estado verificado:** `clients-list.tsx:216` muestra la barra con `useModuleAccess("clients") === "full"`. Los botones hoy son: Nuevo cliente, Cargar clientes (CSV o Excel), Revisión semanal, Wins, Cobros (sólo con acceso a Ventas) y el menú «Configurar» (Recorrido del cliente, Campos personalizados). «Crear planes» se fue a Cobros.
 - **Qué hay que hacer:** entrar con un miembro con Clientes en «full», confirmar los botones y guardar un cliente de prueba; con «read», que no aparezcan.
 - **Dónde:** `/clients`.
 
@@ -537,6 +537,12 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 - **Dónde:** `apps/web/app/clients/win-actions.ts:351`.
 
 ### Clientes · P3
+
+#### [CLIENTES-PLAN-DURATIONS-DIALOG-MUERTO] `plan-durations-dialog.tsx` no lo usa nadie *(nuevo)*
+- **Tipo:** deuda técnica
+- **Estado verificado:** `apps/web/components/clients/plan-durations-dialog.tsx` exporta `PlanDurationsDialog` y ningún archivo lo importa (grep en `apps/web`, 2026-09-23). CHANGES de agosto dice que `PlanManagerDialog` lo reemplazó; el archivo quedó.
+- **Qué hay que hacer:** borrarlo (y confirmar que `plan-duration-actions.ts` sigue teniendo usos: `getClientsTableEnrichmentAction` lo usa `components/sales/cobros-page.tsx`).
+- **Dónde:** `apps/web/components/clients/plan-durations-dialog.tsx`.
 
 #### [INVESTIGAR-LIBRERIAS-CRM] (nuevo) Investigar librerías tipo HubSpot / Pipedrive / Salesforce
 - **Tipo:** investigación

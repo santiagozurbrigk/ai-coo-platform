@@ -1,11 +1,23 @@
 # Plan de onboarding guiado — Limitless / Limitless
 
-> Documento de diseño. Estado: **propuesta, sin implementar**.
-> Leer junto con `CLAUDE.md`, `PENDIENTES.md` y `docs/specs/FUNNELS_ARCHITECTURE.md`.
+> Documento de diseño escrito el 2026-08-31. Estado al 2026-09-23: **implementado (Fases 0 a 4)**; ver
+> "Estado de implementación" abajo. Las secciones 0 y 6 describen el repo **al 2026-08-31**, antes de construirlo.
+> Leer junto con `CLAUDE.md`, `PENDIENTES.md` y `docs/specs/FUNNELS_ARCHITECTURE.md`. Cómo funciona hoy:
+> [`docs/areas/plataforma.md`](../areas/plataforma.md).
+
+## Estado de implementación (verificado contra el código el 2026-09-23)
+
+| Fase | Qué quedó en el código | Diferencias con el plan |
+|---|---|---|
+| 0 | Migración `20260831120000_onboarding_state.sql` (`gate_completed_at`, `dismissed_items`, `tours_seen`). Catálogo en `lib/onboarding/items.ts`; derivación pura en `lib/onboarding/derive.ts` (`deriveOnboardingState`); lectura en `lib/onboarding/resolve.ts` (`resolveOnboardingFacts`, `getOnboardingState`, cache de 60 s). Tests en `lib/onboarding/__tests__/` | No existen `lib/onboarding/checklist.ts` ni `resolveOnboardingState`: se partió en `items.ts` + `derive.ts` + `resolve.ts` |
+| 1 | `app/(platform)/onboarding/page.tsx` + `components/onboarding/onboarding-gate.tsx`; actions en `app/onboarding/actions.ts` (`saveGateBusinessAction`, `saveGateOfferAction`, `saveGateAvatarAction`, `completeOnboardingGateAction`); ruteo en `lib/supabase/middleware.ts` vía `shouldRedirectToGate` (`lib/onboarding/gate-routing.ts`); al terminar, `markWelcomePending()` | Sí se escribieron actions nuevas, que envuelven las existentes (`saveGeneralOrganizationSettingsAction`, no `updateOrganizationSettingsAction`; `saveProductAction` con `isCoreOffer`; `saveAvatarAction`). El paso de negocio no pide `country`. Reintentar la oferta duplica el producto `[PRODUCTO-GATE-OFERTA-DUP]` |
+| 2 | `components/onboarding/setup-checklist.tsx` en el dashboard y `notch-setup-indicator.tsx` en la notch nav | — |
+| 3 | `driver.js` en `apps/web/package.json`; `lib/onboarding/tours.ts` (4 tours: embudos, marketing/contenido, agente, bandeja) y `components/onboarding/tour-runner.tsx` montado en `app/(platform)/layout.tsx` | Se construyó aunque la decisión 3 lo dejaba para una segunda tanda |
+| 4 | Panel en `/super-admin/onboarding` (`lib/super-admin/onboarding-progress.ts`, migración `20260831150000_onboarding_org_progress.sql`) | Pantalla propia, no dentro de `/super-admin/client-health`. La salida `skip_onboarding` no tiene botón `[ONBOARDING-SKIP-SIN-UI]` |
 
 ---
 
-## 0. Punto de partida — qué existe hoy
+## 0. Punto de partida — qué existía al 2026-08-31
 
 Antes de diseñar nada, esto es lo que ya está construido y hay que reusar o respetar:
 
@@ -16,11 +28,11 @@ Antes de diseñar nada, esto es lo que ya está construido y hay que reusar o re
 | `HoldingOnboardingWizard` | `components/holding/holding-onboarding-wizard.tsx` | Wizard de 2 pasos: modelo de cobro + alta de negocios. **Sólo holdings.** |
 | Ruteo de onboarding | `lib/supabase/middleware.ts` → `resolveHoldingHomePath()` | Si la org es holding y no tiene `completed_at`, redirige a `/onboarding/holding`. |
 | `WelcomeGate` + `CinematicWelcome` | `components/platform/welcome-gate.tsx`, `lib/onboarding/welcome-storage.ts` | Animación de bienvenida, **una sola vez**, con estado en `sessionStorage` + `localStorage`. |
-| Cambio de contraseña forzado | `middleware.ts` → `isForcePasswordChangePath` | Toda cuenta nueva llega con `must_change_password`. |
+| Cambio de contraseña forzado | `lib/supabase/middleware.ts` → `isForcePasswordChangePath` | Toda cuenta nueva llega con `must_change_password`. |
 
 **Dos correcciones al mapa mental heredado:**
 
-1. **No existe onboarding de founder.** `CLAUDE.md` lista `app/onboarding/actions.ts` como "onboarding founder" — ese archivo **no existe**. La fila está desactualizada. Hoy un founder nuevo entra directo al dashboard vacío.
+1. **No existía onboarding de founder** (al 2026-08-31). Hoy sí: `app/onboarding/actions.ts` existe y es el gate del founder (ver "Estado de implementación").
 2. **El stack no es React + Vite.** Es **Next.js 15 App Router + React 19**, con Server Components y Server Actions. Cambia la evaluación de librerías: los pasos no son estado de cliente, y los elementos que un tour tiene que señalar los pinta el servidor.
 
 **Cómo nace hoy una cuenta founder** (`app/super-admin/actions.ts` → `createFounderAccountAction`):
@@ -81,7 +93,7 @@ Base de conocimiento (≥1 documento indexado), SOPs activos, frameworks de vent
 
 ### Lo que NO debe ser obligatorio, y es tentador que lo sea
 
-**Conectar todas las integraciones.** Hay 20 proveedores en `constants/integrations.ts` más los paneles de pagos, GHL, VTurb, WebinarJam e Hyros. Forzar eso convierte el onboarding en un muro — y hoy varios de esos proveedores **ni siquiera están verificados contra cuentas reales** (ver `PENDIENTES.md` → `[EMBUDOS-CUENTAS-REALES]`, `[WEBINARJAM-API-KEY]`). Pedirle a un cliente que conecte algo que todavía no sabemos leer es la peor primera impresión posible.
+**Conectar todas las integraciones.** Hay 21 proveedores en `constants/integrations.ts` (al 2026-09-23, incluidos pagos, GHL, VTurb, WebinarJam e Hyros). Forzar eso convierte el onboarding en un muro — y hoy varios de esos proveedores **ni siquiera están verificados contra cuentas reales** (ver `PENDIENTES.md` → `[EMBUDOS-CUENTAS-REALES]`, `[WEBINARJAM-API-KEY]`). Pedirle a un cliente que conecte algo que todavía no sabemos leer es la peor primera impresión posible.
 
 ### Los dos casos que rompen el diseño si no se contemplan
 
@@ -166,7 +178,7 @@ Esto resuelve **gratis** las tres situaciones difíciles: si el usuario saltea u
 
 - Ruta `app/(platform)/onboarding/page.tsx` — tres pasos, un Server Component por paso, mutaciones con las **Server Actions que ya existen** (`updateOrganizationSettingsAction`, `saveProductAction` + `setCoreOfferAction`, `saveAvatarAction`). No se escriben mutaciones nuevas.
 - Ruteo en `lib/supabase/middleware.ts`, **después** del bloque de `must_change_password` y respetando la bifurcación de holding: si `role = 'founder'`, la org no es holding, no tiene `skip_onboarding` y no tiene `gate_completed_at` → redirigir a `/onboarding`.
-- Al terminar: `markWelcomePending()` — **acá encaja la `CinematicWelcome` que ya existe** y hoy no la dispara nadie. Ese era su lugar.
+- Al terminar: `markWelcomePending()` — **acá encaja la `CinematicWelcome` que ya existe** y al 2026-08-31 no la disparaba nadie (hoy la dispara `onboarding-gate.tsx`).
 - Escape hatch: el super-admin puede marcar `skip_onboarding` en una org (ya existe la columna).
 
 **Entregable:** un founder nuevo no puede entrar al dashboard sin moneda, oferta y avatar.
@@ -212,5 +224,5 @@ El gate más el checklist ya son un onboarding completo y **no agregan ninguna d
 - **El gate agrega consultas al middleware**, que corre en cada request. Mitigación: la consulta va sólo cuando hay usuario, el rol es `founder` y no es una request de Server Action; si el costo se nota, `gate_completed_at` se puede cachear en una cookie firmada. **Medirlo antes de optimizar.**
 - **El escape del super-admin es la única salida del gate.** Si un cliente se traba, hoy depende de que alguien de Limitless le marque la bandera. Vale la pena que el panel de la Fase 4 —quién está trabado y en qué paso— llegue antes de tener muchas cuentas nuevas a la vez.
 - **Los tours se rompen callados** si un selector desaparece. Cuando llegue la Fase 3: anclajes `data-tour` en el JSX, nunca clases de Tailwind, y un test que verifique que cada selector de `tours.ts` existe en el código.
-- **`CLAUDE.md` tiene dos filas desactualizadas** que conviene corregir en la misma sesión que se implemente esto: lista `app/onboarding/actions.ts` como "onboarding founder" (no existe), y menciona un acento primario violeta `#7C3AED` cuando `docs/diseno/design-system.md` y los tokens definen **naranja `#E15D12`**.
+- ~~**`CLAUDE.md` tiene dos filas desactualizadas**~~ (resuelto): `app/onboarding/actions.ts` hoy existe, y `CLAUDE.md` ya no cita el acento violeta (el acento se toma por token, `lib/brand.ts`).
 - **Sin verificar contra sesión real.** Igual que el resto de lo construido en agosto, el entorno de desarrollo no puede renderizar páginas autenticadas. Suma su bloque a `docs/operacion/verificacion-manual.md` al implementar: el gate con cuenta founder nueva, el no-gate con cuenta invitada, y el no-gate con org holding.

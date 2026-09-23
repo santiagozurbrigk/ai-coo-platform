@@ -65,7 +65,7 @@ redirige a `/super-admin/organizations`. El panel es `app/(super-admin)/super-ad
 Guard doble: `app/(super-admin)/super-admin/layout.tsx` (redirect) y `requireSuperAdmin()` dentro de
 cada query/acción (incluidas las de sólo lectura, vía `lib/super-admin/queries.ts` y `org-health.ts`).
 Excepción: `loadOnboardingProgress()` (`lib/super-admin/onboarding-progress.ts`) no llama a
-`requireSuperAdmin()`; sólo la protege el layout.
+`requireSuperAdmin()`; sólo la protege el layout (`[SUPERADMIN-ONBOARDING-SIN-GUARD]`).
 
 ## Modelo de datos
 

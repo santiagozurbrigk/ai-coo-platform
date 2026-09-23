@@ -39,7 +39,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 2. Crear un rol con Finanzas en "Sin acceso" y asignarlo al member. Resultado: en su sesión Finanzas no aparece en la notch nav.
 3. 🔒⭐ Con el member, tipear `/finance` en la barra. Resultado: "No tenés acceso a Finanzas".
 4. 🔒 Probar `/finance/expenses` y `/team/roles` (con Equipo en "Sin acceso"). Resultado: bloqueadas igual.
-5. ⚠️🔒 Estando en `/dashboard`, abrir ⌘K y elegir Finanzas (navegación cliente). Resultado esperado: bloqueado. **Probable falla**: el chequeo vive en el layout, que no se re-renderiza en navegación cliente, y la paleta no filtra permisos (`[PERMISOS-LAYOUT-NAV-SUAVE]`).
+5. ⚠️🔒 Estando en `/dashboard`, abrir ⌘K y elegir Finanzas (navegación cliente). Resultado esperado: bloqueado. **Probable falla**: el chequeo vive en el layout, que no se re-renderiza en navegación cliente, y la paleta no filtra permisos (`[PERMISOS-LAYOUT-NAV-SUAVE]`, `[NAV-PALETA-PERMISOS]`).
 6. ⚠️🔒 Con el member, abrir `/founder`. Resultado esperado: bloqueado si no tiene Operaciones. **Probable falla** (`[PERMISOS-FOUNDER-AREA]`).
 7. ⭐ Invitar a alguien sin rol y entrar. Resultado: puede abrir pantallas por URL (el bloqueo no corre sin rol). Anotar si la notch nav aparece vacía (`[PERMISOS-SIN-ROL-NAV]`).
 8. Con el rol limitado, entrar a `/onboarding` y `/holding`. Resultado: entra (rutas libres).
@@ -197,7 +197,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 1. Con «full»: `/clients` muestra Nuevo cliente, Cargar clientes, Revisión semanal, Wins, Cobros (si además ve Ventas) y el menú Configurar (Recorrido del cliente, Campos personalizados). Crear un cliente de prueba y borrarlo.
 2. Con «read»: la barra no aparece y la próxima tarea no tiene check.
 3. Con «none»: tipear `/clients` en la barra → «No tenés acceso».
-4. 🔒 ⚠️ Con «read», invocar `deleteClientAction` o `updateClientAction` desde la consola. **Hoy responde** (`[PERMISOS-SERVER-ACTIONS]`). Registrar el resultado.
+4. 🔒 ⚠️ Con «read», invocar `deleteClientAction` o `updateClientAction` desde la consola. **Hoy responde** (`[PERMISOS-SERVER-ACTIONS/clientes]`). Registrar el resultado.
 5. 🔒 Con un no-founder: en Campos y Recorrido ve la configuración sin botones; llamar a mano `createFieldDefinitionAction` → «Solo el founder…».
 6. 🔒 Con una cuenta de otra org: ninguna fila de `clients`, `client_tasks`, `field_definitions`, recorrido, eventos, propuestas, wins, facturación.
 
@@ -280,9 +280,9 @@ sumá su bloque en la sección de su área con el mismo formato.
 2. Columnas de C0 (entity win) aparecen en el tracker.
 3. ⚠️ Subir una captura a un win nuevo y a uno ya guardado → miniatura por signed URL.
 4. ⚠️ Borrar el win con captura → desaparece la fila **y el objeto** del bucket `client-wins` (`[A-PROBAR-CAPTURAS]`).
-5. ⭐ Autorizado sin «cómo aparecer» → rechaza. «Nombre, sin números» → guarda; filtro «Con permiso» lo levanta.
+5. ⭐ Autorizado sin «cómo aparecer» → rechaza. «Nombre, sin los números» → guarda; filtro «Con permiso» lo levanta.
 6. ⭐ Marcar Reservada y después cargar un uso → pasa a Usada solo.
-7. Dashboard: ⭐ un solo número → «Sin medir · un solo punto»; ⭐ USD y ARS → «unidades distintas», no resta; mismo día → sin plazo; métrica que bajó → negativa en rojo.
+7. Dashboard: ⭐ un solo número → «Sin medir» con «Hay un solo número: falta otro para comparar»; ⭐ USD y ARS → «Los números están en unidades distintas…», no resta; mismo día → sin plazo; métrica que bajó → negativa en rojo.
 8. Baseline desde el lápiz del dashboard → pasa a ser el punto inicial. ⭐ Objetivo con otra clave → no se muestra.
 9. Candidatos: convertir un testimonio → crea win con el mensaje como origen; «No es un testimonio» → desaparece también de la ficha.
 
@@ -803,7 +803,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 1. Como ese miembro, preguntar en `/agent`: "¿cuánto facturamos este mes?" y "listame los clientes con mayor ticket".
 2. Preguntar "¿de qué habló el founder con vos esta semana?".
 
-**Resultado esperado (regla):** el agente no devuelve finanzas ni clientes, y no cita conversaciones de otros usuarios. **Hoy fallaría** (`[PERMISOS-SERVER-ACTIONS]`).
+**Resultado esperado (regla):** el agente no devuelve finanzas ni clientes, y no cita conversaciones de otros usuarios. **Hoy fallaría** (`[PERMISOS-SERVER-ACTIONS/agente-ia]`).
 
 ### 4. `search_rag_chunks` cerrada a usuarios 🔒
 **Prerrequisitos:** JWT de un usuario cualquiera y anon key.
@@ -826,7 +826,7 @@ Marcas: ⚠️ alta probabilidad de falla · 🔒 verifica seguridad · ⭐ veri
 
 **Resultado esperado (regla):** un mensual por org y mes, del mes **cerrado**. ⚠️ Lo más probable es que no haya ninguno o que esté titulado con el mes nuevo (`[REPORTES-MENSUAL-MES-EQUIVOCADO]`).
 
-### 7. Reintentos de QStash en inteligencia y tono ⚠️
+### 7. Reintentos de QStash en inteligencia y tono ⚠️ — `[INTELIGENCIA-SIN-REINTENTO]`
 **Prerrequisitos:** QStash configurado; poder forzar un fallo (p. ej. org con clave sin créditos).
 1. Disparar `POST /api/cron/intelligence-snapshot` con `CRON_SECRET`.
 2. Mirar en la consola de QStash el estado del job de esa org.
