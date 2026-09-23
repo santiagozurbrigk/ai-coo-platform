@@ -86,7 +86,7 @@ Relevadas con grep de `process.env.*` en `apps/` y `packages/` (89 nombres, incl
 
 - **En `.env.example` y nadie las lee:** `NEXT_PUBLIC_VSL_URL` (el `vsl-player` se borró con la landing).
 - **En Vercel y nadie las lee:** `NEXT_PUBLIC_VSL_URL`, `NEXT_PUBLIC_NAV_STYLE` (sólo Preview), `REDIS_URL`, `QSTASH_URL` (el SDK usa su default), `GOOGLE_REDIRECT_URI`, `FATHOM_REDIRECT_URI`.
-- **En `turbo.json` (`build.env`) y ya no:** falta declarar la mayoría de las variables nuevas (GHL, pagos, Zernio, Sentry, `WORKER_AUTH_SECRET`…). Afecta sólo la clave de caché de turbo; en Vercel el build no depende de eso. `OTC_WEBHOOK_SECRET` sigue listada.
+- **En `turbo.json` (`build.env`) y ya no:** falta declarar la mayoría de las variables nuevas (GHL, pagos, Zernio, Sentry, `WORKER_AUTH_SECRET`…). Afecta la clave de caché de turbo (y el modo estricto de env de turbo si se activara); no rompe el build de Next. `OTC_WEBHOOK_SECRET` sigue listada.
 - Limpieza en `[ENV-LIMPIEZA]`.
 
 ### `apps/discord-bot` (Railway)
