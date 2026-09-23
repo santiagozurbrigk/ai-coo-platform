@@ -311,4 +311,307 @@ No hay `pg_graphql` instalado (no hay una segunda API sobre las tablas) ni otras
 
 ## Capa de aplicación
 
-(la completa el otro frente)
+> Pregunta: ¿puede una request —de un usuario de la org A, de un anónimo o de un tercero que llama a un
+> webhook— hacer que **el servidor** lea o escriba datos de la org B? La capa de base (RLS, policies,
+> funciones) está en la sección anterior; acá se mira el código que corre con **service role** o que decide
+> a qué org pertenece algo.
+
+### Alcance y método
+
+- **Código auditado:** `apps/web`, `apps/discord-bot`, `apps/reel-worker` en el commit `038caca`.
+- **Qué se revisó:**
+  - Los **189 archivos** que usan `createAdminClient()` / la service role key (grep de `createAdminClient|SERVICE_ROLE|SUPABASE_SECRET_KEY`, sin tests). En cada uno se buscó **de dónde sale el `organization_id`** que filtra.
+  - Las **98 unidades `"use server"`** (44 usan el admin client). Un script sacó toda cadena `admin.from(...)`/`admin.storage...` que **no** filtra por `organization_id`, y se leyó cada una a mano (unas 110).
+  - Los **84 route handlers** de `app/api/**`, su autenticación y la lista `isPublicPath`.
+  - Webhooks, OAuth, crons y colas, holding, caches, RAG y agente, bot de Discord y worker de reels.
+- **Producción (Supabase `nrzlylzbmsuowzhpdnjl`), sólo estructura:**
+  - `pg_policies` y privilegios de columna (`information_schema.column_privileges`) de las tablas que guardan rutas de Storage.
+  - Constraints y triggers de esas tablas; FKs hacia `clients`/`workboard_tasks`/`team_roles`/`profiles`.
+  - `EXECUTE` de las RPCs `search_rag_chunks`, `get_holding_dashboard_stats`, `increment_utm_*` y `consume_rate_limit`.
+  - No se leyeron filas.
+- **Vercel (proyecto `otc-plaform`):** se listaron los **nombres** de las variables, sin descifrar ningún valor.
+- **Qué no se pudo verificar:**
+  - Ningún hallazgo se explotó contra producción: no hubo segunda cuenta ni segunda org de prueba.
+  - No se sabe cuántas orgs tienen cada integración: contarlo exige leer filas.
+  - No se sabe si el valor de `ZERNIO_API_KEY` en Vercel es una key real o el placeholder `sk_pending`.
+  - No se sabe qué secrets tiene el worker de Fly.
+  - No se revisó el comportamiento de cada proveedor OAuth frente a un `state` armado por un tercero. Se asume el flujo estándar: el proveedor devuelve el `state` que recibió.
+
+### Resumen
+
+En el uso diario, la app no mezcla organizaciones. Cada pantalla y cada acción averigua la organización a
+partir de la sesión y filtra por ella, también cuando usa la llave maestra de la base. Los crons, las colas,
+el bot de Discord y el buscador de la IA reciben la organización de una fuente confiable y la respetan. Los
+caches internos siempre se guardan por organización.
+
+Aparecieron **dos huecos nuevos graves**:
+
+1. **Conectar integraciones de otra organización.** Al volver de conectar Stripe, Mercado Pago, Calendly,
+   Instagram, Google, YouTube, Typeform o Discord, el servidor toma "a qué organización conectar" de un dato
+   del navegador, sin firma y sin mirar la sesión. Cualquiera que conozca el identificador de otra
+   organización puede enchufarle su propia cuenta de Stripe o de Calendly. Así le reemplaza la conexión y le
+   mete datos falsos.
+2. **Leer o borrar archivos de otra organización.** Varias tablas guardan la ubicación de un archivo, y un
+   usuario puede escribir esa ubicación directamente en la base. Después el servidor abre o borra esa
+   ubicación con la llave maestra sin volver a chequearla. Con eso un usuario puede, por ejemplo, hacer que
+   se transcriba el video de un procedimiento de otra organización.
+
+Además se confirmaron y ampliaron tres problemas ya anotados:
+
+- **Asociar una llamada de Fathom a un cliente ajeno** escribe en la ficha de ese cliente, que sí ve la otra
+  organización.
+- **La llave global de Zernio** está cargada en producción.
+- **El portfolio del holding:** un miembro sin permisos del holding también **escribe** en los negocios a
+  través de las acciones que usan la llave maestra.
+
+### Inventario 1 · Cómo se resuelve la organización en cada tipo de entrada
+
+| Entrada | De dónde sale el org_id | Qué se valida | Veredicto |
+|---|---|---|---|
+| Server Actions y pantallas | `requireOrganizationId()` (`lib/auth/bootstrap.ts:220`): `auth.getUser()` → `profiles` por service role → negocio activo del holding | Holding: header `x-active-org-id` o cookie `limitless_active_org`, re-verificados contra `holding_businesses` activo (`lib/holding/resolve-org.ts:15-40`) | OK para cuentas founder. **Revisar** en holding: no mira `canManageHolding` (ver H-5) |
+| API routes con sesión | `requireAuth()` / `requireAuthContext()` (`lib/auth/require-auth.ts`), la misma resolución | ídem | ídem |
+| Acciones con `profile.organization_id` | `getCurrentProfile()` (contenido, workboard, closers, equipo, perfil) | Org del perfil, ignora el negocio activo | OK para aislamiento (nunca sale de la org propia). Bug funcional ya abierto: `[AUD-SALUD-ORG-HOLDING]` |
+| Super admin | `requireSuperAdmin()` (allowlist `super_admin_users` por email); la org viene por parámetro | Rol de plataforma | OK (es el diseño) |
+| Crons `/api/cron/*` y `*/sync`, `*/process`, `*/poll`, `*/reanalyze` | Fan-out sobre tablas de integraciones; `?organizationId=` opcional | `assertCronAuthorized` (`Bearer CRON_SECRET`, tiempo constante, lanza sin variable) | OK: quien tiene `CRON_SECRET` es de confianza |
+| Colas `/api/queue/*` | `organizationId`/`jobId` del cuerpo | `verifyQueueRequest` (`WORKER_AUTH_SECRET` o firma QStash) / `verifyQStashRequest` | OK. Deuda ya abierta: la firma no se ata a la URL (`[AUD-SEG-4]`) |
+| Webhooks de pagos (Whop, Commas/Fanbasis) | `?organizationId=` | La firma con el secreto **de esa org** (`getWebhookSecret`) | OK |
+| Webhook GHL | `?organizationId=` (workflow) o `locationId` del payload (plataforma) | Secreto por org o firma Ed25519/RSA; en la vía plataforma exige que el `locationId` firmado resuelva a esa org (`app/api/webhooks/ghl/route.ts:88-100`). El `location_id` se valida con la API key al conectar | OK |
+| Webhook Calendly | La org cuya `webhook_signing_key` valida la firma | HMAC por org | OK |
+| Webhook Fathom por miembro | `webhook_token` de la URL → `team_member_integrations` | Token + HMAC con el secreto de esa fila | OK |
+| Webhook Fathom legacy | La única org cuyo secreto valida; con más de una → 409 | Todas las filas usan el mismo secreto global (`lib/fathom/connect.ts:52`) | **Revisar** (H-7). Hoy `FATHOM_WEBHOOK_SECRET` no está en Vercel, así que responde 401 siempre |
+| Webhook ManyChat | Token de 48 hex en la URL (`crypto.randomBytes(24)`) | Token | OK |
+| Webhook Instagram (Meta) | `entry.id` → `instagram_integrations.instagram_user_id` | Firma de la app de Meta | OK |
+| Webhook Zernio | `accountId` en `connected_accounts` / `profileId` | Firma HMAC con **un secreto global** | OK. Si dos orgs comparten workspace de Zernio, el evento va a la primera que aparezca (Baja, sin ítem). Hoy responde 503: `[ENV-ZERNIO-WEBHOOK-SECRET]` |
+| Webhook Unipile y hosted auth (legacy) | `unipile_account_id` → integración; hosted auth: `name` codificado por Limitless al crear el link | Secreto global `UNIPILE_WEBHOOK_SECRET`, tiempo constante, fail-closed | OK (legacy, `[LEGACY-INBOX-BORRAR]`) |
+| Webhook Mercado Pago | Ninguna: actualiza todas las orgs | Firma | Ya abierto: `[FIN-MP-WEBHOOK]` |
+| **Callbacks OAuth** (Calendly org y closer, Discord, Google Forms/Drive, YouTube, Typeform, Instagram, Stripe, Mercado Pago, Drive del super-admin) | **Cookie JSON sin firmar** (`{organizationId, state}` o `{userId…}`) | Sólo `cookie.state === ?state`. Sin sesión: la ruta es pública | **Falla** (H-1) |
+| Bot de Discord → app (`/api/discord/*`) | `organizationId` en el cuerpo, puesto por el bot | `LIMITLESS_WEBHOOK_SECRET` (en Vercel está cargada sólo `OTC_WEBHOOK_SECRET`, el respaldo que acepta el código) | OK |
+| Bot de Discord (gateway) | `message.guildId` → `discord_integrations.guild_id` (único, sale del token OAuth) | Discord | OK |
+| Worker de reels (Fly) | `organizationId`, `jobId`, `sourceStoragePath`, `reelMusicPath` del payload | Secreto o QStash (débil: `[SEG-REEL-WORKER-AUTH]`). No cruza `job.organization_id` ni el prefijo de las rutas | **Revisar**: defensa en profundidad |
+| Públicos `/api/utm/track` y `/api/utm/click` | `organization_id` **del cuerpo** | `track` exige que la campaña exista en esa org; `click` sólo suma si existe; rate limit por IP | **Revisar** (H-6) |
+| Públicos `/api/waitlist`, `/api/trial-confirm` | No tienen org (lista de espera de Limitless) | Rate limit y techo de largo | OK |
+| `/onboarding-cliente/[token]` y su action | `client_onboarding_links.token` | Token, rate limit | OK |
+| `/invite`, `/api/invite/validate` | `team_invitations.token` | Token | OK. Devuelve `error.message`: `[AUD-SEG-8]` |
+
+### Inventario 2 · Uso de la service role key (189 archivos)
+
+Veredicto por archivo o grupo. "Sesión" = `requireOrganizationId()` / `requireAuthContext()` / perfil.
+"Llamador" = la función recibe la org de quien la llama y ese llamador está en el inventario 1.
+
+**Núcleo**
+
+| Archivo | Uso | Origen del org_id | Veredicto |
+|---|---|---|---|
+| `lib/supabase/{admin,env,middleware}.ts` | Cliente; `profiles` y `onboarding_state` del usuario logueado | `user.id` de `auth.getUser()` | OK |
+| `lib/auth/{bootstrap,require-auth,require-super-admin,add-ons,regenerate-temp-password}.ts` | Perfil, org, allowlist, add-ons | Sesión. `regenerateUserTempPassword(userId)` sólo desde super admin y holding, con el vínculo verificado | OK |
+| `lib/holding/switch-org.ts`, `app/(platform)/holding/actions.ts`, `app/(platform)/onboarding/holding/actions.ts` | `holding_businesses`, `holding_active_sessions`, alta de negocios | `requireHoldingProfile()` exige `canManageHolding`; cada `businessOrgId` se verifica contra `holding_businesses` | OK |
+| `lib/rate-limit.ts`, `lib/track-token-usage.ts`, `lib/onboarding/{current,resolve}.ts` | Contadores, costos, estado de onboarding | Clave o org del llamador (sesión) | OK |
+| `app/auth/actions.ts`, `app/auth/force-password-change/actions.ts` | Sign-out, contraseña | `user.id` | OK |
+
+**Server Actions de producto (sesión)**
+
+| Archivo | Origen | Veredicto |
+|---|---|---|
+| `app/settings/actions.ts`, `app/integrations/actions.ts`, `app/{ghl,hyros,stripe,mercadopago,unipile,youtube,manychat,payments,calendly}/actions.ts`, `app/ghl/import-actions.ts`, `app/manychat/cta-actions.ts`, `app/marketing/{actions,lead-magnets-actions,utm-actions}.ts`, `app/onboarding/actions.ts`, `app/clients/{signals-actions,onboarding-link-actions}.ts`, `app/closing/actions.ts`, `app/forms/actions.ts`, `app/sales/closer-actions.ts` | Sesión; cada id recibido se verifica con `organization_id` antes de usar el admin client. Ejemplos: `scoreFormResponsesAction`, `syncCloserCalendlyAction`, `assignOnboardingSubmissionAction` | OK (salvo permisos por rol: `[PERMISOS-SERVER-ACTIONS]`) |
+| `app/integrations/zernio/actions.ts` | Sesión. `getZernioMessagesAction`, `sendZernioMessageAction`, `replyToZernioCommentAction` y `hideZernioCommentAction` no validan que `accountId` esté en `connected_accounts`; usan la key propia de la org, porque exigen integración activa y `connectZernioAction` siempre guarda key | OK (Baja: validar `accountId` si alguna vez hay keys compartidas) |
+| `app/fathom/{one-on-one-actions,manual-upload-actions,member-actions}.ts` | Sesión; `clientId`/`callId` verificados con RLS antes del admin | OK |
+| `app/fathom/actions.ts` → `lib/fathom/{process-call,deep-call-analysis,client-tasks}.ts` | Sesión, pero **`clientId` sin validar** | **Falla** (H-3, `[FATHOM-CLIENTID-SIN-VALIDAR]`) |
+| `app/workboard/task-link-actions.ts`, `app/sales/payment-actions.ts`, `app/business-context/actions.ts`, `app/sops/{actions,video-actions}.ts`, `app/clients/win-actions.ts`, `app/marketing/content/{reel-variation-actions,reel-music-actions}.ts`, `app/api/queue/{process-sop-video,publish-reel-variation}/route.ts`, `app/api/cron/cleanup-trial-reels/route.ts` | Sesión o payload firmado para la **fila**; la **ruta de Storage** se lee de esa fila y se firma, descarga o borra sin re-validar el prefijo | **Falla** (H-2) |
+| `app/team/actions.ts` | Sesión; invitaciones por token; `customRoleId` sin validar | Revisar: `[EQUIPO-CUSTOM-ROLE-ORG]` / `[INVITE-ROL-SIN-VALIDAR]` |
+| `app/super-admin/{actions,delete-actions,drive-actions}.ts`, `lib/super-admin/*.ts`, `lib/ai-brain/*.ts` | `requireSuperAdmin()`; org por parámetro | OK. `ai_brain_documents` se inyecta en el contexto de **todas** las orgs a propósito (`lib/ai-brain/global-context.ts`); ver H-1 para el Drive del super-admin |
+| `app/(platform)/operations/overview/page.tsx` | Sesión | OK |
+
+**Librerías por dominio (org del llamador)**
+
+| Grupo | Veredicto |
+|---|---|
+| `lib/agent/{jit-context,graph-proposal-tools,document-storage}.ts`, `lib/ai/{org-context,credential-resolver}.ts`, `lib/rag/{search,ingest,product-context-sources}.ts`, `lib/queue/processors/rag-ingestion.ts`, `lib/business-context/*` | OK. Org de la sesión (agente) o del payload firmado (cola). `search_rag_chunks` filtra `organization_id = org_id` dentro de la función y no es ejecutable por `authenticated` ni `anon` (verificado en prod). Las tools de lectura del agente (`lib/agent/data-reader-handlers.ts`) usan el cliente con RLS **y** `.eq("organization_id")`; las de escritura llaman Server Actions |
+| `lib/executive-reports/*`, `lib/intelligence/*`, `lib/founder-tone/*`, `lib/metrics/baseline-service.ts`, `lib/discord/{classify-run,propose-checkpoints}.ts`, `lib/checkpoints/*`, `lib/sops/*`, `lib/forms/sync-scoring.ts` | OK. Org del fan-out del cron; todas las lecturas filtran por esa org |
+| `lib/fathom/{sync,reclaim-stuck,identities,classify-recording,resolve-sales-call,knowledge-base-queries,diagnostics,one-on-ones,propose-checkpoints,connect}.ts` | OK. Las lecturas globales (`processPendingFathomCalls`, `reclaim-stuck`) usan después el `organization_id` de cada fila |
+| `lib/fathom/process-call.ts:369`, `lib/fathom/deep-call-analysis.ts:159,193`, `lib/clients/client-tasks.ts:51` | **Falla** vía `[FATHOM-CLIENTID-SIN-VALIDAR]`: leen y actualizan `clients` por id sin `organization_id` |
+| `lib/calendly/*`, `lib/ghl/*`, `lib/hyros/*`, `lib/vturb/*`, `lib/webinarjam/*`, `lib/typeform/sync.ts`, `lib/google-forms/sync.ts`, `lib/google/*`, `lib/youtube/analytics.ts`, `lib/instagram/*`, `lib/manychat/*`, `lib/mercadopago/tokens.ts`, `lib/payments/*`, `lib/unipile/*` | OK. Credenciales leídas por la org del llamador (sesión, cron o webhook resuelto como en el inventario 1) |
+| `lib/zernio/integration.ts`, `lib/marketing/{ad-metrics-snapshot,sync-content-metrics,content-attribution,social-audience,story-thumbnail-storage,lead-magnets-internal}.ts` | **Falla** por la key global (H-4, `[ZERNIO-KEY-GLOBAL]`); el resto OK |
+| `lib/utm/{track-lead,attribute-booking}.ts`, `lib/sales/lead-journey.ts` | `track-lead`: org del cuerpo público (H-6). `attributeSaleToUTM` lee `closing_calls.lead_name` por un `closingCallId` que manda el cliente sin validar org (Baja, dentro de `[AUD-SEG-5]`). `lead-journey` hereda la key global de Zernio |
+
+**Otras apps**
+
+| Archivo | Veredicto |
+|---|---|
+| `apps/discord-bot/src/lib/supabase.ts`, `events/ready.ts`, `index.ts` | OK. Org = `discord_integrations` por `guild_id` del gateway; todas las escrituras llevan esa org |
+| `apps/reel-worker/src/processor.ts` | **Revisar**. Confía en `organizationId`, `jobId`, `sourceStoragePath` y `reelMusicPath` del payload: no cruza `reel_variation_jobs.organization_id` ni exige el prefijo `${organizationId}/` antes de descargar con service role. Con la autenticación débil de `[SEG-REEL-WORKER-AUTH]`, un payload armado lee y escribe archivos de cualquier org |
+
+### Inventario 3 · Route handlers (84) por autenticación
+
+| Autenticación | Rutas |
+|---|---|
+| Sesión (`requireOrganizationId`/`requireAuth*`) | `agent/send`, `agent/transcribe`, `content/analyze`, `*/oauth/start` y `*/connect` (Calendly, Discord, Google Forms, YouTube, Typeform, Instagram, Stripe, Mercado Pago, Unipile), `calendly/closer/start`, `fathom/connect`, `google/thumbnail`, `unipile/attendee-picture/[id]`, `*/disconnect` (MP, Stripe, Unipile). Super admin: `super-admin-google/oauth/start` |
+| `CRON_SECRET` | 13 de `/api/cron/*`, `calendly/sync`, `fathom/{process,reanalyze,sync}`, `google-forms/sync`, `instagram/{poll,sync}`, `manychat/reanalyze`, `typeform/sync`, `rag/ingest` |
+| QStash / `WORKER_AUTH_SECRET` | 9 de `/api/queue/*` |
+| Firma o secreto del proveedor | `webhooks/{whop,fanbasis,ghl,instagram/messages,mercadopago,unipile}`, `integrations/{calendly,zernio,unipile}/webhook`, `fathom/webhook`, `fathom/webhook/[token]`, `manychat/webhook/[token]`, `unipile/callback` |
+| Secreto del bot | `discord/{message,pending-link,testimonial}` |
+| **Sólo `state` en cookie, sin sesión** | 10 callbacks OAuth + el alias `calendly/callback` → **H-1** |
+| Ninguna (público a propósito) | `utm/track`, `utm/click`, `waitlist`, `trial-confirm`, `invite/validate` |
+
+`isPublicPath` (`lib/supabase/public-paths.ts`) deja pasar sin sesión todo `/api/{cron,queue,rag,webhooks,discord,utm,invite}/`,
+`/api/integrations/**` que contenga `/webhook`, `/oauth/callback`, `/oauth/start` o termine en `/callback|/sync|/poll|/process|/reanalyze`,
+más `/prueba`, `/privacidad`, `/invite`, `/onboarding-cliente/`. Cada handler de esa lista autentica por su cuenta. La
+excepción son los callbacks OAuth: la cookie de estado no autentica a nadie (H-1).
+
+### Hallazgos
+
+#### H-1 · Los callbacks OAuth aceptan una org que manda el navegador — **Crítica** · nuevo `[OAUTH-ESTADO-SIN-FIRMA]`
+
+- **Hecho:**
+  - Los `*/oauth/start` y `*/connect` guardan `JSON.stringify({ organizationId, state })` en una cookie httpOnly. Ejemplo: `app/api/integrations/stripe/connect/route.ts:28-37`.
+  - El callback hace `JSON.parse` de esa cookie y sólo compara `cookie.state === ?state`. Después escribe con `createAdminClient()` en `organization_id: cookie.organizationId` (`stripe/callback/route.ts:57-106`).
+  - Mismo patrón en `calendly/oauth/callback:73-192`, `calendly/closer/callback:65-131` (`profileId` y `organizationId` de la cookie), `discord/callback:41-114`, `instagram/callback:62-105`, `mercadopago/callback:62-114`, `google-forms/oauth/callback:37-111`, `typeform/oauth/callback:30-105` y `youtube/oauth/callback:31-74`.
+  - `super-admin-google/oauth/callback:35-66` toma `cookie.userId`.
+  - La cookie no tiene firma ni MAC (`lib/integrations/` no tiene helper de firma). Ningún callback llama a `getUser()` ni a `requireOrganizationId()`. Todas esas rutas son públicas en `isPublicPath`.
+- **Observación:**
+  - Una cookie httpOnly impide que la lea JavaScript de la página. No impide que el dueño del navegador, o un `curl`, mande la que quiera.
+  - El `state` sirve contra CSRF sobre la víctima, no para atar la org: quien arma el flujo elige los dos lados.
+  - PKCE (Calendly, MP, Drive del super-admin) tampoco ayuda: el `code_verifier` viaja en la misma cookie.
+  - `docs/arquitectura/seguridad.md` § OAuth y § Webhooks afirma lo contrario ("lo ligan a org y usuario en una cookie httpOnly"; "atribución siempre desde un dato firmado o token propio").
+- **Riesgo:** si alguien conoce el UUID de otra org, puede completar el OAuth con su propia cuenta (Stripe, Calendly, Google, Instagram, etc.) y mandar la cookie `{"organizationId":"<B>","state":"x"}` con `?state=x`. Entonces el servidor:
+  - pisa la integración de B (`onConflict: organization_id`);
+  - para Calendly, crea la suscripción de webhook y sincroniza turnos falsos en `closing_calls` de B;
+  - para Discord, ata el servidor del atacante a B;
+  - para el Drive del super-admin, reemplaza el token de un super admin por el de una cuenta ajena. Desde ahí se importan documentos al "cerebro" que se inyecta en el contexto de todas las orgs.
+
+  No hace falta sesión. Los UUID de org no son secretos: van en las URLs de webhook de Whop, Commas y GHL que se cargan en terceros, en el snippet UTM de las landings y en la vista del holding.
+- **Impacto:**
+  - **Escritura en otra organización.** Se pierde su conexión real, entran datos falsos en Ventas, Finanzas, Marketing y Embudos, y la sync diaria sigue trayendo esos datos.
+  - No da lectura directa de los datos de B, pero sí sabotaje e inyección.
+  - Afecta a cualquier org cuyo UUID se conozca. No se contó cuántas tienen cada integración.
+- **Recomendación:**
+  - En cada callback, exigir sesión y comparar `requireOrganizationId()` (y `user.id` en closer y super-admin) contra lo que dice la cookie.
+  - Además, firmar la cookie con HMAC (secreto de servidor) o guardar el `state` en una tabla con TTL.
+  - Un helper común (`lib/integrations/oauth-state.ts`) con tests.
+  - Corregir `seguridad.md`.
+
+#### H-2 · Rutas de Storage guardadas en filas que el usuario puede escribir, usadas con service role — **Crítica** · nuevo `[STORAGE-RUTA-DESDE-FILA]`
+
+- **Hecho (producción):**
+  - `authenticated` tiene `INSERT` y `UPDATE` de columna sobre la columna de ruta de estas tablas:
+    - `workboard_task_attachments`, `client_payments`, `business_context_documents`, `sop_attachments`, `win_attachments`: `storage_path`;
+    - `sop_generation_jobs`: `video_path`;
+    - `reel_variation_jobs`: `variations`.
+  - Todas tienen policy de INSERT (algunas de UPDATE) que sólo exige `organization_id = get_my_organization_id()`.
+  - Ninguna tiene constraint ni trigger sobre la ruta.
+- **Hecho (código):** `assertOrgStoragePath` (`lib/storage/org-path.ts`) sólo se aplica cuando la ruta **llega del navegador** en los "finalize". Cuando se **lee de la fila** y se usa con el admin client, no se vuelve a validar:
+  - `getTaskAttachmentUrlAction` / `deleteTaskAttachmentAction` (`app/workboard/task-link-actions.ts:367,327`);
+  - `getClientPaymentReceiptUrlAction` (`app/sales/payment-actions.ts:348`);
+  - `getDocumentOriginalFileUrlAction` / `deleteDocumentAction` (`app/business-context/actions.ts:606,646`);
+  - `deleteSopAttachmentAction` y `resolveSopAttachmentUrlsAction` (`app/sops/actions.ts:504`, `app/sops/video-actions.ts:254`);
+  - `deleteWinAction` / `deleteWinAttachmentAction` y URLs firmadas de wins (`app/clients/win-actions.ts:367,503,638`);
+  - `refreshVariationPreviewUrlsAction` (`reel-variation-actions.ts:504`);
+  - la cola `process-sop-video` (`route.ts:84`, descarga `job.video_path`);
+  - la cola `publish-reel-variation` (`:239`, firma y **publica** en Zernio);
+  - el cron `cleanup-trial-reels` (`:84`, borra).
+- **Observación:** el comentario de `org-path.ts` describe justo este ataque, pero la defensa cubre una sola de las dos puertas. El dato de la fila también lo controla el usuario, vía PostgREST con su JWT.
+- **Riesgo:** si un miembro de A conoce una ruta de B, hace un `PATCH /rest/v1/sop_generation_jobs` de un job propio con `video_path = "<B>/<uuid>-x.mp4"` y pulsa "Reintentar". Entonces el worker descarga el video de B, lo transcribe y genera el SOP en A.
+
+  Con `reel_variation_jobs.variations[].storage_path = "<B>/music/background.mp3"`, que es una ruta **determinística** en el mismo bucket `trial-reels`:
+  - `refreshVariationPreviewUrlsAction` devuelve una URL firmada del archivo de B;
+  - el cron de limpieza lo borra.
+
+  La mayoría de las rutas llevan UUIDs que no se exponen, y eso baja la probabilidad. Las determinísticas (música, carpetas por org) no.
+- **Impacto:** lectura y borrado de archivos de otra org: comprobantes de pago, documentos de contexto, videos de SOP, adjuntos, capturas de wins y videos de reels. En el caso de reels, además, publicación del archivo ajeno en las redes de A.
+- **Recomendación:**
+  - Validar `isOrgStoragePath(row.storage_path, organizationId)` en **cada** lectura, firma, descarga y borrado con service role. Un helper tipo `signOrgStoragePath(bucket, path, org)`.
+  - En la base, `CHECK (storage_path LIKE organization_id::text || '/%')`, o quitar `INSERT`/`UPDATE` de esas columnas a `authenticated` y escribirlas sólo desde el servidor.
+  - En el worker de reels, cruzar el prefijo de `sourceStoragePath` y `reelMusicPath` contra `organizationId`.
+
+#### H-3 · `associateFathomCallAction` escribe en la ficha de un cliente de otra org — **Crítica** · existente `[FATHOM-CLIENTID-SIN-VALIDAR]` (ampliar)
+
+- **Hecho:**
+  - El ítem dice que las filas escritas "la org víctima no ve".
+  - Pero `finalizeAssociatedCall` encola `generateDeepCallAnalysis` (`lib/fathom/process-call.ts:476-509`) cuando hay transcript y la llamada dura 10 minutos o más.
+  - Ese análisis ejecuta `syncClientLinkedCalls`, que hace `admin.from("clients").update({ linked_calls })`, con `.eq("id", clientId)` y **sin org** (`lib/fathom/deep-call-analysis.ts:159-196`).
+  - La escritura cae en la fila del cliente de B, con el análisis de una llamada de A.
+  - `lib/clients/client-tasks.ts:51` y `process-call.ts:369` leen `clients.name` de B por id.
+- **Riesgo:** con un `clientId` ajeno, la org A le escribe a B en la ficha del cliente, y lo que se escribe (título, resumen, URL de Fathom de A) es visible para B.
+- **Recomendación:** la del ítem, más `.eq("organization_id")` en `syncClientLinkedCalls` y en las lecturas de `clients` de `process-call.ts` y `client-tasks.ts` (defensa en profundidad).
+
+#### H-4 · La key global de Zernio está cargada en producción — **Crítica** · existente `[ZERNIO-KEY-GLOBAL]` (actualizar)
+
+- **Hecho:**
+  - `ZERNIO_API_KEY` existe en Vercel (proyecto `otc-plaform`) en **Production y Preview**, tipo sensitive, creada el 2026-07-09. El valor no se puede ver.
+  - Sin chequear integración antes de usar el cliente:
+    - `getMarketingAdsAction` (`app/marketing/content/ad-actions.ts:50-54`, `/marketing/anuncios`);
+    - `countZernioTriggers` (`lib/funnels/resolve.ts:300-313`);
+    - `captureAdMetricsForOrganization` (`lib/marketing/ad-metrics-snapshot.ts:99`);
+    - `fetchZernioCommentSteps` (`lib/sales/lead-journey.ts:221`).
+  - Las acciones de inbox y comentarios (`app/integrations/zernio/actions.ts`) exigen fila activa, y esa fila siempre trae key propia. Esas no caen al fallback.
+- **Riesgo:** si el valor es una key real, toda org sin Zernio ve **hoy** los anuncios de la cuenta global en `/marketing/anuncios`, y sus embudos cuentan comentarios ajenos.
+- **Recomendación:** la del ítem. Anotar en el ítem que la variable existe y que falta saber si es real.
+
+#### H-5 · Un miembro del holding sin permiso escribe en los negocios a través del admin client — **Crítica** · existente `[HOLDING-PORTFOLIO-ROL]` (corregir estado)
+
+- **Hecho:**
+  - El ítem dice que las escrituras las rechaza RLS porque el claim del JWT no se setea. Eso vale sólo para las acciones que escriben con `createClient()`.
+  - Toda action que hace `requireOrganizationId()` + `createAdminClient()` opera sobre el negocio que dice la cookie, sin mirar `canManageHolding`. Ejemplos:
+    - `saveClaudeApiKeyAction` (`app/settings/actions.ts:446-471`, vía `requireAuthContext`);
+    - `disconnect*Action` (`app/integrations/actions.ts`);
+    - `connectPaymentProviderAction`;
+    - `createDocumentFromFileAction`, `deleteDocumentAction`;
+    - `recordClientPaymentAction`, `getClientPaymentReceiptUrlAction`;
+    - `getClientOneOnOnesAction`, que devuelve transcripts: el chequeo previo de `clients` pasa por la policy de portfolio.
+  - Además, `middleware` sólo sobrescribe el header `x-active-org-id` cuando hay cookie (`lib/supabase/middleware.ts:61-65`). Sin cookie, el header que manda el navegador llega intacto a `resolveEffectiveOrganizationId`, que lo prioriza. No hace falta ni tocar la cookie.
+- **Riesgo:** un miembro invitado al holding que no es founder ni `is_holding_admin` puede cambiar la clave de IA de un negocio, desconectar sus integraciones, cargar o borrar documentos y leer transcripts de 1-1. La lectura por PostgREST ya estaba descrita en el ítem.
+- **Recomendación:**
+  - La del ítem: `canManageHolding` en `resolveEffectiveOrganizationId`.
+  - Además, que el middleware borre siempre el `x-active-org-id` entrante antes de setearlo desde la cookie.
+
+#### H-6 · Tracking UTM público con la org en el cuerpo — **Media** · nuevo `[UTM-PUBLICO-ORG-EN-CUERPO]`
+
+- **Hecho:**
+  - `/api/utm/track` y `/api/utm/click` son públicos y toman `organization_id` y `utm_campaign` del JSON (`app/api/utm/track/route.ts:27-50`, `click/route.ts:21-31`).
+  - `track` inserta en `utm_lead_captures` y suma `increment_utm_leads` si la campaña existe en esa org (`lib/utm/track-lead.ts:36-68`).
+  - `click` llama `increment_utm_clicks(campaign, org_id)`.
+  - Hay rate limit por IP (`apiRateLimit`), no por campaña. La respuesta `{ok:true|false}` revela si la campaña existe en esa org.
+- **Riesgo:** cualquiera que vea una landing de B (UUID y nombre de campaña están en el snippet y en la URL) puede inflar clics y leads de sus campañas rotando IPs, y meter leads inventados con cualquier email.
+- **Impacto:** métricas de marketing de B corruptas (clics, leads, conversión por UTM). Es inherente a un pixel público, pero hoy no hay nada que lo acote.
+- **Recomendación:**
+  - Un identificador público por link (no el UUID de la org) que el servidor resuelve a org y campaña.
+  - Respuesta uniforme.
+  - Límite por campaña además de por IP.
+
+#### H-7 · El webhook Fathom legacy usa un único secreto para todas las orgs — **Baja** · nuevo `[FATHOM-WEBHOOK-LEGACY]`
+
+- **Hecho:**
+  - `connectFathom` guarda `webhook_secret: process.env.FATHOM_WEBHOOK_SECRET` en **todas** las filas de `fathom_integrations` (`lib/fathom/connect.ts:52`).
+  - `/api/integrations/fathom/webhook` busca la org cuyo secreto valida la firma: con una sola org la elige, con más de una responde 409 (`route.ts:58-86`).
+  - Hoy `FATHOM_WEBHOOK_SECRET` no está en Vercel, así que el secreto es null y la ruta responde 401 siempre. La UI no muestra esta URL: el flujo vigente es `/webhook/[token]`.
+- **Riesgo:** si alguien carga la variable, quien la conozca manda llamadas a la única org conectada, o rompe la entrega (409) cuando hay varias.
+- **Recomendación:** borrar la ruta legacy y la columna, o generar un secreto por org.
+
+### Lo que está bien
+
+- **Resolución de la org:**
+  - Todas las Server Actions revisadas (44 archivos con admin) arrancan con `requireOrganizationId()`, `requireAuthContext()`, el perfil o `requireSuperAdmin()`.
+  - Las ~110 cadenas del admin client sin filtro de org se revisaron una por una. Filtran por un id ya verificado contra la org, por `user.id`, o son tablas sin org (lista de espera, rate limit). Las excepciones son las de H-2 y H-3.
+- **Ids recibidos:** el patrón "verificar con la sesión, después usar el admin" está bien aplicado y comentado en `getClientOneOnOnesAction`, `uploadOneOnOneFromShareLinkAction`, `assignOnboardingSubmissionAction`, `scoreFormResponsesAction`, `syncCloserCalendlyAction`, `retryOneOnOneTasksAction` y las acciones de reels y workboard (por fila).
+- **Exports internos de archivos `"use server"`** que reciben `organizationId`: `loadTaskLinksBundle`, `deleteTaskAttachmentsForTask`, `getProductContextForOrg` y `getConversationIdByExternalRef`. Usan el cliente con RLS, así que con un UUID ajeno no devuelven nada. Siguen siendo deuda (`[AUD-SALUD-6]`).
+- **Webhooks:** Whop, Commas, GHL, Calendly, Fathom por miembro, ManyChat, Instagram, Zernio y Unipile resuelven la org desde un secreto por org, un token de URL o un id de cuenta ligado a una firma. En GHL, un `?organizationId=` no le gana al `locationId` firmado. En Discord, el `guild_id` sale del token y es único.
+- **Crons y colas:** todos exigen `CRON_SECRET`, QStash o `WORKER_AUTH_SECRET`. El fan-out usa el `organization_id` de cada fila de integración, y los procesadores (`rag-ingestion`, `process-cron-*`, `publish-reel-variation`) vuelven a filtrar la fila por `id` + `organization_id`.
+- **Caches:** `credentialCache`, `orgContextCache`, `factsCache` de onboarding, el cache de `distribution-insight` y `loadEnabledAddOns` usan la org como clave. `RESOLVED_ATTENDEE_NAME_CACHE` usa `accountId:attendeeId`. `requireOrganizationId` usa `cache()` de React, que dura un request. No hay `unstable_cache` ni `"use cache"`.
+- **RAG y agente:**
+  - `search_rag_chunks` filtra por org dentro de la función y **no** la puede ejecutar `authenticated` ni `anon` (prod).
+  - La org sale de la sesión (`requireAuthContext`) y la conversación se verifica con `.eq("organization_id")`.
+  - Las tools de lectura van con RLS más filtro explícito. Las de escritura pasan por Server Actions.
+- **RPCs con service role:** `get_holding_dashboard_stats`, `increment_utm_clicks`/`leads` y `consume_rate_limit` no son ejecutables por `authenticated` ni `anon` (prod). `organizations` sólo deja actualizar 7 columnas a `authenticated`; `reel_music_path` y `enabled_add_ons` no están entre ellas.
+- **Holding:** `enterBusinessAction`, `regenerateBusinessFounderTempPasswordAction` y el dashboard exigen `canManageHolding` y verifican el vínculo en `holding_businesses`. El header y la cookie siempre se re-verifican contra el portfolio del propio holding: no se puede saltar a una org fuera del portfolio.
+- **Bot de Discord:** la org sale del `guild_id` del gateway y todas sus escrituras la llevan. Los endpoints de la app para el bot exigen el secreto compartido en tiempo constante.
+
+### Notas para la capa de base
+
+Estas notas no son hallazgos nuevos: son contexto para la sección anterior.
+
+- Ninguna de las 57 FKs hacia `clients`, `workboard_tasks`, `team_roles` y `profiles` es compuesta con `organization_id`. RLS valida la org de la fila, no la de lo que referencia. Una fila propia puede apuntar a un id ajeno.
+- Eso sólo se vuelve cruce real de datos cuando un proceso con service role sigue la FK sin filtrar. Casos encontrados:
+  - H-3;
+  - `attributeSaleToUTM`, que lee `closing_calls.lead_name` por un `closingCallId` ajeno;
+  - `customRoleId`.
+
+  Todo esto entra en `[AUD-SEG-5]`.

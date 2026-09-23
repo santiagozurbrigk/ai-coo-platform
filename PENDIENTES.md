@@ -70,6 +70,7 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 | `[EMBUDOS-WEBHOOK-PERDIDA]` | Embudos y Lanzamientos | Crítica | Webhooks de pagos y GHL que responden 200 sin haber guardado el evento |
 | `[1A1-CLAVE-ANTHROPIC-ROTA]` | Agente de negocio e IA | Alta | Una organización sin clave válida y sin clave global |
 | `[EQUIPO-DESACTIVAR-NO-BLOQUEA]` | Operaciones, Finanzas y Producto | Crítica | Un miembro desactivado sigue entrando y viendo todo [Operaciones y equipo] |
+| `[OAUTH-ESTADO-SIN-FIRMA]` | Infraestructura, seguridad y tests (transversal) | Crítica | Los callbacks OAuth conectan la integración a la org que diga una cookie sin firmar |
 | `[DR-BACKUPS-SUPABASE]` | Infraestructura, seguridad y tests (transversal) | Crítica | La base y los archivos de producción no tienen backups ni se ensayó nunca una restauración |
 | `[SEG-BUCKET-IMPORT-FILES]` | Infraestructura, seguridad y tests (transversal) | Crítica | El bucket `import-files` deja leer y borrar archivos de cualquier organización |
 | `[PERMISOS-SERVER-ACTIONS/infra]` | Infraestructura, seguridad y tests (transversal) | Alta | Los roles no se hacen cumplir en la base ni en las actions (incluye AUD-SEG-1) |
@@ -80,12 +81,12 @@ Los informes de auditoría con el mismo criterio (hecho · observación · riesg
 |---|---|---|---|---|---|
 | [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 12 | 33 | 17 |
 | [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 11 |
-| [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 15 | 16 | 7 |
-| [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 19 | 5 |
+| [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 15 | 16 | 8 |
+| [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 20 | 5 |
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
 | [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 18 | 7 |
 | [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 15 | 10 |
-| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 3 | 24 | 43 | 10 |
+| [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 4 | 25 | 43 | 10 |
 
 ---
 
@@ -150,10 +151,18 @@ Doc del área: [`docs/areas/plataforma.md`](./docs/areas/plataforma.md)
 #### [HOLDING-PORTFOLIO-ROL] El portfolio del holding no mira el rol
 - **Tipo:** seguridad
 - **Severidad:** Crítica
-- **Estado verificado:** policies `holding_reads_portfolio_*` (`20260630100000`) sin rol; `resolveEffectiveOrganizationId` valida la cookie/header contra `holding_businesses` pero no contra `canManageHolding`, así que cualquier miembro del holding que setee la cookie a mano ve pantallas del negocio (las lecturas de `clients`, `closing_calls`, `conversations` y `organizations` pasan por las policies de portfolio; las escrituras con `createClient()` las rechaza RLS porque el claim `active_business_org_id` sólo lo setea `enterBusinessAction`, que sí exige `canManageHolding`). Esas mismas lecturas se pueden hacer por PostgREST sólo con el JWT, sin cookie.
+- **Estado verificado:** policies `holding_reads_portfolio_*` (`20260630100000`) sin rol; `resolveEffectiveOrganizationId` valida la cookie/header contra `holding_businesses` pero no contra `canManageHolding`, así que cualquier miembro del holding que setee la cookie a mano ve pantallas del negocio (las lecturas de `clients`, `closing_calls`, `conversations` y `organizations` pasan por las policies de portfolio; las escrituras con `createClient()` las rechaza RLS porque el claim `active_business_org_id` sólo lo setea `enterBusinessAction`, que sí exige `canManageHolding`). **Pero** toda action que usa `requireOrganizationId()` + `createAdminClient()` sí escribe en el negocio, y también lee más allá de las 4 tablas de portfolio. Ejemplos:
+- `saveClaudeApiKeyAction` y `removeClaudeApiKeyAction` (`app/settings/actions.ts:446-498`);
+- los `disconnect*Action` (`app/integrations/actions.ts`);
+- `connectPaymentProviderAction`;
+- `createDocumentFromFileAction` y `deleteDocumentAction` (`app/business-context/actions.ts`);
+- `recordClientPaymentAction` y `getClientPaymentReceiptUrlAction`;
+- `getClientOneOnOnesAction`, que devuelve transcripts, porque su chequeo de `clients` pasa por la policy de portfolio.
+
+Y no hace falta la cookie: `lib/supabase/middleware.ts:61-65` sólo sobrescribe `x-active-org-id` cuando hay cookie, así que el header que manda el navegador llega intacto a `resolveEffectiveOrganizationId`, que lo prioriza. Esas mismas lecturas se pueden hacer por PostgREST sólo con el JWT, sin cookie.
 - **Riesgo:** Si un holding tiene cualquier miembro que no es founder ni is_holding_admin, entonces ese miembro puede leer por PostgREST, sólo con su JWT y sin tocar cookies, los clientes, llamadas de cierre, conversaciones y datos de organización de todos los negocios activos del portfolio (policies de producción con get_my_holding_business_org_ids(), que no mira rol). Con la cookie seteada a mano además ve esas pantallas de los negocios.
 - **Impacto:** Datos personales de clientes y conversaciones de las organizaciones de negocio expuestos a personas que esas organizaciones no autorizaron; alcance: cada holding con miembros no administradores (no se contó en producción por la regla de no leer filas).
-- **Qué hay que hacer:** exigir `canManageHolding` en `resolveEffectiveOrganizationId` y en `get_my_holding_business_org_ids()`. En prod las policies se llaman `Users read own or portfolio clients`, `Users read own or portfolio closing calls`, `Users read own or portfolio conversations` y `Users read own or linked business orgs` (consolidadas; en el repo son las `holding_reads_portfolio_*`): si el arreglo cambia policies, tiene que tocar esos nombres. Ver también `[DB-CLAIM-HOLDING-SIN-REVALIDAR]` (el hook tampoco mira el rol).
+- **Qué hay que hacer:** exigir `canManageHolding` en `resolveEffectiveOrganizationId` y en `get_my_holding_business_org_ids()`. Además, que el middleware borre siempre el `x-active-org-id` entrante antes de setearlo desde la cookie. En prod las policies se llaman `Users read own or portfolio clients`, `Users read own or portfolio closing calls`, `Users read own or portfolio conversations` y `Users read own or linked business orgs` (consolidadas; en el repo son las `holding_reads_portfolio_*`): si el arreglo cambia policies, tiene que tocar esos nombres. Ver también `[DB-CLAIM-HOLDING-SIN-REVALIDAR]` (el hook tampoco mira el rol).
 - **Criterio de aceptación:** Un miembro del holding que no es founder ni is_holding_admin, con la cookie limitless_active_org seteada a mano a un negocio, sigue viendo los datos del holding y no los del negocio; con su JWT no puede leer por PostgREST clientes, llamadas ni conversaciones de los negocios del portfolio; el founder del holding sigue entrando y leyendo el portfolio como antes
 - **Dónde:** `apps/web/lib/holding/resolve-org.ts`, migración nueva.
 
@@ -870,7 +879,7 @@ Prioridad sugerida P1: pérdida permanente y silenciosa de datos que el negocio 
 - **Severidad:** Crítica
 - **Estado verificado:** auditoría §3 "Seguridad" 5. `app/fathom/actions.ts:161-200` valida que la llamada sea de la org, pero el `clientId` recibido va directo a `finalizeAssociatedCall` con `createAdminClient()` (bypass RLS): escribe timeline, problemas y `fathom_calls.client_id` apuntando a un cliente ajeno.
 - **Riesgo:** Si un usuario autenticado pasa el UUID de un cliente de otra org (no se expone en la UI, así que hace falta conocerlo), entonces el admin client lee el nombre de ese cliente y escribe en su propia org filas (timeline, problemas, tareas, fathom_calls.client_id) que apuntan a él; difícil de explotar, pero sin ninguna barrera.
-- **Impacto:** Filtración del nombre de un cliente ajeno hacia la org atacante (queda en el análisis y en call_analyses.lead_name) y referencias cruzadas entre orgs que corrompen la integridad; la org víctima no ve esas filas porque su RLS filtra por su org.
+- **Impacto:** Filtración del nombre de un cliente ajeno hacia la org atacante (queda en el análisis y en call_analyses.lead_name) y referencias cruzadas entre orgs que corrompen la integridad; la org víctima no ve esas filas porque su RLS filtra por su org, **salvo** `clients.linked_calls`. Si la llamada tiene transcript y dura 10 minutos o más, `syncClientLinkedCalls` (`lib/fathom/deep-call-analysis.ts:159-196`, sin filtro de org) le agrega al cliente ajeno el título, el resumen y la URL de Fathom de una llamada de la org atacante, visibles en su ficha. Sumar `.eq("organization_id")` ahí y en las lecturas de `clients` de `process-call.ts:369` y `lib/clients/client-tasks.ts:51`.
 - **Qué hay que hacer:** verificar `clients.id = clientId and organization_id = org` antes de finalizar.
 - **Criterio de aceptación:** Llamar a associateFathomCallAction con un clientId de otra organización devuelve error y no escribe timeline, problemas ni fathom_calls.client_id; con un cliente propio sigue asociando; hay un test que cubre los dos casos
 - **Dónde:** `apps/web/app/fathom/actions.ts`.
@@ -1052,6 +1061,16 @@ Prioridad sugerida P1: pérdida permanente y silenciosa de datos que el negocio 
 
 ### Ventas · P3
 
+#### [FATHOM-WEBHOOK-LEGACY] El webhook Fathom legacy usa un único secreto para todas las orgs
+- **Tipo:** deuda técnica
+- **Severidad:** Baja
+- **Estado verificado:**
+  - `connectFathom` guarda `webhook_secret: process.env.FATHOM_WEBHOOK_SECRET` en todas las filas de `fathom_integrations` (`lib/fathom/connect.ts:52`).
+  - `/api/integrations/fathom/webhook` elige la única org cuyo secreto valida, o responde 409 si hay varias (`route.ts:58-86`).
+  - `FATHOM_WEBHOOK_SECRET` no está en Vercel (listado del 2026-09-23), así que hoy responde 401 siempre. La UI sólo ofrece `/webhook/[token]`.
+- **Qué hay que hacer:** borrar la ruta legacy (y `fathom_integrations.webhook_secret`), o generar un secreto por org.
+- **Dónde:** `apps/web/app/api/integrations/fathom/webhook/route.ts`, `apps/web/lib/fathom/connect.ts`.
+
 #### [WEBHOOK-FECHAS-INVENTADAS] Webhooks de Fathom y Calendly inventan la fecha, y la reentrega de Fathom pisa el análisis
 - **Tipo:** bug
 - **Severidad:** Baja
@@ -1108,7 +1127,12 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 #### [ZERNIO-KEY-GLOBAL] Una org sin Zernio usa la key global de Zernio
 - **Tipo:** seguridad
 - **Severidad:** Crítica
-- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa o su fila no tiene `api_key`. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. No verifiqué si está seteada en Vercel. También lo hereda Embudos: `countZernioTriggers` (`lib/funnels/resolve.ts:300-313`) contaría los comentarios de la cuenta global en el paso de disparadores de una org sin Zernio.
+- **Estado verificado:** `getZernioApiKeyForOrganization` (`lib/zernio/integration.ts:113-121`) devuelve `process.env.ZERNIO_API_KEY` cuando la org no tiene fila activa o su fila no tiene `api_key`. Todo `getZernioClientForOrganization` (anuncios, comentarios, inbox, sync) lo hereda. `captureAdMetricsForAllOrganizations` (`lib/marketing/ad-metrics-snapshot.ts:158`) recorre `zernio_integrations` sin filtrar `is_active`, y una fila inactiva cae al fallback → escribiría en `ad_metrics_daily` anuncios de la cuenta global. `.env.example` la trae como `sk_pending`. `ZERNIO_API_KEY` **existe** en Vercel en Production y Preview (tipo sensitive, creada el 2026-07-09). No se pudo ver si el valor es una key real o `sk_pending`. Caen al fallback sin chequear integración:
+- `getMarketingAdsAction` (`app/marketing/content/ad-actions.ts:50-54`);
+- `captureAdMetricsForOrganization` (`lib/marketing/ad-metrics-snapshot.ts:99`, también por `?organizationId=` del cron);
+- `fetchZernioCommentSteps` (`lib/sales/lead-journey.ts:221`).
+
+Las acciones de inbox y comentarios de `app/integrations/zernio/actions.ts` exigen fila activa, que siempre trae key propia. También lo hereda Embudos: `countZernioTriggers` (`lib/funnels/resolve.ts:300-313`) contaría los comentarios de la cuenta global en el paso de disparadores de una org sin Zernio.
 - **Riesgo:** Si ZERNIO_API_KEY está seteada en Production, entonces cualquier org sin Zernio activo (o con la integración desactivada) lee anuncios, comentarios y conteos de otra cuenta sin hacer nada especial: basta con abrir /marketing/anuncios o un embudo con el paso de comentarios. Probabilidad desconocida hasta confirmar la variable en Vercel.
 - **Impacto:** Expone datos de la cuenta dueña de la key global (anuncios, comentarios, inbox) a todas las orgs sin Zernio, y mete esos números en sus embudos y en ad_metrics_daily vía el cron. Hay 30 llamadas a getZernioClientForOrganization que heredan el fallback.
 - **Qué hay que hacer:** confirmar en Vercel si `ZERNIO_API_KEY` existe en Production; quitar el fallback fuera de dev (`NODE_ENV !== "production"`) o borrarlo; filtrar `is_active` en el cron.
@@ -1198,6 +1222,21 @@ Doc del área: [`docs/areas/marketing.md`](./docs/areas/marketing.md)
 - **Dónde:** `apps/web/app/api/integrations/zernio/webhook/route.ts`
 
 ### Marketing · P2
+
+#### [UTM-PUBLICO-ORG-EN-CUERPO] El tracking UTM público acepta cualquier org y campaña del navegador
+- **Tipo:** seguridad
+- **Severidad:** Media
+- **Estado verificado:**
+  - `/api/utm/track` y `/api/utm/click` son públicos y toman `organization_id` y `utm_campaign` del JSON (`app/api/utm/track/route.ts:27-50`, `app/api/utm/click/route.ts:21-31`).
+  - `track` inserta en `utm_lead_captures` y suma `increment_utm_leads` si la campaña existe en esa org (`lib/utm/track-lead.ts:36-68`). `click` suma con `increment_utm_clicks`.
+  - Hay rate limit sólo por IP. La respuesta `{ok}` revela si la campaña existe en esa org.
+- **Riesgo:** si alguien copia el UUID y el nombre de campaña del snippet de una landing, puede inflar clics y meter leads inventados en esa org rotando IPs. Es fácil, sin cuenta.
+- **Impacto:** clics, leads y conversión por UTM de la org afectada dejan de ser confiables. No expone datos.
+- **Qué hay que hacer:**
+  - Identificador público por link (no el UUID de la org) que el servidor resuelve a org y campaña.
+  - Respuesta uniforme.
+  - Límite por campaña además de por IP.
+- **Dónde:** `apps/web/app/api/utm/{track,click}/route.ts`, `apps/web/lib/utm/track-lead.ts`.
 
 #### [ZERNIO-METRICAS-429] El cron de métricas choca con el límite de pedidos de Zernio todos los días
 - **Tipo:** bug
@@ -2180,6 +2219,23 @@ Doc del área: [`docs/arquitectura/vision-general.md`](./docs/arquitectura/visio
 
 ### Infraestructura, seguridad y tests (transversal) · P0
 
+#### [OAUTH-ESTADO-SIN-FIRMA] Los callbacks OAuth conectan la integración a la org que diga una cookie sin firmar
+- **Tipo:** seguridad
+- **Severidad:** Crítica
+- **Estado verificado:** los `*/oauth/start` y `*/connect` guardan `JSON.stringify({ organizationId, state })` en una cookie httpOnly sin firma (`app/api/integrations/stripe/connect/route.ts:28-37`). El callback sólo compara `cookie.state === ?state` y escribe con `createAdminClient()` en `cookie.organizationId` (`stripe/callback/route.ts:57-106`). Mismo patrón en `calendly/oauth/callback:73-192`, `calendly/closer/callback:65-131` (también `profileId` de la cookie), `discord/callback:41-114`, `instagram/callback:62-105`, `mercadopago/callback:62-114`, `google-forms/oauth/callback:37-111`, `typeform/oauth/callback:30-105` y `youtube/oauth/callback:31-74`. `super-admin-google/oauth/callback:35-66` usa `cookie.userId`. Ningún callback mira la sesión, y todos son rutas públicas (`lib/supabase/public-paths.ts`). `docs/arquitectura/seguridad.md` § OAuth dice lo contrario.
+- **Riesgo:** si alguien conoce el UUID de otra org, completa el OAuth con su propia cuenta del proveedor y manda la cookie `{"organizationId":"<otra org>","state":"x"}` con `?state=x`. Entonces el servidor pisa la integración de esa org con la cuenta del atacante. No hace falta sesión. Los UUID de org circulan en las URLs de webhook de Whop, Commas y GHL, en el snippet UTM de las landings y en el holding. Es fácil: una cuenta gratis en el proveedor y un `curl`.
+- **Impacto:** escritura en otra organización. Pierde su conexión real (Stripe, Mercado Pago, Calendly org o de un closer, Instagram, Google Forms/Drive, YouTube, Typeform, Discord) y le entran datos falsos por la sync: turnos en Closing, cobros en Finanzas, contenido y formularios en Marketing, mensajes de otro servidor de Discord. Con el Drive del super-admin, se reemplaza el token de un super admin, y de ese Drive se importan documentos al contexto de IA de todas las orgs.
+- **Qué hay que hacer:**
+  - En cada callback, exigir sesión y que `requireOrganizationId()` (y `user.id` en closer y super-admin) coincida con la cookie.
+  - Además, firmar la cookie con HMAC de un secreto de servidor, o guardar `state` en una tabla con TTL. Todo en un helper común (`lib/integrations/oauth-state.ts`) con tests.
+  - Corregir `docs/arquitectura/seguridad.md` § OAuth y § Webhooks.
+- **Criterio de aceptación:**
+  - Un GET a cada `/api/integrations/*/callback` o `*/oauth/callback` con una cookie armada a mano (`organizationId` de otra org, `state` coincidente) no escribe nada y redirige con error. Pasa igual sin sesión y con sesión de otra org.
+  - El flujo normal desde `/integrations` sigue conectando cada proveedor.
+  - Hay tests unitarios del helper: cookie alterada, org distinta a la sesión, `state` vencido.
+- **Dónde:** `apps/web/app/api/integrations/*/oauth/{start,callback}/route.ts`, `*/connect/route.ts`, `*/callback/route.ts`, `calendly/closer/{start,callback}`, `super-admin-google/oauth/*`, `lib/integrations/`.
+> Prioridad sugerida P0: escritura en otra organización, explotable hoy sin sesión y con datos semipúblicos.
+
 #### [DR-BACKUPS-SUPABASE] La base y los archivos de producción no tienen backups ni se ensayó nunca una restauración
 - **Tipo:** decisión de negocio
 - **Severidad:** Crítica
@@ -2216,6 +2272,35 @@ Prioridad sugerida P0: acceso cruzado entre orgs explotable hoy por cualquier us
 - **Dónde:** `apps/web/lib/auth/`, `app/settings/actions.ts`, `app/sales/closer-actions.ts`, `app/finance/actions.ts`, `app/team/actions.ts`, `app/integrations/**`, `app/marketing/content/drive-actions.ts`, migración nueva.
 
 ### Infraestructura, seguridad y tests (transversal) · P1
+
+#### [STORAGE-RUTA-DESDE-FILA] Rutas de Storage que el usuario puede escribir en la base se firman, descargan y borran con service role
+- **Tipo:** seguridad
+- **Severidad:** Crítica
+- **Estado verificado:**
+  - En producción, `authenticated` tiene `INSERT`/`UPDATE` de columna, y policy de INSERT que sólo mira `organization_id`, sobre estas columnas: `storage_path` de `workboard_task_attachments`, `client_payments`, `business_context_documents`, `sop_attachments` y `win_attachments`; `video_path` de `sop_generation_jobs`; `variations` de `reel_variation_jobs`. No hay constraint ni trigger sobre la ruta.
+  - `assertOrgStoragePath` sólo se aplica a la ruta que manda el navegador al "finalizar".
+  - La ruta leída de la fila se usa sin re-validar en:
+    - `app/workboard/task-link-actions.ts:327,367`;
+    - `app/sales/payment-actions.ts:348`;
+    - `app/business-context/actions.ts:606,646`;
+    - `app/sops/actions.ts:504`, `app/sops/video-actions.ts:254`;
+    - `app/clients/win-actions.ts:367,503,638`;
+    - `app/marketing/content/reel-variation-actions.ts:504`;
+    - `app/api/queue/process-sop-video/route.ts:84` (descarga y transcribe);
+    - `app/api/queue/publish-reel-variation/route.ts:239` (publica en Zernio);
+    - `app/api/cron/cleanup-trial-reels/route.ts:84` (borra).
+- **Riesgo:** si un miembro de una org escribe por PostgREST, en una fila propia, la ruta de un archivo de otra org, esa ruta se procesa con service role. Con eso obtiene una URL firmada, una transcripción (SOP desde video), una publicación en sus redes o el borrado del archivo ajeno. Hace falta conocer la ruta. La mayoría lleva UUIDs, pero hay rutas determinísticas, como `<org>/music/background.mp3` en el bucket `trial-reels`, que se lee y borra así.
+- **Impacto:** lectura y borrado de archivos de otra organización: comprobantes de pago, documentos del contexto del negocio, videos de SOP, adjuntos de tareas, capturas de wins y videos de Trial Reels.
+- **Qué hay que hacer:**
+  - Validar `isOrgStoragePath(ruta, organizationId)` antes de **toda** firma, descarga o borrado con service role (helper común).
+  - En la base, `CHECK (storage_path LIKE organization_id::text || '/%')`, o sacar `INSERT`/`UPDATE` de esas columnas a `authenticated`.
+  - En el worker de reels, exigir el prefijo de org en `sourceStoragePath` y `reelMusicPath`.
+- **Criterio de aceptación:**
+  - Con el JWT de un member, insertar o actualizar una fila de cada tabla citada con una ruta que no empiece con su org falla (constraint o permiso).
+  - Si igual existiera una fila así, las acciones citadas devuelven error sin firmar, descargar ni borrar.
+  - Hay tests del helper con rutas de otra org, con `..` y vacías.
+- **Dónde:** archivos citados, `apps/web/lib/storage/org-path.ts`, `apps/reel-worker/src/processor.ts`, migración nueva.
+> Prioridad sugerida P1: es Crítica, pero exige conocer la ruta del archivo ajeno. La mayoría no es adivinable.
 
 #### [SEG-RLS-IDENTIFICADORES-EXTERNOS] Cualquier miembro puede escribir el identificador de la cuenta externa que decide a qué org van los eventos
 - **Tipo:** seguridad
@@ -2335,7 +2420,7 @@ Prioridad sugerida P1: el margen de Storage es ~200 MB y cruzar el cupo rompe su
 - **Estado verificado:** `apps/reel-worker/src/index.ts:67-130`: compara `WORKER_AUTH_SECRET` con `===` (no constante); cuando falla loguea los primeros 4 caracteres del secreto esperado; sin secreto ni signing keys acepta requests de `127.0.0.1` o IPs `10.*`/`172.*`, o si `NODE_ENV` no contiene `prod`. La lista de secrets comentada en `fly.toml` no incluye `WORKER_AUTH_SECRET` (el README del worker ya lo lista). Express no tiene `trust proxy`, así que `req.ip` es la IP del proxy de Fly, no la del cliente. La web publica en QStash la URL `...?workerSecret=<secreto>` (`app/marketing/content/reel-variation-actions.ts:142-144`): el secreto queda guardado en QStash y en logs de acceso; el header `x-worker-secret` ya existe como alternativa (`lib/queue/qstash-client.ts:90`).
 - **Riesgo:** Si en Fly no están cargados `WORKER_AUTH_SECRET` ni las signing keys de QStash, entonces el worker acepta a cualquiera cuyo `req.ip` empiece con `10.`/`172.` — y como Express no tiene `trust proxy`, `req.ip` es la IP del proxy de Fly, no la del cliente. Además el secreto viaja como query param (`reel-variation-actions.ts:142-144`), así que queda en la URL de destino guardada en QStash y en logs de acceso.
 - **Impacto:** Con el worker abierto, cualquiera puede mandar jobs con `organizationId`/`sourceStoragePath` arbitrarios: el worker usa service role sobre el bucket `trial-reels` (`processor.ts:35,46,113`) y escribe `reel_variation_jobs`, o sea lectura/escritura de videos de otras orgs y consumo de cómputo. No se confirmó qué secrets tiene cargados hoy.
-- **Qué hay que hacer:** comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar `WORKER_AUTH_SECRET` a `fly.toml`/README y confirmar con `fly secrets list` que está cargado.
+- **Qué hay que hacer:** en el worker, verificar que `reel_variation_jobs.organization_id` del `jobId` sea el `organizationId` del payload, y que `sourceStoragePath`/`reelMusicPath` empiecen con `${organizationId}/` (ver `[STORAGE-RUTA-DESDE-FILA]`). Además: comparación en tiempo constante, no loguear el secreto, fail-closed sin credenciales, sumar `WORKER_AUTH_SECRET` a `fly.toml`/README y confirmar con `fly secrets list` que está cargado.
 - **Criterio de aceptación:** Un POST sin credenciales al worker (curl sin header, también desde IP 10.*/172.* o con NODE_ENV no productivo) responde 401; un intento con secreto incorrecto no deja ningún fragmento del secreto en los logs; fly secrets list -a otc-reel-worker muestra WORKER_AUTH_SECRET, figura en fly.toml/README y un reel de prueba llega a preview_ready (V-INFRA-8)
 - **Dónde:** `apps/reel-worker/src/index.ts`, `apps/reel-worker/fly.toml`, `apps/reel-worker/README.md`.
 
@@ -2532,7 +2617,12 @@ Prioridad sugerida P2: no hay una filtración conocida; el procedimiento se nece
 #### [AUD-SEG-5] Mass assignment e ids ajenos
 - **Tipo:** seguridad
 - **Estado verificado:** `updateContentPieceAction` (`app/marketing/content/actions.ts:148`) hace `.update(updates)` sin zod; `customRoleId` en invitaciones (`app/team/actions.ts:242-289`) y `clientId` en `associateFathomCallAction` (`app/fathom/actions.ts:161`) no se validan contra la org.
-- **Qué hay que hacer:** schema zod con campos editables; verificar que `custom_role_id` y `client_id` pertenezcan a la org antes de escribir.
+- **Qué hay que hacer:** schema zod con campos editables; verificar que `custom_role_id` y `client_id` pertenezcan a la org antes de escribir. Contexto (auditoría de aislamiento, 2026-09-23): ninguna de las 57 FKs de producción hacia `clients`, `workboard_tasks`, `team_roles` y `profiles` es compuesta con `organization_id`, así que RLS acepta filas propias que apuntan a ids ajenos. Se vuelve cruce real cuando un proceso con service role sigue la FK sin filtrar. Casos encontrados:
+  - `[FATHOM-CLIENTID-SIN-VALIDAR]`;
+  - `attributeSaleToUTM` (`lib/utm/attribute-booking.ts:198-210`), que lee `closing_calls.lead_name` por un `closingCallId` que manda el cliente al crear un cliente;
+  - `customRoleId`.
+
+  Evaluar FKs compuestas `(x_id, organization_id)` en las tablas principales.
 - **Dónde:** archivos citados.
 
 #### [AUD-SEG-6] Prompt injection: el wrapper no escapa y hay fuentes sin envolver
