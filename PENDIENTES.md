@@ -9,6 +9,46 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [ONBOARDING-CLIENTES-APLICAR] Aplicar la migración del onboarding y probarlo 🔴
+
+**Qué es:** el formulario de onboarding por link (fase 1) está construido en la
+rama `claude/gallant-johnson-hczrys`. Hasta aplicar la migración, el botón de
+cargar preguntas y el link fallan.
+
+**Qué hacer:**
+
+1. Aplicar `20260923140000_onboarding_de_clientes.sql` en **OTC**, con la versión
+   del archivo (regla de CLAUDE.md, "Migraciones Supabase").
+2. Mergear el PR y cargar las preguntas en Campos personalizados.
+3. Seguir `docs/PLAN_VERIFICACION.md` → «Onboarding de clientes por link».
+4. Avisar al equipo que el formulario viejo (`client-onboarding-nine-chi.vercel.app`)
+   queda reemplazado. Sus respuestas **no** se importan (decisión del usuario).
+
+---
+
+### [ONBOARDING-CLIENTES-FASES] Lo que falta del onboarding de clientes 🟡
+
+Fase 1 hecha (link por creador, respuestas en la ficha, historial). Falta:
+
+1. **Formulario de sistemas** (9 herramientas con «Aún no lo tengo / Ya lo
+   tengo / Ya les di acceso»). Decidir antes: la Plantilla Limitless ya tiene
+   esos 8 sistemas como texto libre en la solapa Sistemas. ¿Se convierten a
+   lista de opciones (hay que ver qué texto tienen cargado los 15 clientes) o se
+   agregan campos de estado aparte?
+2. **Link general que crea el cliente**: «Tu nombre» crea el growth partner en
+   *pendiente de onboarding* y «Nombre del creador», su creador. `clients` pide
+   `payment_type` y `platform` sin default: decidir qué va.
+3. **Aviso de 15 días sin novedades** y **próximo lanzamiento** (campo de fecha
+   con `alert_days_before`; hoy el formulario lo pregunta como texto dentro de
+   «Objetivo de facturación y próximos lanzamientos»).
+4. Aviso al completar (el formulario viejo posteaba en Slack #onboarding-clientes
+   con un checklist de 72 hs). Limitless no tiene Slack; ¿Discord?
+5. El equipo del paso 9 va como texto con plantilla. Una tabla sería un tipo de
+   campo nuevo.
+6. La condición («mostrar sólo si») y el aviso de audio se cargan con la
+   plantilla y no se editan desde la pantalla.
+
+---
 ### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos 🔴
 
 **Qué es:** la tarjeta «Clientes» (los infoproductores de cada growth partner,

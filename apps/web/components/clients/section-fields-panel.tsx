@@ -39,6 +39,7 @@ import { ACCION_DE_FILA } from "@/components/clients/ficha-section";
 import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
 import { FieldValueInput } from "@/components/clients/custom-fields/field-value-input";
 import { useToast } from "@/providers/toast-provider";
+import { groupFieldsByStep } from "@/lib/client-onboarding/form";
 import {
   FIELD_SECTION_LABEL,
   FIELD_SECTIONS,
@@ -255,7 +256,8 @@ export function SectionFieldsPanel({
     return (
       <p className="text-xs leading-relaxed text-muted-foreground">
         Todavía no hay campos de Marketing, Ventas y Sistemas. Cargalos con
-        «Plantilla Limitless» en Campos personalizados.
+        «Plantilla Limitless» (y las preguntas del onboarding) en Campos
+        personalizados.
       </p>
     );
   }
@@ -370,48 +372,62 @@ export function SectionFieldsPanel({
         </div>
       </div>
 
-      <dl className="space-y-3">
-        {grupo.fields.map((field) => (
-          <div key={field.id} className="space-y-1">
-            {editando ? (
-              <FieldValueInput
-                field={field}
-                value={draft[field.key]}
-                onChange={(value) =>
-                  setDraft((current) => ({ ...current, [field.key]: value }))
-                }
-              />
-            ) : (
-              <>
-                <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  {field.label}
-                </dt>
-                <dd>
-                  {/*
-                    ⭐ Con contenido, el valor entero es un botón que lo abre.
-                    Vacío no: un «—» que se puede apretar promete algo que no
-                    pasa.
-                  */}
-                  {textoDe(values[field.key]) ? (
-                    <button
-                      type="button"
-                      onClick={() => setViendo(field)}
-                      title={`Ver ${field.label} completo`}
-                      className="block w-full rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 dark:hover:bg-white/[0.04]"
-                    >
-                      <ValorDelCampo field={field} value={values[field.key]} />
-                    </button>
-                  ) : (
-                    <div className="px-1.5 py-1">
-                      <ValorDelCampo field={field} value={values[field.key]} />
-                    </div>
-                  )}
-                </dd>
-              </>
-            )}
-          </div>
-        ))}
-      </dl>
+      {/*
+        ⭐ La solapa «Onboarding» trae decenas de respuestas: van agrupadas por
+        el paso del formulario donde se preguntaron. Las otras solapas no tienen
+        pasos y quedan como siempre, en un solo bloque.
+      */}
+      {groupFieldsByStep(grupo.fields).map((bloque) => (
+        <div key={bloque.title ?? "todo"} className="space-y-3">
+          {bloque.title ? (
+            <p className="border-b border-border/50 pb-1 pt-2 text-xs font-semibold text-foreground dark:border-white/[0.06]">
+              {bloque.title}
+            </p>
+          ) : null}
+          <dl className="space-y-3">
+            {bloque.fields.map((field) => (
+              <div key={field.id} className="space-y-1">
+                {editando ? (
+                  <FieldValueInput
+                    field={field}
+                    value={draft[field.key]}
+                    onChange={(value) =>
+                      setDraft((current) => ({ ...current, [field.key]: value }))
+                    }
+                  />
+                ) : (
+                  <>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      {field.label}
+                    </dt>
+                    <dd>
+                      {/*
+                        ⭐ Con contenido, el valor entero es un botón que lo abre.
+                        Vacío no: un «—» que se puede apretar promete algo que no
+                        pasa.
+                      */}
+                      {textoDe(values[field.key]) ? (
+                        <button
+                          type="button"
+                          onClick={() => setViendo(field)}
+                          title={`Ver ${field.label} completo`}
+                          className="block w-full rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 dark:hover:bg-white/[0.04]"
+                        >
+                          <ValorDelCampo field={field} value={values[field.key]} />
+                        </button>
+                      ) : (
+                        <div className="px-1.5 py-1">
+                          <ValorDelCampo field={field} value={values[field.key]} />
+                        </div>
+                      )}
+                    </dd>
+                  </>
+                )}
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
 
       {viendo ? (
         <VisorDelCampo

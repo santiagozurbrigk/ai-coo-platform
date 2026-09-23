@@ -27,6 +27,7 @@ import {
   ArchiveRestore,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Layers,
   Pencil,
   Plus,
@@ -60,6 +61,7 @@ import {
   seedExampleClientGoalFieldAction,
   seedExampleWinFieldAction,
   seedLimitlessClientFieldsAction,
+  seedOnboardingQuestionsAction,
   setFieldDefinitionArchivedAction,
   updateFieldDefinitionAction,
 } from "@/app/clients/custom-field-actions";
@@ -141,6 +143,31 @@ export function CustomFieldsPage({
     setDialogOpen(true);
   }
 
+  /** Carga una plantilla de campos y cuenta cuántos entraron. */
+  function sembrar(
+    action: () => Promise<MutationResult<{ created: number; skipped: number }>>
+  ) {
+    startTransition(async () => {
+      const result = await action();
+      if (!result.success) {
+        push({ title: "No se pudo cargar", description: result.error });
+        return;
+      }
+      await refresh();
+      push({
+        title:
+          result.data.created === 0
+            ? "Ya estaban todos cargados"
+            : `${result.data.created} campos cargados`,
+        description:
+          result.data.skipped > 0
+            ? `${result.data.skipped} ya existían y se saltearon.`
+            : undefined,
+        variant: "success",
+      });
+    });
+  }
+
   function openEdit(field: FieldDefinition) {
     setEditing(field);
     setDialogError(null);
@@ -166,6 +193,16 @@ export function CustomFieldsPage({
         // entidades el diálogo no los ofrece y viajan en su valor neutro.
         section: draft.section,
         showInTable: draft.showInTable,
+        // Sólo se pregunta un campo con apartado: sin él no hay dónde mostrar
+        // la respuesta.
+        onboarding:
+          draft.inOnboarding && draft.section !== null
+            ? {
+                step: draft.onboardingStep,
+                question: draft.onboardingQuestion.trim() || null,
+                required: draft.onboardingRequired,
+              }
+            : null,
       };
 
       const result = editing
@@ -253,30 +290,35 @@ export function CustomFieldsPage({
                 <Button
                   variant="outline"
                   disabled={pending}
-                  onClick={() =>
-                    startTransition(async () => {
-                      const result = await seedLimitlessClientFieldsAction();
-                      if (!result.success) {
-                        push({ title: "No se pudo cargar", description: result.error });
-                        return;
-                      }
-                      await refresh();
-                      push({
-                        title:
-                          result.data.created === 0
-                            ? "Ya estaban todos cargados"
-                            : `${result.data.created} campos cargados`,
-                        description:
-                          result.data.skipped > 0
-                            ? `${result.data.skipped} ya existían y se saltearon.`
-                            : undefined,
-                        variant: "success",
-                      });
-                    })
-                  }
+                  onClick={() => sembrar(seedLimitlessClientFieldsAction)}
                 >
                   <Layers className="mr-1 h-4 w-4" />
                   Cargar plantilla
+                </Button>
+              </GlassPanel>
+            ) : null}
+
+            {/*
+              ⭐ Las preguntas del formulario de onboarding: la misma idea que la
+              plantilla. Se cargan una vez, en la solapa «Onboarding» de la
+              ficha, y desde ahí son columnas como cualquier otra.
+            */}
+            {key === "client" && canManage && growthPartners ? (
+              <GlassPanel className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">Preguntas del onboarding</p>
+                  <p className="text-xs text-muted-foreground">
+                    Carga las 75 preguntas del formulario que completa cada cliente
+                    de un growth partner. Las que ya existen no se duplican.
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => sembrar(seedOnboardingQuestionsAction)}
+                >
+                  <ClipboardList className="mr-1 h-4 w-4" />
+                  Cargar preguntas
                 </Button>
               </GlassPanel>
             ) : null}
@@ -383,6 +425,12 @@ function FieldRow({
               <Badge variant="outline" className="gap-1">
                 <Layers className="h-3 w-3" />
                 {FIELD_SECTION_LABEL[field.section]}
+              </Badge>
+            ) : null}
+            {field.onboarding ? (
+              <Badge variant="outline" className="gap-1">
+                <ClipboardList className="h-3 w-3" />
+                Formulario
               </Badge>
             ) : null}
             {field.entity === "client" && field.showInTable ? (

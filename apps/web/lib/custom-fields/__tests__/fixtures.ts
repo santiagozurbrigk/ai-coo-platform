@@ -32,6 +32,7 @@ export function field(
     options: [],
     optionsSource: "inline",
     section: null,
+    onboarding: null,
     showInTable: true,
     unit: null,
     currency: null,

@@ -25,6 +25,7 @@ import {
 } from "@ai-coo/ui";
 import { Archive, ArchiveRestore, Plus, Trash2 } from "lucide-react";
 import { useHasAddOn } from "@/providers/permissions-provider";
+import { ONBOARDING_STEPS, findOnboardingStep } from "@/lib/client-onboarding/steps";
 import {
   FIELD_OPTION_COLORS,
   FIELD_SECTION_LABEL,
@@ -62,6 +63,12 @@ export type FieldDefinitionDraft = {
   section: FieldSection | null;
   /** Si se dibuja como columna en la tabla de clientes. */
   showInTable: boolean;
+  /** Si se pregunta en el formulario de onboarding (sólo con apartado). */
+  inOnboarding: boolean;
+  onboardingStep: string;
+  /** La pregunta como la lee el cliente. Vacío = la etiqueta. */
+  onboardingQuestion: string;
+  onboardingRequired: boolean;
 };
 
 function draftFrom(field: FieldDefinition | null): FieldDefinitionDraft {
@@ -79,6 +86,10 @@ function draftFrom(field: FieldDefinition | null): FieldDefinitionDraft {
     // Una columna nueva no entra sola a la tabla: se elige. Es lo que evita
     // que configurar un dato de la ficha ensanche la planilla sin querer.
     showInTable: field?.showInTable ?? false,
+    inOnboarding: field?.onboarding != null,
+    onboardingStep: field?.onboarding?.step ?? ONBOARDING_STEPS[0]!.id,
+    onboardingQuestion: field?.onboarding?.question ?? "",
+    onboardingRequired: field?.onboarding?.required ?? true,
   };
 }
 
@@ -384,6 +395,72 @@ export function FieldDefinitionDialog({
                 del cliente, en la tarjeta «Clientes». Las sueltas son del
                 cliente mismo.
               </p>
+            </div>
+          ) : null}
+
+          {/*
+            ⭐ El formulario de onboarding pregunta los campos con apartado:
+            la respuesta cae en ese apartado del cliente del growth partner.
+            Sin apartado no hay dónde mostrarla, así que no se ofrece.
+          */}
+          {esCliente && growthPartners && draft.section !== null ? (
+            <div className="space-y-2 rounded-md border border-border/60 p-3">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.inOnboarding}
+                  onChange={(event) => patch({ inOnboarding: event.target.checked })}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Preguntarla en el formulario de onboarding
+              </label>
+
+              {draft.inOnboarding ? (
+                <>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="field-onboarding-step">Paso del formulario</Label>
+                    <select
+                      id="field-onboarding-step"
+                      className={CONTROL_CLASS}
+                      value={draft.onboardingStep}
+                      onChange={(event) => patch({ onboardingStep: event.target.value })}
+                    >
+                      {/* Un paso que ya no existe se sigue mostrando, para no perderlo al guardar. */}
+                      {findOnboardingStep(draft.onboardingStep) ? null : (
+                        <option value={draft.onboardingStep}>{draft.onboardingStep}</option>
+                      )}
+                      {ONBOARDING_STEPS.map((step) => (
+                        <option key={step.id} value={step.id}>
+                          {step.title}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="field-onboarding-question">Pregunta (opcional)</Label>
+                    <Textarea
+                      id="field-onboarding-question"
+                      value={draft.onboardingQuestion}
+                      onChange={(event) => patch({ onboardingQuestion: event.target.value })}
+                      rows={2}
+                      placeholder={draft.label || "Cómo la lee el cliente"}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Lo que lee el cliente. Vacía, se usa el nombre. La ayuda de
+                      arriba se muestra debajo de la pregunta.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={draft.onboardingRequired}
+                      onChange={(event) => patch({ onboardingRequired: event.target.checked })}
+                      className="h-4 w-4 rounded border-border"
+                    />
+                    Obligatoria en el formulario
+                  </label>
+                </>
+              ) : null}
             </div>
           ) : null}
 

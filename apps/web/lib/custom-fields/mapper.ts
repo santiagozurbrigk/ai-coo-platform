@@ -9,6 +9,7 @@
 import {
   type FieldDefinition,
   type FieldDefinitionRow,
+  type FieldOnboardingConfig,
   type FieldOption,
 } from "@/types/custom-fields";
 import {
@@ -46,6 +47,7 @@ export function rowToFieldDefinition(row: FieldDefinitionRow): FieldDefinition |
         : null,
     isRequired: row.is_required,
     section: isFieldSection(row.section) ? row.section : null,
+    onboarding: parseOnboardingConfig(row.onboarding),
     // Una fila vieja, de antes de la columna, se lee como visible: era lo que
     // hacía la pantalla hasta ese momento.
     showInTable: row.show_in_table ?? true,
@@ -82,4 +84,37 @@ export function parseOptions(raw: unknown): FieldOption[] {
   }
 
   return options;
+}
+
+/**
+ * El jsonb `onboarding` → config del formulario, o `null` si no se pregunta.
+ *
+ * Mismo criterio que `parseOptions`: lo que no se entiende se descarta. Sin
+ * paso no hay dónde preguntarlo, así que un objeto sin `step` es `null`.
+ */
+export function parseOnboardingConfig(raw: unknown): FieldOnboardingConfig | null {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return null;
+  const record = raw as Record<string, unknown>;
+
+  const step = typeof record.step === "string" ? record.step.trim() : "";
+  if (!step) return null;
+
+  const texto = (value: unknown) =>
+    typeof value === "string" && value.trim() ? value.trim() : null;
+
+  let showIf: FieldOnboardingConfig["showIf"] = null;
+  if (typeof record.showIf === "object" && record.showIf !== null) {
+    const cond = record.showIf as Record<string, unknown>;
+    const key = texto(cond.key);
+    const equals = texto(cond.equals);
+    if (key && equals) showIf = { key, equals };
+  }
+
+  return {
+    step,
+    question: texto(record.question),
+    required: record.required === true,
+    showIf,
+    audio: texto(record.audio),
+  };
 }

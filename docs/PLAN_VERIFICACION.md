@@ -1680,6 +1680,70 @@ Requiere la migración `20260923100000_clientes_de_clientes.sql` aplicada.
 
 ---
 
+## Onboarding de clientes por link (growth partners) — 2026-09-23 🔒⭐
+
+Requiere la migración `20260923140000_onboarding_de_clientes.sql` aplicada y el
+add-on `growth_partners` prendido (sólo Limitless). No se pudo probar contra
+Supabase: el formulario se recorrió en un navegador con las 75 preguntas reales
+pero sin base, y la migración se probó en un Postgres 16 local.
+
+### A. Cargar las preguntas ⭐
+
+1. Campos personalizados → Clientes → «Preguntas del onboarding» → Cargar preguntas.
+   **Esperado:** «75 campos cargados». Apretar de nuevo: «Ya estaban todos cargados».
+2. **Esperado:** cada una con las marcas «Onboarding» y «Formulario». Ninguna
+   «Obligatoria» (es obligatoria en el formulario, no en la ficha).
+3. Editar «Cliente ideal». **Esperado:** el recuadro «Preguntarla en el
+   formulario de onboarding» tildado, en «Paso 3 — Tu oferta y tu cliente», con
+   la pregunta larga. Cambiar la pregunta → Guardar → reabrir: quedó.
+4. ⭐ Editar «¿Qué campañas corrés?» y guardar sin tocar nada. Abrir un link.
+   **Esperado:** la pregunta sigue apareciendo sólo con «¿Corrés anuncios?» = Sí
+   (la condición no se edita desde la pantalla y no se tiene que perder).
+
+### B. El link 🔒
+
+1. Ficha de un growth partner → tarjeta «Clientes» → elegir un creador →
+   «Generar link». **Esperado:** aparece «Copiar link».
+2. Apretar «Generar link» en otra pestaña con la ficha vieja. **Esperado:**
+   devuelve el mismo link, no uno nuevo.
+3. 🔒 Abrir el link en una ventana de incógnito (sin sesión). **Esperado:** el
+   formulario, con «Onboarding de {creador}». No pide login.
+4. 🔒 Cambiar una letra del token. **Esperado:** «Este link no está activo».
+5. 🔒 Desactivar el link desde la ficha y recargar la ventana de incógnito.
+   **Esperado:** «Este link no está activo».
+6. 🔒 Apagar el add-on de Limitless desde Super Admin y abrir un link vivo.
+   **Esperado:** «Este link no está activo». Volver a prenderlo.
+
+### C. Completarlo ⭐
+
+1. Continuar sin completar nada. **Esperado:** «Completá esta respuesta» debajo
+   de cada pregunta y «Poné tu nombre para seguir».
+2. Completar varios pasos, cerrar la pestaña y volver a abrir el link.
+   **Esperado:** vuelve al mismo paso con lo escrito.
+3. «¿Corrés anuncios?» = No. **Esperado:** no aparecen las dos preguntas de
+   campañas, y el paso deja seguir.
+4. Enviar. **Esperado:** «¡Listo, gracias!».
+5. ⭐ En la ficha → «Historial (1)». **Esperado:** el envío con el nombre de
+   quien lo completó. La solapa «Onboarding» muestra las respuestas agrupadas
+   por paso. En la línea de tiempo del growth partner: «Onboarding completado:
+   {creador}».
+6. ⭐ Editar una respuesta desde la ficha. Volver a abrir el link: aparece lo
+   editado. Cambiarla en el formulario y enviar. **Esperado:** la ficha muestra
+   lo nuevo (pisa), y el historial marca «cambió» con «Antes: …».
+7. ⚠️ Enviar más de 10 veces en 10 minutos desde la misma IP. **Esperado:** «Demasiadas
+   solicitudes. Intentá de nuevo en N segundos», no un error. (Límite
+   `publicFormRateLimit`.)
+
+### D. Lo que no se tiene que romper
+
+1. Marketing, Ventas y Sistemas de un creador se ven igual que antes, sin
+   títulos de pasos.
+2. ⭐ Intentar borrar (no archivar) una pregunta que sólo respondió un creador.
+   **Esperado:** no deja borrarla; ofrece archivar. (Antes sólo se miraba la
+   tabla de clientes, no la de sus creadores.)
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas

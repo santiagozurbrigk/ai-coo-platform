@@ -27,6 +27,7 @@ import {
   type FieldDefinition,
   type FieldDefinitionRow,
   type FieldEntity,
+  type FieldOnboardingConfig,
 } from "@/types/custom-fields";
 import {
   deriveFieldKey,
@@ -39,6 +40,7 @@ import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { firstZodError } from "@/lib/validations";
 import { createClient } from "@/lib/supabase/server";
 import { paths } from "@/routes";
+import { ONBOARDING_QUESTIONS } from "@/lib/client-onboarding/questions";
 
 /**
  * Tablas donde puede estar cargado el valor de un campo.
@@ -46,10 +48,19 @@ import { paths } from "@/routes";
  * `isFieldInUse` las consulta para decidir si una columna se puede borrar o hay
  * que archivarla. Una tabla que no existe cuenta como "sin uso", no como error.
  */
-const VALUES_TABLE: Record<FieldEntity, { table: string; column: string }> = {
-  win: { table: "client_wins", column: "custom" },
-  checkpoint: { table: "client_checkpoint_events", column: "metrics" },
-  client: { table: "clients", column: "custom" },
+const VALUES_TABLE: Record<FieldEntity, { table: string; column: string }[]> = {
+  win: [{ table: "client_wins", column: "custom" }],
+  checkpoint: [{ table: "client_checkpoint_events", column: "metrics" }],
+  /*
+   * ⭐ Un campo del cliente también se carga en los clientes de un growth
+   * partner (`client_sub_clients`). Sin mirar esa tabla, una pregunta del
+   * onboarding respondida sólo ahí se contaba como "sin uso" y se podía borrar
+   * de verdad, llevándose las respuestas.
+   */
+  client: [
+    { table: "clients", column: "custom" },
+    { table: "client_sub_clients", column: "custom" },
+  ],
 };
 
 const optionSchema = z.object({
@@ -62,7 +73,8 @@ const optionSchema = z.object({
 const createSchema = z.object({
   entity: z.enum(FIELD_ENTITIES),
   label: z.string().trim().min(1, "La columna necesita un nombre.").max(120),
-  description: z.string().trim().max(500).nullable().default(null),
+  /** Hasta 2.000: la ayuda de una pregunta del onboarding trae los benchmarks enteros. */
+  description: z.string().trim().max(2000).nullable().default(null),
   fieldType: z.enum(FIELD_TYPES),
   options: z.array(optionSchema).max(60).default([]),
   unit: z.string().trim().max(20).nullable().default(null),
@@ -79,6 +91,21 @@ const createSchema = z.object({
   section: z.enum(FIELD_SECTIONS).nullable().default(null),
   /** Si se dibuja como columna en la tabla de clientes. */
   showInTable: z.boolean().default(false),
+  /**
+   * Si se pregunta en el formulario de onboarding. Sólo los campos del cliente
+   * con apartado, y sólo con el add-on `growth_partners`.
+   *
+   * La condición y el audio no se editan desde la pantalla (vienen de la
+   * plantilla): al guardar se conservan los que la columna ya tenía.
+   */
+  onboarding: z
+    .object({
+      step: z.string().trim().min(1).max(60),
+      question: z.string().trim().max(500).nullable().default(null),
+      required: z.boolean().default(false),
+    })
+    .nullable()
+    .default(null),
 });
 
 /** La clave, el tipo y la entidad no se editan: cambiarlos reescribiría el pasado. */
@@ -199,6 +226,10 @@ export async function createFieldDefinitionAction(
         // Una sección sólo tiene sentido en las columnas del cliente: son las
         // únicas que se dibujan en apartados de una ficha.
         section: values.entity === "client" && conApartados ? values.section : null,
+        onboarding:
+          values.entity === "client" && conApartados && values.section && values.onboarding
+            ? onboardingJson(values.onboarding, null)
+            : null,
         show_in_table: values.showInTable,
         // Al final de la lista: una columna nueva no se mete en el medio de un
         // orden que alguien ya acomodó.
@@ -259,6 +290,14 @@ export async function updateFieldDefinitionAction(
       patch.section = current.entity === "client" && conApartados ? changes.section : null;
     }
     if (changes.showInTable !== undefined) patch.show_in_table = changes.showInTable;
+    if (changes.onboarding !== undefined) {
+      const conApartados = await orgHasAddOn(organizationId, "growth_partners");
+      const section = changes.section !== undefined ? changes.section : current.section;
+      patch.onboarding =
+        current.entity === "client" && conApartados && section && changes.onboarding
+          ? onboardingJson(changes.onboarding, current.onboarding)
+          : null;
+    }
 
     if (Object.keys(patch).length === 0) return current;
 
@@ -361,6 +400,23 @@ export async function reorderFieldDefinitionsAction(
 
 // ─── Ayudas ─────────────────────────────────────────────────────────────────
 
+/**
+ * El jsonb `onboarding` que se guarda. Lo que la pantalla no edita (la
+ * condición y el audio) se toma de lo que la columna ya tenía.
+ */
+function onboardingJson(
+  input: { step: string; question: string | null; required: boolean },
+  current: FieldOnboardingConfig | null
+): Record<string, unknown> {
+  return {
+    step: input.step,
+    question: input.question || null,
+    required: input.required,
+    showIf: current?.showIf ?? null,
+    audio: current?.audio ?? null,
+  };
+}
+
 function nextSortOrder(existing: readonly FieldDefinition[]): number {
   return existing.reduce((max, field) => Math.max(max, field.sortOrder + 1), 0);
 }
@@ -413,23 +469,25 @@ function assertNoOptionDisappears(
  * solo cuando esas migraciones entren.
  */
 async function isFieldInUse(field: FieldDefinition): Promise<boolean> {
-  const target = VALUES_TABLE[field.entity];
   const supabase = await createClient();
 
-  const { count, error } = await supabase
-    .from(target.table)
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", field.organizationId)
-    .not(`${target.column}->>${field.key}`, "is", null);
+  for (const target of VALUES_TABLE[field.entity]) {
+    const { count, error } = await supabase
+      .from(target.table)
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", field.organizationId)
+      .not(`${target.column}->>${field.key}`, "is", null);
 
-  if (error) {
-    if (isMissingTableError(error.message)) return false;
-    // Ante la duda, no se borra: es la opción que no pierde datos.
-    console.error("[isFieldInUse]", error.message);
-    return true;
+    if (error) {
+      if (isMissingTableError(error.message)) continue;
+      // Ante la duda, no se borra: es la opción que no pierde datos.
+      console.error("[isFieldInUse]", error.message);
+      return true;
+    }
+    if ((count ?? 0) > 0) return true;
   }
 
-  return (count ?? 0) > 0;
+  return false;
 }
 
 // ─── Ejemplos ───────────────────────────────────────────────────────────────
@@ -613,6 +671,82 @@ export async function seedLimitlessClientFieldsAction(): Promise<
           sort_order: sortOrder++,
         });
       }
+    }
+
+    if (filas.length > 0) {
+      const { error } = await supabase.from("field_definitions").insert(filas);
+      if (error) throw new Error(error.message);
+    }
+
+    revalidate();
+    revalidatePath(paths.platform.clients.root);
+    return { created: filas.length, skipped };
+  });
+}
+
+/**
+ * Las preguntas del formulario de onboarding, en la solapa «Onboarding».
+ *
+ * ⭐ Mismo criterio que la Plantilla Limitless: botón y no migración, e
+ * idempotente. Una vez cargadas son columnas de la organización: se reescriben
+ * y se archivan desde esta pantalla, y el formulario lee de ahí.
+ *
+ * Sólo con el add-on `growth_partners`: el formulario lo completa cada cliente
+ * de un growth partner.
+ */
+export async function seedOnboardingQuestionsAction(): Promise<
+  MutationResult<{ created: number; skipped: number }>
+> {
+  return runMutation(async () => {
+    await requireFounder();
+    const organizationId = await requireOrganizationId();
+    await requireAddOn(organizationId, "growth_partners");
+    const supabase = await createClient();
+
+    const existing = await listFieldDefinitionsAction("client");
+    const existingKeys = new Set(existing.map((field) => field.key));
+
+    const filas: Record<string, unknown>[] = [];
+    let skipped = 0;
+    let sortOrder = nextSortOrder(existing);
+
+    for (const q of ONBOARDING_QUESTIONS) {
+      if (existingKeys.has(q.key)) {
+        skipped += 1;
+        continue;
+      }
+      existingKeys.add(q.key);
+      filas.push({
+        organization_id: organizationId,
+        entity: "client",
+        key: q.key,
+        label: q.label,
+        description: q.help ?? null,
+        field_type: q.options ? "select" : "text",
+        options: (q.options ?? []).map((o, index) => ({
+          value: o.value,
+          label: o.label,
+          color: `cat-${(index % 6) + 1}`,
+          archived: false,
+        })),
+        options_source: "inline",
+        unit: null,
+        currency: null,
+        alert_days_before: null,
+        // Obligatoria en el formulario, no en la ficha: el equipo tiene que
+        // poder guardar un cliente a medio cargar.
+        is_required: false,
+        section: "onboarding",
+        onboarding: {
+          step: q.step,
+          question: q.question ?? null,
+          required: q.required ?? true,
+          showIf: q.showIf ?? null,
+          audio: q.audio ?? null,
+        },
+        show_in_table: false,
+        sort_order: sortOrder++,
+      });
     }
 
     if (filas.length > 0) {

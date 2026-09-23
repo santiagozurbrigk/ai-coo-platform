@@ -26,6 +26,7 @@ import {
 } from "@/app/clients/sub-client-actions";
 import { ACCION_DE_FILA, FichaCard } from "@/components/clients/ficha-section";
 import { SectionFieldsPanel } from "@/components/clients/section-fields-panel";
+import { SubClientOnboarding } from "@/components/clients/sub-client-onboarding";
 import { instagramLabel, legacySectionValues, type SubClient } from "@/lib/clients/sub-clients";
 import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
@@ -341,6 +342,13 @@ export function ClientSubClientsCard({
                 </div>
               </div>
             )}
+
+            <SubClientOnboarding
+              key={`onboarding-${selected.id}`}
+              subClient={selected}
+              fields={sectionFields}
+              onSubmissionSeen={() => void cargar()}
+            />
 
             <SectionFieldsPanel
               key={selected.id}
