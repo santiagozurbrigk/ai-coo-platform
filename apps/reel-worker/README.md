@@ -10,7 +10,7 @@ Recibe jobs de QStash enviados desde `apps/web` y:
 2. **Genera 5 variantes** con FFmpeg:
    - `V1` — Velocidad +25% (`setpts=0.8*PTS + atempo=1.25`)
    - `V2` — Velocidad -15% (`setpts=1.15*PTS + atempo=0.87`)
-   - `V3` — Música de fondo mezclada al 20% (primero la música propia de la org, después `luts/background-music.mp3`; sin ninguna, conserva el audio original)
+   - `V3` — Música de fondo mezclada al 20% (`processor.ts` prevé la música propia de la org, pero `jobPayloadSchema` no declara `reelMusicPath` y zod la descarta: hoy sólo usaría `luts/background-music.mp3`, que no está, así que conserva el audio original; ver `[TRIAL-REELS-MUSICA]`)
    - `V4` — Subtítulos quemados (drawtext)
    - `V5` — LUT de color cálido (`lut3d` o `eq`)
 3. **Reescribe metadatos** de cada variante (anti-fingerprint):
@@ -69,7 +69,7 @@ Colocar los siguientes archivos en `luts/`:
 - `warm.cube` — LUT de color cálido para la variante V5
 - `background-music.mp3` — Música de fondo para la variante V3
 
-Sin estos archivos, las variantes usan fallbacks: V5 usa el filtro `eq`; V3 usa la música propia de la org si el job trae una y, si no, conserva el audio original. Hoy en el repo sólo está `warm.cube`.
+Sin estos archivos, las variantes usan fallbacks: V5 usa el filtro `eq`; V3 conserva el audio original (la música propia de la org no llega al processor: `[TRIAL-REELS-MUSICA]`). Hoy en el repo sólo está `warm.cube`.
 
 ## Variables de entorno
 

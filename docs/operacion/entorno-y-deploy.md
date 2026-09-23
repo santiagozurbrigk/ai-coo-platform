@@ -134,7 +134,7 @@ Vercel **no aplica migraciones**. El orden es: aplicar la migración en Supabase
 - Deploy manual: `fly deploy --config apps/reel-worker/fly.toml` (o `cd apps/reel-worker && fly deploy`). **No hay deploy automático** ni CI para este worker.
 - Secrets con `fly secrets set` (lista arriba).
 - Endpoints: `GET /health`, `POST /` (procesa el job **sincrónicamente**, con la conexión abierta para que Fly no apague la máquina: descarga de Storage, 5 variantes con FFmpeg, captions con Haiku, sube a `trial-reels`, marca el job `preview_ready`; responde 200 aunque falle, para que QStash no reintente). `fly.toml` no define health check.
-- Assets opcionales en `apps/reel-worker/luts/`: está `warm.cube`; falta `background-music.mp3`. La V3 usa primero la música propia de la org (`reelMusicPath` del job); sin ninguna de las dos, conserva el audio original y se diferencia sólo por crop y metadatos. Ver `[TRIAL-4]` en marketing.
+- Assets opcionales en `apps/reel-worker/luts/`: está `warm.cube`; falta `background-music.mp3`. Sin ese archivo la V3 conserva el audio original y se diferencia sólo por crop y metadatos; la música propia de la org no llega porque el schema del worker descarta `reelMusicPath` (`[TRIAL-REELS-MUSICA]`). Ver `[TRIAL-4]` en marketing.
 
 ## `apps/discord-bot` en Railway
 
