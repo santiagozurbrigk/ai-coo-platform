@@ -622,6 +622,13 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 ### Ventas · P1
 
+#### [FATHOM-WEBHOOK-MIEMBRO-ROTO] El webhook de Fathom por miembro no puede guardar ninguna grabación
+- **Tipo:** bug
+- **Estado verificado:** ítem nuevo (2026-09-23). `app/api/integrations/fathom/webhook/[token]/route.ts:76-87` hace `upsert` en `fathom_calls` con `{ organization_id, fathom_call_id, user_id, raw_payload, status }`. En producción `fathom_calls` **no tiene** columna `raw_payload` (ni en migraciones ni en `information_schema`, consultado 2026-09-23) y `title` es `NOT NULL` sin default (`20260522000000_phase11_integrations.sql`), así que PostgREST rechaza el upsert y la ruta responde 500. Aunque se guardara, la fila quedaría sin `processed_after` (el cron exige `.lte("processed_after", now)`, `lib/fathom/process-call.ts:97-103`), sin `calendar_invitees` ni transcript (el pipeline no vuelve a pedir la reunión, sólo el título y con la key de la org) y con `ingest_source` en `'sync'`. Hoy las grabaciones de un miembro sólo entran con el botón "Sincronizar mis llamadas" (`syncMemberFathomAction`). Lo tapa `[B-FATHOM-NUNCA-PROBADO]`: nunca se probó con una cuenta real.
+- **Qué hay que hacer:** que el webhook reuse `upsertFathomCallFromMeeting` (`lib/fathom/sync.ts`) con el cuerpo del webhook mapeado, o que sólo encole el id y el cron pida la reunión con la key del miembro; guardar el crudo en una columna que exista (o crearla) antes de interpretarlo; setear `processed_after`, `user_id` e `ingest_source = 'webhook'`.
+- **Criterio de aceptación:** Un POST firmado al webhook de un miembro con el cuerpo real de `new-meeting-content-ready` responde 200 y deja una fila en fathom_calls con title, calendar_invitees, user_id del miembro, ingest_source = 'webhook' y processed_after; la siguiente corrida de /api/integrations/fathom/process la clasifica; hay un test de la ruta con un payload de ejemplo
+- **Dónde:** `apps/web/app/api/integrations/fathom/webhook/[token]/route.ts`, `apps/web/lib/fathom/sync.ts`.
+
 #### [CLOSER-AMOUNT-CLOSED] La pestaña Equipo de Closing siempre sale vacía
 - **Tipo:** bug
 - **Estado verificado:** `[AUDITORIA-ABIERTOS]` punto 8 / auditoría §3 "Dinero y datos". `getCloserMetricsAction` (`app/sales/closer-actions.ts:151`) selecciona `closing_calls.amount_closed`, que no existe en ninguna migración ni en producción; el error devuelve `[]`. Lo consume `components/closing/closers-ranking.tsx`.
@@ -688,7 +695,7 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 #### [B-FATHOM-NUNCA-PROBADO] Keys de Fathom por miembro nunca probadas contra Fathom
 - **Tipo:** verificación manual
-- **Estado verificado:** el código existe (`app/fathom/member-actions.ts`, `lib/fathom/webhooks.ts`, `app/api/integrations/fathom/webhook/[token]/route.ts`). La firma se asume HMAC-SHA256 con tres headers posibles. CHANGES.md no registra una prueba real.
+- **Estado verificado:** el código existe (`app/fathom/member-actions.ts`, `lib/fathom/webhooks.ts`, `app/api/integrations/fathom/webhook/[token]/route.ts`). La firma se asume HMAC-SHA256 con tres headers posibles. CHANGES.md no registra una prueba real. Aunque la firma valide, el guardado del webhook falla hoy por código (ver `[FATHOM-WEBHOOK-MIEMBRO-ROTO]`); la sincronización manual por miembro sí guarda.
 - **Qué hay que hacer:** ver `docs/operacion/verificacion-manual.md` § Ventas ("Fathom por miembro").
 - **Criterio de aceptación:** Se ejecutó el paso de verificacion-manual.md § Ventas 6 («Fathom por miembro») con cuentas reales de Fathom y el resultado quedó anotado (incluido si la firma del webhook valida); si falló, se abrió un ítem nuevo
 - **Dónde:** idem.
@@ -731,7 +738,7 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 #### [METRICAS-SHOW-RATE] El show rate cuenta turnos cancelados en el denominador
 - **Tipo:** bug
 - **Estado verificado:** ítem nuevo. `showRate = asistencias / totalAgendas` y `totalAgendas = callRows.length` (`app/sales/metrics-actions.ts:95-140`), incluye `cancelled`, que según `call-status.ts` son llamadas que nunca ocurrieron.
-- **Qué hay que hacer:** usar `callOccurred`/excluir `cancelled` del denominador (definir con el negocio).
+- **Qué hay que hacer:** excluir `cancelled` del denominador (p. ej. con `callHappened` de `lib/closing/call-status.ts`, que también excluye `scheduled`; definir con el negocio).
 - **Dónde:** `apps/web/app/sales/metrics-actions.ts`.
 
 #### [METRICAS-SNAPSHOT-FALLBACK] Con datos en cero, Métricas muestra el último Excel sin importar el rango
@@ -748,7 +755,7 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 #### [LLAMADAS-FASE-2-PULIR] Calificación previa sin UI
 - **Tipo:** feature
-- **Estado verificado:** `setLeadQualificationAction` acepta `moment: "pre"` (`app/sales/lead-actions.ts:532-551`) pero ningún componente la llama con `pre`; el drawer sólo la muestra. El resto del ítem (responsable) está resuelto.
+- **Estado verificado:** `setLeadQualificationAction` acepta `moment: "pre"` (`app/sales/lead-actions.ts:530-556`) pero ningún componente la llama con `pre`; el drawer sólo la muestra. El resto del ítem (responsable) está resuelto.
 - **Qué hay que hacer:** exponer la calificación previa en el drawer del turno.
 - **Dónde:** `apps/web/components/closing/lead-detail-drawer.tsx`.
 
@@ -772,7 +779,7 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 #### [TOKENS-TEXTO-PLANO] (parte Ventas) Tokens de Calendly, Fathom org y ManyChat sin cifrar
 - **Tipo:** seguridad
-- **Estado verificado:** auditoría §3 "Seguridad" 2. `calendly_integrations.access_token/refresh_token` (`lib/calendly/oauth-token.ts`), `fathom_integrations.api_key` (`lib/fathom/process-call.ts:143`) en claro; RLS cerrado. La key por miembro sí se cifra.
+- **Estado verificado:** auditoría §3 "Seguridad" 2. `calendly_integrations.access_token/refresh_token` (`lib/calendly/oauth-token.ts`), `fathom_integrations.api_key` (`lib/fathom/process-call.ts:145-147`) en claro; RLS cerrado. La key por miembro sí se cifra.
 - **Qué hay que hacer:** cifrar al escribir con `lib/security/encryption` y migrar lo guardado.
 - **Dónde:** `apps/web/lib/calendly/*`, `apps/web/lib/fathom/connect.ts`.
 
@@ -804,13 +811,13 @@ Doc del área: [`docs/areas/ventas.md`](./docs/areas/ventas.md)
 
 #### [VENTAS-E2E] Ninguna pantalla de Ventas tiene Playwright
 - **Tipo:** tests
-- **Estado verificado:** `apps/web/e2e/` sólo tiene `auth.setup.ts` y `holding.spec.ts`. Incluye la tabla de seguimiento de `[LLAMADAS-FASE-2-PULIR]`.
+- **Estado verificado:** `apps/web/e2e/` sólo tiene `auth.setup.ts`, `constants.ts` y `holding.spec.ts` (único spec). Incluye la tabla de seguimiento de `[LLAMADAS-FASE-2-PULIR]`.
 - **Qué hay que hacer:** smoke de Closing (seguimiento, editar celda) y Cobros (registrar cuota).
 - **Dónde:** `apps/web/e2e/`.
 
 #### [ZERNIO-EMOJIS-JSX] Emojis como íconos en la bandeja
 - **Tipo:** deuda técnica
-- **Estado verificado:** `TAG_CONFIG` en `components/sales/zernio-inbox-panel.tsx:39-48` usa emojis en las etiquetas, contra la regla de UI.
+- **Estado verificado:** `TAG_CONFIG` en `components/sales/zernio-inbox-panel.tsx:39-48` y su copia en `components/sales/zernio-side-panel.tsx:16-25` usan emojis en las etiquetas, contra la regla de UI.
 - **Qué hay que hacer:** reemplazar por íconos Lucide.
 - **Dónde:** idem.
 
@@ -1079,8 +1086,8 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-INSTRUMENTATION-DESACTUALIZADA] Texto visible en /funnels que dice cosas falsas
 - **Tipo:** bug
-- **Estado verificado:** `INSTRUMENTATION_TOOLS` en `lib/funnels/instrumentation.ts` se muestra en `/funnels` (`blockingTools()` → `otcNote`). La nota de `crm_pipeline` dice que GHL "NO consume /opportunities ni /pipelines" (existen `lib/ghl/sync-pipelines.ts` y el webhook). La de `checkout` dice "Cubierto por Stripe y Mercado Pago" con estado `equivalent`, pero el resolver sólo lee Whop/Commas (`payment_orders`): los datos de Stripe/MP no llegan a ningún embudo. Hoy en pantalla se ve sólo la nota de GHL (`partial`): `blockingTools()` filtra `missing`/`partial`, así que la de checkout (`equivalent`) está mal pero no se muestra (revisado 2026-09-23). También el comentario de `DEFAULT_DM_BINDINGS` dice que no hay fuente de disparadores (existe `zernio_comment_triggers`).
-- **Qué hay que hacer:** corregir `otcStatus`/`otcNote` de GHL y checkout (checkout = `available` vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), actualizar el comentario, y ajustar `instrumentation.test.ts` si fija esos estados.
+- **Estado verificado:** `INSTRUMENTATION_TOOLS` en `lib/funnels/instrumentation.ts` se muestra en `/funnels` y en `/funnels/[funnelId]/configurar` (`blockingTools()` → `otcNote`). Hay otras dos notas viejas que no se ven en pantalla: `meta_ads` dice "Live fetch, no persiste" (hoy se persiste en `ad_metrics_daily`) y `REPORTING_CADENCE.daily` dice `missing` / "Falta el cron de pulso diario" (existe `executive-report-daily`). La nota de `crm_pipeline` dice que GHL "NO consume /opportunities ni /pipelines" (existen `lib/ghl/sync-pipelines.ts` y el webhook). La de `checkout` dice "Cubierto por Stripe y Mercado Pago" con estado `equivalent`, pero el resolver sólo lee Whop/Commas (`payment_orders`): los datos de Stripe/MP no llegan a ningún embudo. Hoy en pantalla se ve sólo la nota de GHL (`partial`): `blockingTools()` filtra `missing`/`partial`, así que la de checkout (`equivalent`) está mal pero no se muestra (revisado 2026-09-23). También el comentario de `DEFAULT_DM_BINDINGS` dice que no hay fuente de disparadores (existe `zernio_comment_triggers`).
+- **Qué hay que hacer:** corregir `otcStatus`/`otcNote` de GHL y checkout (checkout = `available` vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), la nota de `meta_ads` y `REPORTING_CADENCE.daily` (el pulso diario de la org existe, aunque no lee embudos), actualizar el comentario, y ajustar `instrumentation.test.ts` si fija esos estados.
 - **Criterio de aceptación:** La lista de herramientas de /funnels ya no dice que GHL 'no consume /opportunities ni /pipelines'; checkout figura como disponible vía Whop/Commas y aclara que Stripe y Mercado Pago no alimentan los embudos; instrumentation.test.ts refleja esos estados y los tests pasan
 - **Dónde:** `apps/web/lib/funnels/instrumentation.ts`, `apps/web/lib/funnels/sources.ts`.
 
@@ -1171,13 +1178,13 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-SNAPSHOTS] Snapshots periódicos y pulso diario (Fase 5)
 - **Tipo:** feature
-- **Estado verificado:** `funnel_period_snapshots` existe en producción sin uso; `REPORTING_CADENCE.daily` dice "Falta el cron de pulso diario". Sin snapshots, los números de fuentes live (Zernio triggers) no tienen historia.
-- **Qué hay que hacer:** cron que resuelva cada instancia activa y guarde el snapshot; decidir si el pulso diario es un reporte o un aviso.
+- **Estado verificado:** `funnel_period_snapshots` existe en producción sin uso. El pulso diario ya existe como reporte ejecutivo de la org (cron `executive-report-daily`, `lib/executive-reports/generate-daily.ts`, ver `[REPORTES-PULSO-DIARIO]`) pero no lee los embudos; `REPORTING_CADENCE.daily` igual sigue diciendo "Falta el cron de pulso diario". Sin snapshots, los números de fuentes live (Zernio triggers) no tienen historia.
+- **Qué hay que hacer:** cron que resuelva cada instancia activa y guarde el snapshot; decidir si el pulso diario existente (`executive-report-daily`) suma los números de los embudos (spend, leads, CPL, bookings, roturas) y corregir `REPORTING_CADENCE.daily`.
 - **Dónde:** `apps/web/lib/funnels/resolve.ts`, nuevo cron.
 
 #### [EMBUDOS-PERMISOS-ACCIONES] Server actions de embudos e integraciones sin chequeo de permiso
 - **Tipo:** seguridad
-- **Estado verificado:** `app/funnels/actions.ts`, `app/ghl/*`, `app/vturb/actions.ts`, `app/hyros/actions.ts`, `app/webinarjam/actions.ts` sólo usan `requireOrganizationId()`; la página se bloquea por permiso `funnels` en el layout, pero la acción no. Un miembro con acceso "ver" puede crear embudos, cambiar bindings o regenerar el secreto del webhook de GHL (lo que corta la entrega). RLS de `funnel_*` es `FOR ALL` para cualquier miembro. Parte de `[PERMISOS-SERVER-ACTIONS]` (área Permisos).
+- **Estado verificado:** `app/funnels/actions.ts`, `app/ghl/*`, `app/vturb/actions.ts`, `app/hyros/actions.ts`, `app/webinarjam/actions.ts`, `app/payments/actions.ts` sólo usan `requireOrganizationId()`; la página se bloquea por permiso `funnels` en el layout, pero la acción no. Un miembro con acceso "ver" puede crear embudos, cambiar bindings o regenerar el secreto del webhook de GHL (lo que corta la entrega). RLS de `funnel_*` es `FOR ALL` para cualquier miembro. Parte de `[PERMISOS-SERVER-ACTIONS]` (área Permisos).
 - **Qué hay que hacer:** `requireRole()`/permiso de escritura en mutaciones y en conectar/regenerar secretos de integraciones.
 - **Dónde:** archivos citados.
 
@@ -1239,7 +1246,7 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-CODIGO-MUERTO] Código y tablas sin uso
 - **Tipo:** deuda técnica
-- **Estado verificado:** sin llamadas: `searchGHLOpportunities` (ver backfill), `getVTurbQuotaUsage` (además lee `data.usage` y el spec devuelve `{ quotas: [...] }`), `countHyrosLeadsInPeriod` y el cliente de `/leads/journey` (M07 sin fuente), `REPORTING_CADENCE`, `ATTRIBUTION_STACK`; tablas `funnel_benchmarks`, `funnel_period_snapshots`; `payment_integrations.api_key_encrypted` se guarda y no se usa (backfill de pagos no construido).
+- **Estado verificado:** sin llamadas: `searchGHLOpportunities` (ver backfill), `getVTurbQuotaUsage` (además lee `data.usage` y el spec devuelve `{ quotas: [...] }`), `countHyrosLeadsInPeriod` y el cliente de `/leads/journey` (`getHyrosLeadJourneys`; sólo lo llama `getHyrosLeadJourneyAction`, que ninguna pantalla usa — M07 sin fuente), `REPORTING_CADENCE`, `ATTRIBUTION_STACK`; tablas `funnel_benchmarks`, `funnel_period_snapshots`; `payment_integrations.api_key_encrypted` se guarda y no se usa (backfill de pagos no construido).
 - **Qué hay que hacer:** usar o borrar; corregir `getVTurbQuotaUsage` si se va a usar.
 - **Dónde:** `lib/ghl/client.ts`, `lib/vturb/client.ts`, `lib/hyros/client.ts`, `lib/funnels/instrumentation.ts`.
 

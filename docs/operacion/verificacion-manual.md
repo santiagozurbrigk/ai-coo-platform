@@ -55,7 +55,7 @@ sumá su bloque en la sección de su área con el mismo formato.
 **Prerrequisitos:** super admin; `NEXT_PUBLIC_APP_URL` de prod o preview con Supabase.
 
 1. ⭐ Crear una cuenta founder desde Super Admin → Organizaciones → Nueva y entrar. Resultado: **primero** pide cambiar la contraseña, **después** cae en `/onboarding` (sin `ERR_TOO_MANY_REDIRECTS`).
-2. El paso 1 llega con moneda y zona horaria sin elegir.
+2. ⚠️ El paso 1 debería llegar con moneda y zona horaria sin elegir (la migración `20260831130000` sacó los defaults). **Probable falla**: `getOnboardingGateDefaultsAction` rellena el null con USD y Buenos Aires y los selects no tienen opción vacía, así que llegan preseleccionados (`[ONBOARDING-GATE-DEFAULTS-PRESELECCIONADOS]`).
 3. Navegar a `/dashboard` desde el gate. Resultado: vuelve al gate.
 4. El gate se muestra sin notch nav.
 5. Completar los tres pasos. Resultado: redirige al panel y la animación de bienvenida corre una sola vez.
