@@ -234,7 +234,7 @@ Orden sugerido: (1) sacar `conversations` del provider y de métricas/embudo, (2
 
 ## Limitaciones conocidas y deuda
 
-Detalle y prioridad en `PENDIENTES.md` (scratchpad de la auditoría) → `PENDIENTES.md`.
+Detalle y prioridad en [`PENDIENTES.md` § Ventas](../../PENDIENTES.md#ventas).
 
 - **`/sales/llamadas` siempre vacía** `[LLAMADAS-EMBED-ROTO]`: `getSalesCallsAction` embebe
   `call_analyses(...)` desde `fathom_calls`, pero no hay FK entre las dos tablas (verificado en prod);

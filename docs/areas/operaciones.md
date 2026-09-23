@@ -34,7 +34,7 @@ Rutas canónicas en `apps/web/routes/paths.ts` (`paths.platform.{operations,sops
 | `/operations/overview` | `app/(platform)/operations/overview/page.tsx` → `components/operations/operations-overview.tsx` | Reporte semanal IA (resumen, riesgos, cuellos de botella, recomendaciones) si `status = 'ready'`; grilla de departamentos | Reales. Mock (`mocks/operations-overview.ts`) sólo sin Supabase |
 | `/operations/inputs` | `app/(platform)/operations/inputs/page.tsx` | Dos tabs: "Por departamento" (formulario por depto + botón de generar reporte + historial) y "Input rápido". El founder arranca en la primera, el resto en la segunda | Reales |
 | `/operations/weekly-inputs`, `/operations/team-inputs` | redirects a `/operations/inputs` | — | — |
-| `/team` | `app/(platform)/team/page.tsx` → `components/team/team-overview.tsx` | Miembros (con tarifa por hora), roles custom con grilla de 13 módulos, invitaciones pendientes | Reales. Sin Supabase: todo vacío |
+| `/team` | `app/(platform)/team/page.tsx` → `components/team/team-overview.tsx` | Miembros (la tarifa por hora no tiene pantalla de carga: `[EQUIPO-TARIFA-SIN-UI]`), roles custom con grilla de 13 módulos, invitaciones pendientes | Reales. Sin Supabase: todo vacío |
 | `/team/members`, `/team/roles` | redirects a `/team#miembros` / `#roles` | — | — |
 | `/invite?token=` | `app/invite/page.tsx` (fuera de `(platform)`) | Aceptar una invitación de `team_invitations` | Ver "Lo que ya no existe" |
 

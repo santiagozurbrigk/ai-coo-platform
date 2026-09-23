@@ -23,7 +23,7 @@
 | **P2** | Mejora, deuda o limpieza con costo acotado. |
 | **P3** | Idea, feature futura o decisión de negocio sin urgencia. |
 
-**Tipos:** bug · seguridad · verificación manual · deuda técnica · feature · decisión de negocio · tests.
+**Tipos:** bug · seguridad · verificación manual · deuda técnica · feature · decisión de negocio · tests · investigación.
 
 
 ## P0 — lo que rompe o arriesga plata, datos o seguridad
@@ -45,12 +45,12 @@
 | Área | Doc | P0 | P1 | P2 | P3 |
 |---|---|---|---|---|---|
 | [Plataforma: auth, permisos, holding, super admin, panel, onboarding, UI y Discord](#plataforma-auth-permisos-holding-super-admin-panel-onboarding-ui-y-discord) | [`docs/areas/plataforma.md`](./docs/areas/plataforma.md) | 2 | 11 | 25 | 16 |
-| [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 9 |
+| [Clientes](#clientes) | [`docs/areas/clientes.md`](./docs/areas/clientes.md) | 0 | 8 | 15 | 10 |
 | [Ventas](#ventas) | [`docs/areas/ventas.md`](./docs/areas/ventas.md) | 2 | 13 | 14 | 6 |
 | [Marketing](#marketing) | [`docs/areas/marketing.md`](./docs/areas/marketing.md) | 1 | 8 | 18 | 4 |
 | [Embudos y Lanzamientos](#embudos-y-lanzamientos) | [`docs/areas/embudos.md`](./docs/areas/embudos.md) | 1 | 7 | 15 | 7 |
 | [Agente de negocio e IA](#agente-de-negocio-e-ia) | [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md) | 1 | 8 | 17 | 6 |
-| [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 13 | 9 |
+| [Operaciones, Finanzas y Producto](#operaciones-finanzas-y-producto) | [`docs/areas/operaciones.md`](./docs/areas/operaciones.md) | 1 | 7 | 14 | 9 |
 | [Infraestructura, seguridad y tests (transversal)](#infraestructura-seguridad-y-tests-transversal) | [`docs/arquitectura/vision-general.md`](./docs/arquitectura/vision-general.md) | 1 | 18 | 38 | 8 |
 
 ---
@@ -493,6 +493,12 @@ Doc del área: [`docs/areas/clientes.md`](./docs/areas/clientes.md)
 - **Dónde:** `apps/web/app/clients/win-actions.ts:351`.
 
 ### Clientes · P3
+
+#### [INVESTIGAR-LIBRERIAS-CRM] (nuevo) Investigar librerías tipo HubSpot / Pipedrive / Salesforce
+- **Tipo:** investigación
+- **Estado verificado:** pedido de Agustín en la reunión del 2026-09-23: varias pantallas buscan parecerse a esos CRM. No hay nada evaluado. Fernando se ofreció a tomarlo.
+- **Qué hay que hacer:** relevar librerías open source confiables para pipeline/ficha de contacto, compararlas contra construirlo propio (costo de depender de un tercero) y traer una recomendación. Prioridad a definir por Agustín.
+- **Dónde:** `docs/areas/clientes.md`, `docs/areas/ventas.md`.
 
 #### [C0-JOURNEY-STAGES-UI] `options_source = 'journey_stages'` no se puede elegir (de `[C0-PENDIENTES]`)
 - **Tipo:** feature
@@ -997,7 +1003,7 @@ Doc del área: [`docs/areas/embudos.md`](./docs/areas/embudos.md)
 
 #### [EMBUDOS-INSTRUMENTATION-DESACTUALIZADA] Texto visible en /funnels que dice cosas falsas
 - **Tipo:** bug
-- **Estado verificado:** `INSTRUMENTATION_TOOLS` en `lib/funnels/instrumentation.ts` se muestra en `/funnels` (`blockingTools()` → `otcNote`). La nota de `crm_pipeline` dice que GHL "NO consume /opportunities ni /pipelines" (existen `lib/ghl/sync-pipelines.ts` y el webhook). La de `checkout` dice "Cubierto por Stripe y Mercado Pago" con estado `equivalent`, pero el resolver sólo lee Whop/Commas (`payment_orders`): los datos de Stripe/MP no llegan a ningún embudo. También el comentario de `DEFAULT_DM_BINDINGS` dice que no hay fuente de disparadores (existe `zernio_comment_triggers`).
+- **Estado verificado:** `INSTRUMENTATION_TOOLS` en `lib/funnels/instrumentation.ts` se muestra en `/funnels` (`blockingTools()` → `otcNote`). La nota de `crm_pipeline` dice que GHL "NO consume /opportunities ni /pipelines" (existen `lib/ghl/sync-pipelines.ts` y el webhook). La de `checkout` dice "Cubierto por Stripe y Mercado Pago" con estado `equivalent`, pero el resolver sólo lee Whop/Commas (`payment_orders`): los datos de Stripe/MP no llegan a ningún embudo. Hoy en pantalla se ve sólo la nota de GHL (`partial`): `blockingTools()` filtra `missing`/`partial`, así que la de checkout (`equivalent`) está mal pero no se muestra (revisado 2026-09-23). También el comentario de `DEFAULT_DM_BINDINGS` dice que no hay fuente de disparadores (existe `zernio_comment_triggers`).
 - **Qué hay que hacer:** corregir `otcStatus`/`otcNote` de GHL y checkout (checkout = `available` vía Whop/Commas, aclarando que Stripe/MP no alimentan embudos), actualizar el comentario, y ajustar `instrumentation.test.ts` si fija esos estados.
 - **Dónde:** `apps/web/lib/funnels/instrumentation.ts`, `apps/web/lib/funnels/sources.ts`.
 
@@ -1198,9 +1204,9 @@ Doc del área: [`docs/areas/agente-ia.md`](./docs/areas/agente-ia.md)
 
 #### [INTELIGENCIA-FUENTES-LEGACY] (nuevo) Inteligencia y reportes leen tablas legacy
 - **Tipo:** bug
-- **Estado verificado:** `lib/intelligence/collect-context.ts` lee `conversations` (líneas 128 y 186; 0 filas en prod) y `content_assets` (línea 209; 6 filas) en vez de `sales_leads` (1252) y `content_pieces` (150). `lib/intelligence/memory-chunks.ts` también usa `content_assets`. Los reportes y el snapshot ven marketing y DMs vacíos.
+- **Estado verificado:** `lib/intelligence/collect-context.ts` lee `conversations` (líneas 128 y 186; 0 filas en prod) y `content_assets` (línea 209; 6 filas) en vez de `sales_leads` (1252) y `content_pieces` (150). `lib/intelligence/memory-chunks.ts` también usa `content_assets`, y el tono del founder (`lib/founder-tone/collect-sources.ts`) también. Los reportes y el snapshot ven marketing y DMs vacíos.
 - **Qué hay que hacer:** pasar a `sales_leads` y `content_pieces` (métricas vía `content_pieces.metrics`), revisar `hasMeaningfulData`.
-- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/intelligence/memory-chunks.ts`, `lib/executive-reports/compute-departments.ts`.
+- **Dónde:** `apps/web/lib/intelligence/collect-context.ts`, `lib/intelligence/memory-chunks.ts`, `lib/executive-reports/compute-departments.ts`, `lib/founder-tone/collect-sources.ts`.
 
 #### [AGENTE-SIN-FALLBACK-CLAVE] (nuevo) El agente SSE no cae a la clave global
 - **Tipo:** bug
@@ -1466,6 +1472,12 @@ Doc del área: [`docs/areas/operaciones.md`](./docs/areas/operaciones.md)
 - **Dónde:** `supabase/migrations/` (nueva), `apps/web/lib/{sops,workboard}/constants.ts`.
 
 ### Operaciones, Finanzas y Producto · P2
+
+#### [EQUIPO-TARIFA-SIN-UI] (nuevo) No hay pantalla para cargar la tarifa por hora
+- **Tipo:** bug
+- **Estado verificado:** `setMemberHourlyRateAction` escribe `profiles.hourly_rate` pero no tiene llamador; `/team` recibe `canEditRates` y no lo usa. El reporte de costo por persona depende de esa tarifa y el paso 5.8 de `verificacion-manual.md` asume que se puede cargar.
+- **Qué hay que hacer:** agregar la edición de tarifa en la lista de miembros de `/team` (sólo founder/admin, según `canEditRates`) o sacar el reporte de costo hasta que exista.
+- **Dónde:** `apps/web/components/team/team-overview.tsx`, `apps/web/app/(platform)/team/page.tsx`.
 
 #### [OPS-SOP-VIDEO-NO-SE-BORRA] Los videos de SOP quedan para siempre en el bucket [Operaciones y equipo]
 - **Tipo:** deuda técnica

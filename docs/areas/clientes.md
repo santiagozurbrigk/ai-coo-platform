@@ -162,7 +162,7 @@ PlatformDataProvider.listClientsAction()  ← select * de clients (incluye custo
 | `[PERMISOS-SERVER-ACTIONS]` | Roles sin enforcement en actions/RLS |
 | `[TRACKERS-RIESGO-PAGOS]` | «Pago atrasado» sólo mira `clients.installments` |
 
-Lista completa y verificada: scratchpad `PENDIENTES.md` (a volcar en `PENDIENTES.md` § Clientes).
+Lista completa y verificada: [`PENDIENTES.md` § Clientes](../../PENDIENTES.md#clientes).
 
 ## Tests
 
