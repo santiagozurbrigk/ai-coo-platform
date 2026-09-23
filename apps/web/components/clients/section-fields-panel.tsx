@@ -1,7 +1,11 @@
 "use client";
 
 /**
- * Los tres apartados de información del cliente: Marketing, Ventas y Sistemas.
+ * Los tres apartados de información: Marketing, Ventas y Sistemas.
+ *
+ * ⭐ Desde el add-on `growth_partners` no se cargan en el cliente sino en cada
+ * uno de **sus** clientes (ver `client-sub-clients-card.tsx`): el panel recibe
+ * los valores y cómo guardarlos, y no sabe de quién son.
  *
  * ⭐ Los campos **no están horneados en el código**. Salen de las columnas
  * configurables que cada organización define, agrupadas por su sección. El
@@ -27,16 +31,13 @@ import {
   ClipboardCheck,
   Copy,
   ExternalLink,
-  Layers,
   Loader2,
   Pencil,
   X,
 } from "lucide-react";
-import { updateClientCustomFieldsAction } from "@/app/clients/client-custom-fields-actions";
-import { ACCION_DE_FILA, FichaCard } from "@/components/clients/ficha-section";
+import { ACCION_DE_FILA } from "@/components/clients/ficha-section";
 import { FieldValueCell } from "@/components/clients/custom-fields/field-value-cell";
 import { FieldValueInput } from "@/components/clients/custom-fields/field-value-input";
-import { usePlatformData } from "@/providers";
 import { useToast } from "@/providers/toast-provider";
 import {
   FIELD_SECTION_LABEL,
@@ -44,7 +45,7 @@ import {
   type FieldDefinition,
   type FieldSection,
 } from "@/types/custom-fields";
-import type { Client } from "@/types/clients";
+import type { CustomFieldValues } from "@/types/custom-fields";
 
 /**
  * ¿Lo que pegaron es un link?
@@ -218,15 +219,22 @@ function ValorDelCampo({ field, value }: { field: FieldDefinition; value: unknow
   );
 }
 
-export function ClientSectionsCard({
-  client,
+/**
+ * Las solapas de Marketing, Ventas y Sistemas, con su botón de editar.
+ *
+ * `onSave` devuelve el error como texto, o `null` si guardó: el panel no sabe
+ * si está guardando un cliente o un cliente de un cliente.
+ */
+export function SectionFieldsPanel({
   fields,
+  values,
+  onSave,
 }: {
-  client: Client;
-  /** Las columnas activas del cliente. Se filtran por sección acá adentro. */
+  /** Las columnas activas. Se filtran por sección acá adentro. */
   fields: FieldDefinition[];
+  values: CustomFieldValues;
+  onSave: (values: CustomFieldValues) => Promise<string | null>;
 }) {
-  const { refreshClients } = usePlatformData();
   const { push } = useToast();
   const [editando, setEditando] = useState(false);
   const [draft, setDraft] = useState<Record<string, unknown>>({});
@@ -243,91 +251,48 @@ export function ClientSectionsCard({
     porSeccion[0]?.section ?? "marketing"
   );
 
-  // Sin ningún campo con sección configurado, la tarjeta no existe.
-  if (porSeccion.length === 0) return null;
+  if (porSeccion.length === 0) {
+    return (
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Todavía no hay campos de Marketing, Ventas y Sistemas. Cargalos con
+        «Plantilla Limitless» en Campos personalizados.
+      </p>
+    );
+  }
 
   const grupo = porSeccion.find((g) => g.section === activa) ?? porSeccion[0]!;
 
   const empezarAEditar = () => {
-    setDraft({ ...(client.custom ?? {}) });
+    setDraft({ ...values });
     setEditando(true);
   };
 
   const guardar = async () => {
     setSaving(true);
-    const result = await updateClientCustomFieldsAction({
-      clientId: client.id,
-      values: draft,
-    });
+    const error = await onSave(draft);
     setSaving(false);
 
-    if (!result.success) {
-      push({ title: "No se pudo guardar", description: result.error });
+    if (error) {
+      push({ title: "No se pudo guardar", description: error });
       return;
     }
-    await refreshClients();
     setEditando(false);
     push({ title: "Información guardada", variant: "success" });
   };
 
   return (
-    <FichaCard
-      icon={Layers}
-      title="Información del cliente"
-      action={
-        editando ? (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className={cn(ACCION_DE_FILA, "h-7 w-7 p-0")}
-              title="Cancelar"
-              onClick={() => setEditando(false)}
-              disabled={saving}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="h-7 gap-1.5 px-2 text-xs"
-              onClick={guardar}
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Check className="h-3 w-3" />
-              )}
-              Guardar
-            </Button>
-          </>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 px-2 text-xs"
-            onClick={empezarAEditar}
-          >
-            <Pencil className="h-3 w-3" />
-            Editar
-          </Button>
-        )
-      }
-    >
-      <div className="space-y-3">
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
         {/* Las solapas. Con una sola sección configurada no hacen falta. */}
         {porSeccion.length > 1 ? (
           <div
-            className="flex gap-1 rounded-lg bg-muted/50 p-1 dark:bg-white/[0.03]"
+            className="flex min-w-0 flex-1 gap-1 rounded-lg bg-muted/50 p-1 dark:bg-white/[0.03]"
             role="tablist"
           >
             {porSeccion.map(({ section, fields: campos }) => {
               const activaEsta = section === activa;
               const cargados = campos.filter((field) => {
-                const value = client.custom?.[field.key];
+                const value = values[field.key];
                 return typeof value === "string" ? value.trim() !== "" : value != null;
               }).length;
 
@@ -357,57 +322,101 @@ export function ClientSectionsCard({
               );
             })}
           </div>
-        ) : null}
+        ) : (
+          <div className="flex-1" />
+        )}
 
-        <dl className="space-y-3">
-          {grupo.fields.map((field) => (
-            <div key={field.id} className="space-y-1">
-              {editando ? (
-                <FieldValueInput
-                  field={field}
-                  value={draft[field.key]}
-                  onChange={(value) =>
-                    setDraft((current) => ({ ...current, [field.key]: value }))
-                  }
-                />
-              ) : (
-                <>
-                  <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {field.label}
-                  </dt>
-                  <dd>
-                    {/*
-                      ⭐ Con contenido, el valor entero es un botón que lo abre.
-                      Vacío no: un «—» que se puede apretar promete algo que no
-                      pasa. Un link sigue siendo un link y se abre en su pestaña,
-                      así que ahí el botón envuelve sólo el espacio de al lado.
-                    */}
-                    {textoDe(client.custom?.[field.key]) ? (
-                      <button
-                        type="button"
-                        onClick={() => setViendo(field)}
-                        title={`Ver ${field.label} completo`}
-                        className="block w-full rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 dark:hover:bg-white/[0.04]"
-                      >
-                        <ValorDelCampo field={field} value={client.custom?.[field.key]} />
-                      </button>
-                    ) : (
-                      <div className="px-1.5 py-1">
-                        <ValorDelCampo field={field} value={client.custom?.[field.key]} />
-                      </div>
-                    )}
-                  </dd>
-                </>
-              )}
-            </div>
-          ))}
-        </dl>
+        <div className="flex shrink-0 items-center gap-1">
+          {editando ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className={cn(ACCION_DE_FILA, "h-7 w-7 p-0")}
+                title="Cancelar"
+                onClick={() => setEditando(false)}
+                disabled={saving}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="h-7 gap-1.5 px-2 text-xs"
+                onClick={guardar}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Check className="h-3 w-3" />
+                )}
+                Guardar
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={cn(ACCION_DE_FILA, "h-7 w-7 p-0")}
+              title="Editar"
+              onClick={empezarAEditar}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
+
+      <dl className="space-y-3">
+        {grupo.fields.map((field) => (
+          <div key={field.id} className="space-y-1">
+            {editando ? (
+              <FieldValueInput
+                field={field}
+                value={draft[field.key]}
+                onChange={(value) =>
+                  setDraft((current) => ({ ...current, [field.key]: value }))
+                }
+              />
+            ) : (
+              <>
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {field.label}
+                </dt>
+                <dd>
+                  {/*
+                    ⭐ Con contenido, el valor entero es un botón que lo abre.
+                    Vacío no: un «—» que se puede apretar promete algo que no
+                    pasa.
+                  */}
+                  {textoDe(values[field.key]) ? (
+                    <button
+                      type="button"
+                      onClick={() => setViendo(field)}
+                      title={`Ver ${field.label} completo`}
+                      className="block w-full rounded-md px-1.5 py-1 text-left transition-colors hover:bg-muted/60 dark:hover:bg-white/[0.04]"
+                    >
+                      <ValorDelCampo field={field} value={values[field.key]} />
+                    </button>
+                  ) : (
+                    <div className="px-1.5 py-1">
+                      <ValorDelCampo field={field} value={values[field.key]} />
+                    </div>
+                  )}
+                </dd>
+              </>
+            )}
+          </div>
+        ))}
+      </dl>
 
       {viendo ? (
         <VisorDelCampo
           field={viendo}
-          value={textoDe(client.custom?.[viendo.key])}
+          value={textoDe(values[viendo.key])}
           onClose={() => setViendo(null)}
           onEditar={() => {
             setViendo(null);
@@ -415,6 +424,6 @@ export function ClientSectionsCard({
           }}
         />
       ) : null}
-    </FichaCard>
+    </div>
   );
 }

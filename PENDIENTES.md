@@ -9,6 +9,25 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos 🔴
+
+**Qué es:** la tarjeta «Clientes» (los infoproductores de cada growth partner,
+con su Marketing, Ventas y Sistemas) está construida, y la migración se aplicó en
+producción el 2026-09-23. El add-on `growth_partners` está prendido sólo para
+Limitless. Falta probarla en pantalla.
+
+**Qué hacer:**
+
+1. Seguir `docs/PLAN_VERIFICACION.md` → «Clientes de clientes (growth
+   partners)».
+2. ⭐ **15 clientes de Limitless** tienen datos de Marketing / Ventas / Sistemas
+   cargados en el growth partner mismo. En su ficha aparece el aviso: crear el
+   cliente que corresponda y apretar «Pasarlos a…».
+3. Avisar a **Optimiza tu Control**, si hace falta: había cargado la plantilla
+   (1 cliente con datos) y deja de ver esos apartados.
+
+---
+
 ### [AUDITORIA-ABIERTOS] Lo que la auditoría de backend dejó para el dev de backend 🟠
 
 **Qué es:** la lista priorizada de lo que se encontró y no se arregló en la

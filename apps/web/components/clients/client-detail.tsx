@@ -26,7 +26,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@ai-coo/ui";
 import { ExternalLink, History, PhoneCall, Sparkles } from "lucide-react";
 import { usePlatformData } from "@/providers";
-import { useModuleAccess } from "@/providers/permissions-provider";
+import { useHasAddOn, useModuleAccess } from "@/providers/permissions-provider";
 import { useToast } from "@/providers/toast-provider";
 import { ClientHeader } from "@/components/clients/client-header";
 import { ClientOverviewStrip } from "@/components/clients/client-overview-strip";
@@ -35,7 +35,7 @@ import { ClientLinkedCallsSection } from "@/components/clients/client-linked-cal
 import { ClientOneOnOnesSection } from "@/components/clients/client-one-on-ones";
 import { ClientTasksSection } from "@/components/clients/client-tasks-section";
 import { ClientCustomFieldsSection } from "@/components/clients/client-custom-fields-section";
-import { ClientSectionsCard } from "@/components/clients/client-sections-card";
+import { ClientSubClientsCard } from "@/components/clients/client-sub-clients-card";
 import { ClientRevenueCard } from "@/components/clients/client-revenue-card";
 import { ClientNotesSection } from "@/components/clients/client-notes-section";
 import { ClientSatisfactionSection } from "@/components/clients/client-satisfaction-section";
@@ -54,6 +54,12 @@ export function ClientDetail({ client: initial }: { client: Client }) {
   const client = clients.find((c) => c.id === initial.id) ?? initial;
   /** El atajo a Cobros no se ofrece a quien no puede entrar a Ventas. */
   const puedeVerCobros = useModuleAccess("sales") !== "none";
+  /**
+   * Los clientes del cliente y la facturación de su negocio son del add-on
+   * `growth_partners`, hecho para Limitless. Sin él, ninguna de las dos
+   * tarjetas existe. El servidor lo vuelve a chequear en cada acción.
+   */
+  const growthPartners = useHasAddOn("growth_partners");
 
   /**
    * Las columnas configurables del cliente, pedidas una vez.
@@ -124,14 +130,19 @@ export function ClientDetail({ client: initial }: { client: Client }) {
 
         {/* ── El contexto ────────────────────────────────────────────── */}
         <aside className="min-w-0 space-y-4">
-          {/*
-            Marketing, Ventas y Sistemas: lo que define el negocio del cliente.
-            Va primero porque es el contexto con el que se lee todo lo demás.
-          */}
-          <ClientSectionsCard client={client} fields={clientFields} />
+          {growthPartners ? (
+            <>
+              {/*
+                Los clientes del cliente, con Marketing, Ventas y Sistemas de
+                cada uno. Va primero porque es el contexto con el que se lee
+                todo lo demás.
+              */}
+              <ClientSubClientsCard client={client} fields={clientFields} />
 
-          {/* Cuánto factura su negocio: la medida de si esto está funcionando. */}
-          <ClientRevenueCard clientId={client.id} />
+              {/* Cuánto factura su negocio: la medida de si esto está funcionando. */}
+              <ClientRevenueCard clientId={client.id} />
+            </>
+          ) : null}
 
           {/* Las columnas sueltas, las que no están en ninguna sección. */}
           <ClientCustomFieldsSection client={client} />

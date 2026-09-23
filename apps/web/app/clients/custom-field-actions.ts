@@ -34,6 +34,7 @@ import {
   fieldTypeUsesOptions,
   rowToFieldDefinition,
 } from "@/lib/custom-fields";
+import { orgHasAddOn, requireAddOn } from "@/lib/auth/add-ons";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { firstZodError } from "@/lib/validations";
 import { createClient } from "@/lib/supabase/server";
@@ -174,6 +175,10 @@ export async function createFieldDefinitionAction(
 
     assertOptionsMatchType(values.fieldType, values.options);
 
+    // Los apartados son del add-on `growth_partners`: sin él, la columna va
+    // suelta, que es la única forma en que esa organización la ve.
+    const conApartados = await orgHasAddOn(organizationId, "growth_partners");
+
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("field_definitions")
@@ -193,7 +198,7 @@ export async function createFieldDefinitionAction(
         is_required: values.isRequired,
         // Una sección sólo tiene sentido en las columnas del cliente: son las
         // únicas que se dibujan en apartados de una ficha.
-        section: values.entity === "client" ? values.section : null,
+        section: values.entity === "client" && conApartados ? values.section : null,
         show_in_table: values.showInTable,
         // Al final de la lista: una columna nueva no se mete en el medio de un
         // orden que alguien ya acomodó.
@@ -250,7 +255,8 @@ export async function updateFieldDefinitionAction(
       patch.currency = current.fieldType === "currency" ? changes.currency : null;
     }
     if (changes.section !== undefined) {
-      patch.section = current.entity === "client" ? changes.section : null;
+      const conApartados = await orgHasAddOn(organizationId, "growth_partners");
+      patch.section = current.entity === "client" && conApartados ? changes.section : null;
     }
     if (changes.showInTable !== undefined) patch.show_in_table = changes.showInTable;
 
@@ -568,6 +574,7 @@ export async function seedLimitlessClientFieldsAction(): Promise<
   return runMutation(async () => {
     await requireFounder();
     const organizationId = await requireOrganizationId();
+    await requireAddOn(organizationId, "growth_partners");
     const supabase = await createClient();
 
     const existing = await listFieldDefinitionsAction("client");

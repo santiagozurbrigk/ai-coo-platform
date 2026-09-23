@@ -6,6 +6,9 @@
  * ⚠️ No confundir con `app/clients/payment-actions.ts`: eso es lo que el cliente
  * nos paga a nosotros. Esto es lo que el cliente gana, que es la métrica de si
  * el acompañamiento está sirviendo.
+ *
+ * ⭐ Es del add-on `growth_partners`: sin él las lecturas vuelven vacías y las
+ * escrituras se rechazan.
  */
 
 import { revalidatePath } from "next/cache";
@@ -15,6 +18,7 @@ import {
   isMissingTableError,
   requireOrganizationId,
 } from "@/lib/auth/bootstrap";
+import { orgHasAddOn, requireAddOn } from "@/lib/auth/add-ons";
 import { createClient } from "@/lib/supabase/server";
 import { runMutation, type MutationResult } from "@/lib/server/action-result";
 import { firstZodError } from "@/lib/validations";
@@ -54,6 +58,7 @@ export async function listClientRevenueAction(
   clientId: string
 ): Promise<ClientRevenueEntry[]> {
   const organizationId = await requireOrganizationId();
+  if (!(await orgHasAddOn(organizationId, "growth_partners"))) return [];
   const supabase = await createClient();
 
   const { data, error } = await supabase
@@ -91,6 +96,7 @@ export async function saveClientRevenueAction(
     if (!period) throw new Error("Ese mes no se entiende. Elegilo del calendario.");
 
     const organizationId = await requireOrganizationId();
+    await requireAddOn(organizationId, "growth_partners");
     const profile = await getCurrentProfile();
     const supabase = await createClient();
 
@@ -151,6 +157,7 @@ export async function deleteClientRevenueAction(
 ): Promise<MutationResult<void>> {
   return runMutation(async () => {
     const organizationId = await requireOrganizationId();
+    await requireAddOn(organizationId, "growth_partners");
     const supabase = await createClient();
 
     const { error } = await supabase
@@ -174,6 +181,7 @@ export async function getRevenueByClientAction(): Promise<
 > {
   try {
     const organizationId = await requireOrganizationId();
+    if (!(await orgHasAddOn(organizationId, "growth_partners"))) return {};
     const supabase = await createClient();
 
     const { data, error } = await supabase
