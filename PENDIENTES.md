@@ -9,28 +9,22 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
-### [CLIENTES-DE-CLIENTES-MIGRACION] Aplicar la migración de clientes de clientes 🔴
+### [CLIENTES-DE-CLIENTES-PROBAR] Probar la tarjeta «Clientes» y pasar los datos viejos 🔴
 
-**Qué es:** el 2026-09-23 se construyó la tarjeta «Clientes» (los infoproductores
-de cada growth partner, con su Marketing, Ventas y Sistemas), y se dejó sólo para
-Limitless con el add-on `growth_partners`. La migración
-`20260923100000_clientes_de_clientes.sql` **no está aplicada**: la sesión no tenía
-acceso al proyecto OTC.
-
-**Qué se rompe sin ella:** ninguna organización tiene el add-on, así que **nadie**
-ve la tarjeta «Clientes» ni la Facturación del negocio. Tampoco Limitless.
-Conviene aplicarla antes o junto con el merge.
+**Qué es:** la tarjeta «Clientes» (los infoproductores de cada growth partner,
+con su Marketing, Ventas y Sistemas) está construida, y la migración se aplicó en
+producción el 2026-09-23. El add-on `growth_partners` está prendido sólo para
+Limitless. Falta probarla en pantalla.
 
 **Qué hacer:**
 
-1. Aplicar la migración (`supabase db push`). Si se usa `apply_migration`,
-   corregir la versión en el historial (ver CLAUDE.md, «Migraciones Supabase»).
-2. Confirmar que quedó prendida sólo para Limitless:
-   `select name, enabled_add_ons from organizations where 'growth_partners' = any(enabled_add_ons);`
-   Tiene que devolver una fila. Si devuelve cero, el mail no coincide:
-   prenderlo desde Super Admin → organización → Módulos add-on.
-3. Seguir `docs/PLAN_VERIFICACION.md` → «Clientes de clientes (growth
+1. Seguir `docs/PLAN_VERIFICACION.md` → «Clientes de clientes (growth
    partners)».
+2. ⭐ **15 clientes de Limitless** tienen datos de Marketing / Ventas / Sistemas
+   cargados en el growth partner mismo. En su ficha aparece el aviso: crear el
+   cliente que corresponda y apretar «Pasarlos a…».
+3. Avisar a **Optimiza tu Control**, si hace falta: había cargado la plantilla
+   (1 cliente con datos) y deja de ver esos apartados.
 
 ---
 

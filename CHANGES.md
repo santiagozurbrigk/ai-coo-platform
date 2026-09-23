@@ -85,10 +85,17 @@ las veían todas las organizaciones.
   UI lo escondería.
 
 **Riesgos / deuda técnica pendiente:**
-- **La migración no está aplicada.** El Supabase conectado a la sesión no tiene
-  acceso al proyecto OTC. Hasta aplicarla, **nadie** ve las tarjetas, ni
-  siquiera Limitless, porque ninguna organización tiene el add-on. Ver
-  `[CLIENTES-DE-CLIENTES-MIGRACION]` en PENDIENTES.
+- **Migración aplicada en producción (OTC) el 2026-09-23.** La versión del
+  historial se corrigió a `20260923100000`: 174 en prod, 174 en el repo.
+  Verificado: RLS activo con 4 policies, y el add-on prendido sólo en
+  «Limitless».
+- Antes de aplicar se midió en prod:
+  - **Limitless** tenía 22 campos con sección, 12 meses de facturación y **15
+    clientes con datos de Marketing / Ventas / Sistemas** cargados en el growth
+    partner. Esos son los que muestran el aviso «Pasarlos a…»;
+  - **Optimiza tu Control** también había cargado la plantilla, con 1 cliente
+    con datos. Deja de verlos, por decisión del usuario, y los datos quedan en
+    la base.
 - Se probó contra un Postgres 16 local con stubs mínimos: crea la tabla, prende
   el add-on sólo a la organización del mail, re-correrla no duplica el add-on,
   y el check rechaza un nombre en blanco. No se corrió el job completo de CI
