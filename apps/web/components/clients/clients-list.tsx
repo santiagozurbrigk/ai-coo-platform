@@ -88,7 +88,7 @@ import { useToast } from "@/providers/toast-provider";
 import type { Client, ClientStatus } from "@/types/clients";
 import type { ClientJourneyStatus } from "@/types/checkpoints";
 import { activeFields, fieldOptionColorVar } from "@/lib/custom-fields";
-import { useModuleAccess } from "@/providers/permissions-provider";
+import { useHasAddOn, useModuleAccess } from "@/providers/permissions-provider";
 import { NewClientDialog } from "@/components/clients/new-client-dialog";
 import { ImportClientsDialog } from "@/components/clients/import-clients-dialog";
 import { cn } from "@/lib/utils";
@@ -255,10 +255,20 @@ export function ClientsList({ clients }: { clients: Client[] }) {
    * lista en una planilla de 25 columnas. Se prenden de a una desde Campos
    * personalizados.
    */
+  /*
+    Las de un apartado (Marketing, Ventas, Sistemas) tampoco: con el add-on
+    `growth_partners` se cargan en cada cliente del cliente, no en la fila, y
+    sin él los apartados no existen.
+  */
   const customColumns = useMemo(
-    () => activeFields(clientFields).filter((field) => field.showInTable),
+    () =>
+      activeFields(clientFields).filter(
+        (field) => field.showInTable && field.section === null
+      ),
     [clientFields]
   );
+  /** La facturación del negocio del cliente es del add-on `growth_partners`. */
+  const growthPartners = useHasAddOn("growth_partners");
 
   /** Nombre de cada fase, para la etiqueta de la fase fijada a mano. */
   const stageNameById = useMemo(() => {
@@ -534,7 +544,9 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                 <th className="whitespace-nowrap px-4 py-3 font-medium">Etapa</th>
               ) : null}
               <th className="whitespace-nowrap px-4 py-3 font-medium">Satisfacción</th>
-              <th className="whitespace-nowrap px-4 py-3 font-medium">Facturación</th>
+              {growthPartners ? (
+                <th className="whitespace-nowrap px-4 py-3 font-medium">Facturación</th>
+              ) : null}
               <th className="whitespace-nowrap px-4 py-3 font-medium">Última 1-1</th>
               {customColumns.map((field) => (
                 <th key={field.id} className="whitespace-nowrap px-4 py-3 font-medium">
@@ -624,9 +636,11 @@ export function ClientsList({ clients }: { clients: Client[] }) {
                     <SatisfaccionCell level={client.satisfaction} />
                   </td>
 
-                  <td className="px-4 py-3">
-                    <FacturacionCell summary={revenue[client.id]} />
-                  </td>
+                  {growthPartners ? (
+                    <td className="px-4 py-3">
+                      <FacturacionCell summary={revenue[client.id]} />
+                    </td>
+                  ) : null}
 
                   <td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
                     <LastOneOnOneCell entry={lastOneOnOne[client.id]} />

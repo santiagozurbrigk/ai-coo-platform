@@ -557,6 +557,7 @@ curl -X POST "https://<app-url>/api/cron/sync-content-metrics" \
 | `token_usage` | `organization_id`, modelo, feature, tokens | Costos IA |
 | `holding_businesses` | `holding_org_id`, `business_org_id` | Portfolio holding |
 | `rate_limits` | `key`, `count`, `reset_at` | Contador de rate limiting compartido entre lambdas (`consume_rate_limit`); solo service role |
+| `client_sub_clients` | `client_id`, `name`, `instagram_url`, `custom` (JSONB) | Clientes de un cliente (infoproductores de un growth partner), con Marketing/Ventas/Sistemas. Sólo con el add-on `growth_partners` |
 
 ### RLS (Row Level Security)
 

@@ -9,6 +9,31 @@
 
 ## 🔴 Urgente — Hacer antes de usar con clientes reales
 
+### [CLIENTES-DE-CLIENTES-MIGRACION] Aplicar la migración de clientes de clientes 🔴
+
+**Qué es:** el 2026-09-23 se construyó la tarjeta «Clientes» (los infoproductores
+de cada growth partner, con su Marketing, Ventas y Sistemas), y se dejó sólo para
+Limitless con el add-on `growth_partners`. La migración
+`20260923100000_clientes_de_clientes.sql` **no está aplicada**: la sesión no tenía
+acceso al proyecto OTC.
+
+**Qué se rompe sin ella:** ninguna organización tiene el add-on, así que **nadie**
+ve la tarjeta «Clientes» ni la Facturación del negocio. Tampoco Limitless.
+Conviene aplicarla antes o junto con el merge.
+
+**Qué hacer:**
+
+1. Aplicar la migración (`supabase db push`). Si se usa `apply_migration`,
+   corregir la versión en el historial (ver CLAUDE.md, «Migraciones Supabase»).
+2. Confirmar que quedó prendida sólo para Limitless:
+   `select name, enabled_add_ons from organizations where 'growth_partners' = any(enabled_add_ons);`
+   Tiene que devolver una fila. Si devuelve cero, el mail no coincide:
+   prenderlo desde Super Admin → organización → Módulos add-on.
+3. Seguir `docs/PLAN_VERIFICACION.md` → «Clientes de clientes (growth
+   partners)».
+
+---
+
 ### [AUDITORIA-ABIERTOS] Lo que la auditoría de backend dejó para el dev de backend 🟠
 
 **Qué es:** la lista priorizada de lo que se encontró y no se arregló en la

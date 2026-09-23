@@ -24,6 +24,7 @@ import {
   cn,
 } from "@ai-coo/ui";
 import { Archive, ArchiveRestore, Plus, Trash2 } from "lucide-react";
+import { useHasAddOn } from "@/providers/permissions-provider";
 import {
   FIELD_OPTION_COLORS,
   FIELD_SECTION_LABEL,
@@ -113,6 +114,8 @@ export function FieldDefinitionDialog({
    * ofrecer los controles ahí sería ofrecer algo que no hace nada.
    */
   const esCliente = (field?.entity ?? entity) === "client";
+  /** Los apartados de la ficha son del add-on `growth_partners`. */
+  const growthPartners = useHasAddOn("growth_partners");
   const usesOptions = fieldTypeUsesOptions(draft.fieldType);
   const derivedKey = isEdit ? field.key : deriveFieldKey(draft.label);
   /** Las opciones que ya están guardadas no se pueden sacar, sólo archivar. */
@@ -354,7 +357,7 @@ export function FieldDefinitionDialog({
             </div>
           ) : null}
 
-          {esCliente ? (
+          {esCliente && growthPartners ? (
             <div className="space-y-1.5">
               <Label htmlFor="field-section">Apartado de la ficha</Label>
               <select
@@ -377,8 +380,9 @@ export function FieldDefinitionDialog({
                 ))}
               </select>
               <p className="text-xs text-muted-foreground">
-                Las que tienen apartado se agrupan en «Información del cliente».
-                Las sueltas se muestran aparte, como hasta ahora.
+                Las que tienen apartado se cargan por cada uno de los clientes
+                del cliente, en la tarjeta «Clientes». Las sueltas son del
+                cliente mismo.
               </p>
             </div>
           ) : null}

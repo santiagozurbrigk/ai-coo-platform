@@ -14,6 +14,91 @@
 
 ---
 
+### 2026-09-23 — 👥 Clientes de clientes (growth partners), sólo para Limitless
+
+**Rama/branch:** `claude/beautiful-galileo-o63avo`
+**Commits:** este
+**Módulo(s) afectado(s):** ficha del cliente (`components/clients/`),
+`app/clients/` (actions nuevas y gates), `lib/auth/add-ons.ts` (nuevo),
+`lib/auth/add-on-ids.ts`, `lib/clients/sub-clients.ts` (nuevo), migración
+`20260923100000_clientes_de_clientes`.
+
+**Qué se hizo:**
+
+1. **Add-on `growth_partners`** en `ADD_ON_IDS`. La migración lo prende para la
+   organización cuyo usuario tiene el mail `limitless@limit-less.llc` (busca en
+   `auth.users` y en `profiles.email`, sin distinguir mayúsculas). Después se
+   prende y se apaga desde Super Admin → organización → Módulos add-on.
+2. **Todo lo de la ficha que era de Limitless queda detrás del add-on**, en la
+   UI (`useHasAddOn`) y en el servidor (`requireAddOn` / `orgHasAddOn`, nuevo en
+   `lib/auth/add-ons.ts`):
+   - las tarjetas de Marketing / Ventas / Sistemas y de Facturación del negocio;
+   - la columna Facturación de la tabla de clientes;
+   - el botón «Plantilla Limitless» y el selector «Apartado de la ficha» en
+     Campos personalizados. Sin el add-on, crear o editar un campo lo guarda
+     sin sección;
+   - `revenue-actions.ts`: sin el add-on, las lecturas vuelven vacías y las
+     escrituras se rechazan.
+3. **Tabla `client_sub_clients`**: los clientes del cliente. Tiene nombre, un
+   link opcional (`instagram_url`) y `custom` jsonb con los valores de las
+   columnas con sección. RLS por organización y cascade al borrar el cliente.
+4. **Tarjeta «Clientes»** (`client-sub-clients-card.tsx`) en reemplazo de
+   «Información del cliente»:
+   - agregar con nombre + Instagram (acepta `@usuario`, `usuario`,
+     `instagram.com/x` o cualquier link);
+   - si hay varios, se elige cuál con unas pastillas;
+   - el elegido muestra las mismas solapas de Marketing / Ventas / Sistemas;
+   - el nombre y el link se editan, y el cliente se puede borrar.
+5. **Panel extraído**: `client-sections-card.tsx` pasó a
+   `section-fields-panel.tsx` → `SectionFieldsPanel({ fields, values, onSave })`,
+   que no sabe de quién son los valores.
+6. **Datos viejos:** si el growth partner tiene valores de Marketing / Ventas /
+   Sistemas cargados en `clients.custom`, la tarjeta lo avisa y ofrece
+   «Pasarlos a {cliente}». La lógica es `planLegacyMove`: nunca pisa lo que el
+   destino ya tiene, y lo que no se pasa queda en el growth partner para
+   pasarlo a otro.
+7. **Tabla de clientes:** ya no muestra columnas con sección, porque esos
+   valores ahora son de cada sub-cliente.
+8. 11 tests nuevos en `lib/clients/__tests__/sub-clients.test.ts`.
+
+**Por qué / finalidad:** Limitless vende una consultoría a growth partners, y
+cada uno trabaja con varios infoproductores a la vez. Avatar, oferta, funnel,
+GHL, etc. son del negocio de cada infoproductor, no del partner, y el equipo
+necesita verlos por cada uno. Además, esas tarjetas eran propias de Limitless y
+las veían todas las organizaciones.
+
+**Decisiones de diseño relevantes:**
+- **Add-on y no comparar el mail en runtime:** el mail de un perfil es editable
+  por el propio usuario (`profiles_columnas_protegidas`), y `enabled_add_ons`
+  no: `authenticated` no tiene `update` sobre esa columna. Además queda
+  prendible desde Super Admin para otra organización sin tocar código.
+- **Mínimo, a pedido del usuario:** sólo nombre + link. Sin estado, fechas ni
+  facturación por sub-cliente. La facturación sigue por growth partner, como
+  estaba.
+- **Mismo catálogo de campos:** los sub-clientes usan las columnas con sección
+  de `field_definitions`. No se creó un catálogo paralelo.
+- **Pasar los datos viejos a mano y no por migración:** no se sabe a qué
+  infoproductor corresponde cada dato. Lo decide quien lo conoce.
+- `orgHasAddOn` lee con service role por las cuentas holding: la organización
+  efectiva puede no ser la del perfil. `useHasAddOn` (UI) mira la organización
+  del perfil. En una holding con el add-on en un negocio y no en la holding, la
+  UI lo escondería.
+
+**Riesgos / deuda técnica pendiente:**
+- **La migración no está aplicada.** El Supabase conectado a la sesión no tiene
+  acceso al proyecto OTC. Hasta aplicarla, **nadie** ve las tarjetas, ni
+  siquiera Limitless, porque ninguna organización tiene el add-on. Ver
+  `[CLIENTES-DE-CLIENTES-MIGRACION]` en PENDIENTES.
+- Se probó contra un Postgres 16 local con stubs mínimos: crea la tabla, prende
+  el add-on sólo a la organización del mail, re-correrla no duplica el add-on,
+  y el check rechaza un nombre en blanco. No se corrió el job completo de CI
+  (falta pgvector localmente).
+- Las organizaciones que habían cargado la plantilla dejan de ver esos campos y
+  la facturación: los datos quedan en la base, sin mostrarse. Fue decisión del
+  usuario.
+
+---
+
 ### 2026-09-22 — 🧹 Restos legacy borrados de producción y chequeo de migraciones en el CI
 
 **Rama/branch:** `claude/cool-rubin-ssi5x7`

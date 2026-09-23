@@ -37,6 +37,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { useToast } from "@/providers/toast-provider";
+import { useHasAddOn } from "@/providers/permissions-provider";
 import type { MutationResult } from "@/lib/server/action-result";
 import {
   FIELD_ENTITIES,
@@ -105,6 +106,8 @@ export function CustomFieldsPage({
   canManage: boolean;
 }) {
   const { push } = useToast();
+  /** La plantilla de Marketing, Ventas y Sistemas es del add-on `growth_partners`. */
+  const growthPartners = useHasAddOn("growth_partners");
   const [fields, setFields] = useState(initialFields);
   const [entity, setEntity] = useState<FieldEntity>("win");
   const [editing, setEditing] = useState<FieldDefinition | null>(null);
@@ -238,7 +241,7 @@ export function CustomFieldsPage({
               no un deploy. Vuelve a apretarse sin miedo: las que ya existen se
               saltean.
             */}
-            {key === "client" && canManage ? (
+            {key === "client" && canManage && growthPartners ? (
               <GlassPanel className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">Plantilla Limitless</p>

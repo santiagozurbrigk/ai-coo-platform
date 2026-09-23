@@ -1636,6 +1636,50 @@ probaron contra las 168 del repo en un Postgres local, **no contra producción**
 
 ---
 
+## Clientes de clientes (growth partners) — 2026-09-23 🔒⭐
+
+Requiere la migración `20260923100000_clientes_de_clientes.sql` aplicada.
+
+### A. Sólo Limitless lo ve 🔒⭐
+
+1. Entrar con `limitless@limit-less.llc` → Clientes → abrir un cliente.
+   **Esperado:** a la derecha, la tarjeta «Clientes» y «Facturación del negocio».
+   No aparece «Información del cliente».
+2. Entrar con otra organización → abrir un cliente.
+   **Esperado:** ninguna de las dos tarjetas. En la tabla de clientes no hay
+   columna Facturación. En Campos personalizados → Clientes no aparecen
+   «Plantilla Limitless» ni «Apartado de la ficha».
+3. 🔒 Con la sesión de la otra organización, llamar a mano a
+   `createSubClientAction` o `saveClientRevenueAction`.
+   **Esperado:** «Esta función no está habilitada para tu organización.»
+4. ⚠️ Si en el paso 1 no aparece nada, el mail no coincidió en la migración.
+   Revisar `enabled_add_ons` y prenderlo desde Super Admin.
+
+### B. Cargar clientes del cliente 🤖
+
+1. «+ Agregar» → nombre «Ana» + `@ana.coach`.
+   **Esperado:** aparece Ana con el link `@ana.coach` a `https://instagram.com/ana.coach`.
+2. Agregar un segundo. **Esperado:** aparecen pastillas para elegir entre los dos.
+3. Con Ana elegida → lápiz de las solapas → cargar Avatar y GHL → Guardar.
+   **Esperado:** Marketing 1/7, Sistemas 1/8. Al elegir el otro, sus solapas
+   están vacías.
+4. Recargar la página. **Esperado:** lo cargado sigue ahí.
+5. Lápiz del nombre → cambiar el link por `juan perez` (con espacio).
+   **Esperado:** error «Pegá el link de Instagram o el usuario».
+6. Borrar un cliente. **Esperado:** pide confirmación y desaparece.
+
+### C. Datos cargados antes ⭐
+
+1. Si un growth partner tenía Marketing / Ventas / Sistemas cargados en él, la
+   tarjeta muestra «Hay N datos… cargados en {nombre}».
+2. Elegir un cliente → «Pasarlos a {cliente}».
+   **Esperado:** el aviso desaparece y los datos aparecen en ese cliente.
+3. Repetir con un destino que ya tenía uno de esos campos cargado.
+   **Esperado:** lo del destino no se pisa. El aviso sigue mostrando ese dato,
+   para pasarlo a otro cliente.
+
+---
+
 ## Regla permanente para Claude Code
 
 > Cada vez que construyas una unidad de integración o una feature que **no puedas
