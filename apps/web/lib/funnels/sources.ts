@@ -12,7 +12,7 @@
  * Sólo se listan fuentes respaldadas por tablas que existen hoy en Limitless. Las
  * etapas que dependen de integraciones faltantes (webinar, VSL) no tienen fuente
  * y por diseño quedan en "sin datos" hasta que esas integraciones existan — ver
- * docs/FUNNELS_ARCHITECTURE.md §7.
+ * docs/specs/FUNNELS_ARCHITECTURE.md §7.
  */
 
 import type { SpineStageId } from "./spine";

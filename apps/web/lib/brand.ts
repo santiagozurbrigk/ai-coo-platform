@@ -6,7 +6,7 @@
  * plantillas de email: importar `brand` y usar el campo que corresponda.
  *
  * @see apps/web/public/brand/README.md — assets de imagen
- * @see DESIGN.md — paleta y tipografía
+ * @see docs/diseno/design-system.md — paleta y tipografía
  */
 
 export const brand = {

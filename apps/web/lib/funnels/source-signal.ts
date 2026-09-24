@@ -5,7 +5,7 @@
  * tabla que nunca se pobló** devolvía `0`, y el módulo lee ese cero como una
  * rotura de negocio.
  *
- * Es el modo de falla de docs/FUNNELS_ARCHITECTURE.md §9.1 entrando por otra
+ * Es el modo de falla de docs/specs/FUNNELS_ARCHITECTURE.md §9.1 entrando por otra
  * puerta. El diseño contemplaba "sin binding → null" pero no este caso
  * intermedio, que es el que más se da en una org recién configurada.
  *

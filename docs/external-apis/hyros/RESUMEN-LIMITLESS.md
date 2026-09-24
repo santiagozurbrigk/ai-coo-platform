@@ -1,7 +1,7 @@
 # Hyros para Limitless — lo que hace falta para la unidad I-8
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §6](../../API_DOCS_PENDIENTES.md) dejó abiertas.
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas.
 
 **Capturado el 2026-08-30.** La referencia sale del spec OpenAPI 3.1 **v1.40** que
 Hyros publica en `api-docs.hyros.com/ai-context/`, no del documento viejo de Apiary
@@ -93,6 +93,15 @@ Variantes: `/attribution/ad-account` (agregado por cuenta publicitaria),
 
 **M05** (`attributed_revenue_by_source`) = este endpoint con `fields=revenue` (o
 `total_revenue`) al `level` que corresponda.
+
+> **Lo que hace hoy Limitless** (`apps/web/lib/hyros/client.ts`): no usa `/attribution`
+> sino **`/attribution/ad-account`**, con `ids` = una cuenta publicitaria, `currency=usd` y
+> `fields=revenue,leads,new_leads,new_visits,cost` (`HYROS_FUNNEL_FIELDS`), porque
+> `/attribution` exige ids a nivel campaña o adset. Las cuentas salen de
+> `GET /api/v1.0/ad-accounts` (`hyros_ad_accounts`) y el reporte se cachea en
+> `hyros_attribution_cache`. `/leads/journey` sólo lo usa `getHyrosLeadJourneyAction`
+> (`app/hyros/actions.ts`), que ninguna pantalla llama; `countHyrosLeadsInPeriod` (`/leads`
+> con `fromDate`/`toDate`) tampoco tiene llamadas, y **no hay ruta de webhooks de Hyros**.
 **M06** (`attributed_leads_by_source`) = el mismo con `fields=leads,new_leads`.
 **M01** (ad spend) = `fields=cost`, que además hace innecesario cruzar con la API de
 cada plataforma.
@@ -198,7 +207,7 @@ del cliente sin que Limitless tenga que replicar cada reporte.
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Que la firma `X-Hyros-Signature` valide** con `t.<body>` y HMAC-SHA256 hex.
 2. **Los dos formatos de fecha** de `creationDate` (ISO vs legacy), que la doc declara

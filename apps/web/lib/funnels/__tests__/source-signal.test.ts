@@ -3,7 +3,7 @@
  *
  * Cierra el agujero que quedó abierto en la Fase 1: una fuente bindeada a una
  * tabla que nunca se pobló devolvía `0`, y el módulo lee ese cero como rotura de
- * negocio (docs/FUNNELS_ARCHITECTURE.md §9.1).
+ * negocio (docs/specs/FUNNELS_ARCHITECTURE.md §9.1).
  */
 
 import { describe, it, expect } from "vitest";

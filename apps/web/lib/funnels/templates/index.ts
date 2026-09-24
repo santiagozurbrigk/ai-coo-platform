@@ -9,7 +9,7 @@
  *   3. Correr el validador (`validateAllTemplates`).
  *
  * Eso es todo. Si hace falta tocar un componente, la arquitectura falló
- * (docs/FUNNELS_ARCHITECTURE.md §0).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §0).
  */
 
 import type { FunnelTemplate } from "../types";

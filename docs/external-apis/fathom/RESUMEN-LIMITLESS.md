@@ -10,15 +10,22 @@
 
 ## El hallazgo que cambia el diseño del módulo de llamadas
 
-Limitless clasifica las llamadas leyendo el **título**. El 86% de los títulos reales
-son `"Impromptu Google Meet Meeting"`, así que la clasificación no tiene de dónde
-agarrarse y la asociación a cliente falla en el 100% de los casos.
+> **Estado al 2026-09-23 (commit 038caca):** este hallazgo ya se aplicó. `lib/fathom/api.ts`
+> parsea `calendar_invitees` (`lib/fathom/invitees.ts`) y `meeting_type`; `lib/fathom/sync.ts`
+> los guarda en `fathom_calls.calendar_invitees` / `fathom_calls.meeting_type`, y el pipeline
+> (`lib/fathom/process-call.ts`) clasifica por mail de invitado (`resolve-sales-call.ts`,
+> `classify-recording.ts`); el título quedó sólo como respaldo (`associate.ts`). `meeting_type`
+> se guarda pero **nada lo usa todavía** (la tabla `fathom_meeting_type_map` existe sin código que
+> la lea). Lo que sigue es el diagnóstico del 2026-09-01, que motivó el cambio.
 
-**La API ya devuelve lo que hace falta, y Limitless lo está descartando.**
-`lib/fathom/api.ts` parsea sólo título, fechas y transcript; todo lo demás de la
-respuesta se tira.
+Al 2026-09-01, Limitless clasificaba las llamadas leyendo el **título**. El 86% de los títulos reales
+eran `"Impromptu Google Meet Meeting"`, así que la clasificación no tenía de dónde
+agarrarse y la asociación a cliente fallaba en el 100% de los casos.
 
-### `GET /meetings` — campos que hoy no se leen
+**La API ya devolvía lo que hacía falta, y Limitless lo descartaba**: `lib/fathom/api.ts`
+parseaba sólo título, fechas y transcript.
+
+### `GET /meetings` — campos que antes no se leían
 
 | Campo | Qué resuelve |
 |---|---|
@@ -55,12 +62,13 @@ improvisadas, que son las que no tienen tipo asignado.
 
 | Método | Path | Uso en Limitless |
 |---|---|---|
-| GET | `/meetings` | Sync principal. **Hoy se ignoran `calendar_invitees` y `meeting_type`.** |
+| GET | `/meetings` | Sync de la org (cron) y del miembro (`syncMemberFathomAction`), con `include_transcript` e `include_crm_matches` (`lib/fathom/api.ts`). Se leen `calendar_invitees` y `meeting_type`. También sirve para validar una key (`validateFathomApiKey`) y adivinar el mail de la cuenta de un miembro (`guessFathomAccountEmail`). |
+| GET | `/meetings/{id}` | **No figura en la doc bajada.** `fetchFathomMeetingTitle` (`lib/fathom/api.ts`) lo usa con la key de la org para refrescar el título antes de procesar; si falla, devuelve `null` y se sigue con el título guardado. |
 | GET | `/meeting_types` | Sin usar. Base del mapeo tipo → propósito de la Fase 1. |
-| GET | `/recordings/{id}/summary` | Resumen. Acepta `destination_url` para modo asíncrono. |
-| GET | `/recordings/{id}/transcript` | Transcript. Mismo modo asíncrono. |
-| POST | `/webhooks` | Alta de webhook. Requiere al menos uno de `include_transcript`, `include_crm_matches`, `include_summary`, `include_action_items`. |
-| DELETE | `/webhooks/{id}` | Baja. |
+| GET | `/recordings/{id}/summary` | Sin usar. Resumen. Acepta `destination_url` para modo asíncrono. |
+| GET | `/recordings/{id}/transcript` | Sin usar. Transcript. Mismo modo asíncrono. |
+| POST | `/webhooks` | Alta del webhook por miembro (`createFathomWebhook` en `lib/fathom/webhooks.ts`, pide transcript, summary, action items y CRM matches). Requiere al menos uno de `include_transcript`, `include_crm_matches`, `include_summary`, `include_action_items`. |
+| DELETE | `/webhooks/{id}` | Baja, al desconectar la key de un miembro (`lib/fathom/webhooks.ts`). |
 | GET | `/teams`, `/team_members`, `/users` | Sin usar. `users` trae permisos. |
 | POST | `/recordings/{id}/download` | Genera archivo descargable; se consulta con `download_id`. |
 
@@ -74,5 +82,8 @@ improvisadas, que son las que no tienen tipo asignado.
 - **Que las orgs tengan tipos de reunión configurados.** Si nadie los usa en
   Fathom, `meeting_type` viene `null` y el mapeo no tiene de dónde partir.
 - **Si el payload del webhook trae los mismos campos que `/meetings`.** El
-  markdown de `new-meeting-content-ready` no detalla el cuerpo. Si no los trae,
-  el webhook sigue necesitando la consulta posterior que ya hace el pipeline.
+  markdown de `new-meeting-content-ready` no detalla el cuerpo. Hoy el webhook por
+  miembro (`app/api/integrations/fathom/webhook/[token]/route.ts`) no interpreta el cuerpo:
+  intenta guardar sólo el id de la grabación y el payload crudo en una columna `raw_payload`
+  que `fathom_calls` no tiene, y el pipeline no vuelve a consultar la reunión (sólo el título, y
+  con la key de la org). Ver `[FATHOM-WEBHOOK-MIEMBRO-ROTO]` en `PENDIENTES.md`.

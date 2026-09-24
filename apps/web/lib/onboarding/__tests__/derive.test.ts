@@ -4,7 +4,7 @@
  * El grupo que más importa es "derivar, no guardar": el progreso tiene que
  * salir de los datos reales, así que una org que ya tenía todo cargado aparece
  * completa sin haber pasado nunca por el wizard, y borrar un dato reabre su
- * ítem. Ver docs/ONBOARDING_PLAN.md §3.
+ * ítem. Ver docs/specs/ONBOARDING_PLAN.md §3.
  */
 
 import { describe, it, expect } from "vitest";

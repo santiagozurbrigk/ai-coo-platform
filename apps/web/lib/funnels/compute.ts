@@ -8,7 +8,7 @@
  * No toca Supabase ni la red a propósito — todo el IO vive en `resolve.ts`. Esta
  * separación es la que hace que el cálculo sea testeable sin base de datos.
  *
- * REGLA CENTRAL (docs/FUNNELS_ARCHITECTURE.md §9.1): `null` significa SIN DATOS y
+ * REGLA CENTRAL (docs/specs/FUNNELS_ARCHITECTURE.md §9.1): `null` significa SIN DATOS y
  * se propaga. Nunca se sustituye por `0`. Un cero real es un dato — y un
  * problema de negocio; un `null` es un hueco de instrumentación.
  */

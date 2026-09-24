@@ -2,7 +2,7 @@
 
 /**
  * Gate de onboarding: los tres pasos que una organización nueva no puede
- * saltear. Ver docs/ONBOARDING_PLAN.md §1.
+ * saltear. Ver docs/specs/ONBOARDING_PLAN.md §1.
  *
  * Cada paso guarda contra las Server Actions que ya existían, así que salir a
  * mitad de camino no pierde lo cargado: al volver, el paso aparece completo y

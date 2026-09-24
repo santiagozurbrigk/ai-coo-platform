@@ -51,7 +51,7 @@ export function validateTemplate(template: FunnelTemplate): ValidationIssue[] {
   }
 
   if (template.accentToken.startsWith("#")) {
-    push("accentToken", "Debe ser un token del design system, no un hex (ver DESIGN.md).");
+    push("accentToken", "Debe ser un token del design system, no un hex (ver docs/diseno/design-system.md).");
   }
 
   // ─── IDs de step ────────────────────────────────────────────────────────────

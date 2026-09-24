@@ -1,7 +1,7 @@
 # WebinarJam / EverWebinar para Limitless — lo que hace falta para la unidad I-5
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §5](../../API_DOCS_PENDIENTES.md) dejó abiertas.
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas.
 
 **Capturado el 2026-08-30** del centro de ayuda de WebinarJam.
 
@@ -31,9 +31,10 @@ Son **la misma API con dos prefijos**: `/webinarjam/*` para webinars en vivo y
 respuesta son idénticos; sólo cambia el prefijo. Los artículos de EverWebinar repiten
 literalmente los de WebinarJam.
 
-Para Limitless eso significa que **la integración se construye una vez** y el prefijo es un
-parámetro de configuración por instancia de embudo. No hay que averiguar cuál usa cada
-cliente antes de construir; sí hay que dejarlo elegible.
+Para Limitless eso significa que **la integración se construye una vez**. Así quedó:
+`lib/webinarjam/sync.ts` consulta **los dos prefijos** en cada sync de catálogo y guarda
+el producto en cada fila (`webinarjam_webinars.product`), así que no hay que configurar
+cuál usa cada cliente.
 
 ---
 
@@ -85,6 +86,11 @@ Y además se puede filtrar del lado del servidor con el parámetro `attended_liv
 **M13** (`webinar_registrants`) = todos, por `signup_date`.
 **M14** (`webinar_attendees`, vivo + replay) = `attended_live=1` unido a `attended_replay=1`.
 
+> En Limitless (`lib/funnels/resolve.ts`) M13 y M14 se cuentan sobre las filas ya
+> bajadas a `webinarjam_registrants` (se trae todo con `date_range` = all-time y se
+> recorta por `signup_at`, `live_watched_at` y `replay_watched_at`), no con el filtro
+> `attended_live=1` del servidor.
+
 ---
 
 ## 4. Stick rate (M15) — **sí, y mejor de lo esperado**
@@ -101,8 +107,11 @@ Hay **dos** formas, y conviene usar la segunda:
    *"los que asistieron y se fueron después de ese segundo"*. Eso **es** M15
    (`webinar_stayed_to_pitch`), sin tener que procesar la lista entera.
 
-El segundo del pitch no lo da la API — es una configuración de la instancia de embudo
-en Limitless. (Contraste con VTurb, que sí publica el `pitch_time` de cada player.)
+El segundo del pitch no lo da la API — en Limitless se configura **por webinar**
+(`webinarjam_webinars.pitch_second`, desde el panel de WebinarJam en Integraciones). El
+sync pide `attended_live=4` con ese segundo y marca `stayed_past_pitch` en cada
+registrante; sin segundo configurado queda `null`. (Contraste con VTurb, que sí publica
+el `pitch_time` de cada player.)
 
 ---
 
@@ -150,12 +159,14 @@ usar el parámetro `date_range` (en `/registrants`) o el campo `date` (en `/regi
 
 Consecuencia para Limitless: **una instancia de embudo no se identifica sólo con
 `schedule_id`**. Hay que guardar `webinar_id` + `schedule_id` + la fecha de la sesión.
+Hoy `webinarjam_registrants` es única por (org, producto, webinar, `schedule_external_id`,
+email) y guarda las fechas por registrante; el embudo se ata al webinar, no a una sesión.
 
 ---
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Conseguir la API key**, que requiere aprobación previa de WebinarJam — es el
    primer bloqueo y conviene pedirla antes de empezar a construir.
@@ -164,4 +175,5 @@ Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
 3. **Qué devuelve `attended_live` como valor de respuesta** — el parámetro de filtro
    usa 0-4, pero el campo de respuesta se declara `integer` sin tabla de valores.
 4. **Si `revenue_live` viene con símbolo de moneda** (se declara `string`, no `number`).
-5. **Cuál de los dos productos usa cada cliente**, para configurar el prefijo.
+5. ~~Cuál de los dos productos usa cada cliente~~ — ya no hace falta: el sync consulta
+   los dos prefijos.

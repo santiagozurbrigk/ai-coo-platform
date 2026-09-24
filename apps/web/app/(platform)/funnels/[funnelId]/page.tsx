@@ -22,7 +22,7 @@ import { paths } from "@/routes/paths";
  *
  * Página GENÉRICA: renderiza cualquier plantilla. Si al agregar un tipo de
  * embudo hiciera falta tocar este archivo, la arquitectura falló
- * (docs/FUNNELS_ARCHITECTURE.md §0).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §0).
  *
  * ⭐ **El orden de la página es una decisión, no una lista.** De arriba abajo:
  *

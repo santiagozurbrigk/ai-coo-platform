@@ -1,65 +1,13 @@
-MANDATORY RULE
+# Reglas del proyecto (Cursor)
 
-Before every task, read:
+Las reglas de trabajo y las convenciones del repo están en [`CLAUDE.md`](../../CLAUDE.md), y valen igual
+para Cursor. Antes de cada tarea:
 
-/docs/PROJECT\_CONSTITUTION.md  
-/docs/SYSTEM\_ARCHITECTURE.md  
-/docs/AI\_ENGINE\_SPEC.md  
-/docs/UI\_UX\_SPEC.md
+1. Leé `CLAUDE.md` (reglas, convenciones, checklist).
+2. Leé [`docs/README.md`](../../docs/README.md) y el doc del área que vas a tocar (`docs/areas/<área>.md`).
+3. Mirá la sección de esa área en `PENDIENTES.md`.
 
-Treat them as the source of truth.
+Si un documento contradice al código, manda el código: corregí el documento en el mismo cambio.
 
-Never make architectural decisions without checking those documents first.
-
-Always read:
-
-/docs/PROJECT\_CONSTITUTION.md  
-/docs/SYSTEM\_ARCHITECTURE.md  
-/docs/AI\_ENGINE\_SPEC.md  
-/docs/UI\_UX\_SPEC.md
-
-before generating code.
-
-Never create features that violate the product vision.
-
-Prioritize:  
-\- simplicity  
-\- scalability  
-\- AI-first architecture  
-\- visual-first UX
-
-Always use TypeScript.
-
-Always follow the established architecture.
-
-Before touching `apps/web` components or routes, read `.cursor/rules/nextjs-rsc-boundaries.md` and follow RSC import rules (no client exports in `shared/index.ts`; no barrel imports from `app/**`).
-
-CURRENT PHASE
-
-PHASE 0
-
-Frontend Visualization Phase
-
-Build:  
-\- Design System  
-\- Components  
-\- Screens  
-\- Navigation  
-\- Mock Data
-
-Do NOT build:  
-\- Backend  
-\- APIs  
-\- Database  
-\- Claude integrations  
-\- Authentication  
-\- Redis  
-\- Queue Workers
-
-Priority:  
-1\. UX  
-2\. Visual Design  
-3\. Information Architecture  
-4\. Navigation  
-5\. Reusable Components
-
+Antes de tocar componentes o rutas de `apps/web`, seguí `.cursor/rules/nextjs-rsc-boundaries.md`
+(reglas de imports entre Server y Client Components).

@@ -18,7 +18,7 @@ const UNBOUND = "__sin_fuente__";
  *
  * Dejar un paso sin fuente es una opción legítima y explícita, no un olvido: el
  * paso resuelve como "sin datos", que es distinto de cero
- * (docs/FUNNELS_ARCHITECTURE.md §9.1).
+ * (docs/specs/FUNNELS_ARCHITECTURE.md §9.1).
  *
  * Cada fila muestra además qué herramienta le asigna el documento fuente a ese
  * paso, para que se vea cuándo lo que hay conectado no es lo que el estándar

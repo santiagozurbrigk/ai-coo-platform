@@ -5,7 +5,7 @@
  *
  * Todo lo que muestra sale de las tablas reales, no de banderas guardadas: un
  * ítem aparece tildado aunque se haya resuelto por fuera del checklist, y se
- * reabre si el dato desaparece (docs/ONBOARDING_PLAN.md §3).
+ * reabre si el dato desaparece (docs/specs/ONBOARDING_PLAN.md §3).
  */
 
 import { useTransition } from "react";

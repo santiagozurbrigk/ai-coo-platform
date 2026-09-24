@@ -5,7 +5,7 @@
  * qué frecuencia se mira cada número.
  *
  * `otcStatus` hace legible por máquina el track de integraciones de
- * docs/FUNNELS_ARCHITECTURE.md §7. Sirve para que la UI pueda decir "esta etapa
+ * docs/specs/FUNNELS_ARCHITECTURE.md §7. Sirve para que la UI pueda decir "esta etapa
  * necesita WebinarJam y no está conectado" en vez de mostrar un cero, que es
  * exactamente el riesgo de §9.1.
  */

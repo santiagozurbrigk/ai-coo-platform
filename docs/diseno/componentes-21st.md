@@ -2,6 +2,10 @@
 
 > Documento de referencia para incorporar cuatro componentes de [21st.dev](https://21st.dev) al monorepo Limitless.
 > Relevado el **2026-08-30** contra el repo en la rama `Claude-New-Features`.
+>
+> **Estado al 2026-09-23:** relevamiento sin decidir, ver `[UI-21ST]` en `PENDIENTES.md`. La ficha de la notch
+> nav ya no aplica: se implementó en `components/navigation/notch-nav/`. Las menciones a reglas de `CLAUDE.md`
+> son de la versión de esa fecha.
 
 ---
 
@@ -117,7 +121,7 @@ Antes de las fichas, el contexto que decide cuánto trabajo es cada integración
 | `class-variance-authority` | ✅ `^0.7.1` (en `@ai-coo/ui`) |
 | `@radix-ui/react-tabs`, `@radix-ui/react-dropdown-menu` | ✅ en `@ai-coo/ui` |
 
-**Conclusión: el theming va a funcionar sin tocar nada.** Cualquier componente que use `bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, `bg-accent`, `ring-ring` toma los colores de Limitless (primary `#7C3AED`) automáticamente.
+**Conclusión: el theming va a funcionar sin tocar nada.** Cualquier componente que use `bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, `bg-accent`, `ring-ring` toma los colores de Limitless (primary `#E15D12`, naranja de marca) automáticamente.
 
 ### 2.2 Lo que falta ❌
 
@@ -131,7 +135,7 @@ Antes de las fichas, el contexto que decide cuánto trabajo es cada integración
 
 ### 2.3 ⚠️ Tailwind v3, no v4
 
-`apps/web/tailwind.config.ts` usa **Tailwind CSS 3.4.17**. Los componentes de 21st.dev publicados en 2026 asumen mayormente **v4**. Clases que aparecen en estos demos y **no existen en v3**:
+`apps/web/tailwind.config.ts` usa **Tailwind CSS 3.4** (`^3.4.17` en `package.json`; el lockfile resuelve 3.4.19). Los componentes de 21st.dev publicados en 2026 asumen mayormente **v4**. Clases que aparecen en estos demos y **no existen en v3**:
 
 | Clase v4 | Equivalente v3 |
 |---|---|
@@ -371,7 +375,7 @@ export default function DropdownRangeDatePickerDemoPage() {
 
 - `/marketing/anuncios` — `getMarketingAdsAction` ya recibe rango (`fromDate` / `toDate` van a `listAds` de Zernio)
 - `/finance/*` — gastos y facturación por período
-- `/executive-reports` — selección de ventana del reporte
+- `/executive-reports/history` — selección de ventana del reporte
 - `/sales/closing` — llamadas de cierre por rango
 
 Ajustes:
@@ -629,7 +633,7 @@ Pegar tal cual en una sesión de Claude Code / Cursor sobre este repo. Están es
 ### 4.1 Prompt genérico — bajar cualquiera de los cuatro
 
 ```
-Leé CLAUDE.md, CHANGES.md y docs/COMPONENTES_21ST.md antes de tocar nada.
+Leé CLAUDE.md, CHANGES.md y docs/diseno/componentes-21st.md antes de tocar nada.
 
 Quiero integrar el componente <SLUG> de 21st.dev a apps/web.
 
@@ -659,7 +663,7 @@ No crees el PR. No commitees sin que te lo pida.
 
 ```
 Integrá arunachalam/adaptive-notch-navigation-bar siguiendo el prompt genérico
-de docs/COMPONENTES_21ST.md §4.1, con estas particularidades:
+de docs/diseno/componentes-21st.md §4.1, con estas particularidades:
 
 - No arrastra dependencias de registry, así que se puede bajar tal cual.
 - CLAUDE.md prohíbe navegación horizontal en el área (platform) — el sidebar
@@ -676,7 +680,7 @@ de docs/COMPONENTES_21ST.md §4.1, con estas particularidades:
 
 ```
 Integrá ruixen.ui/dropdown-range-date-picker siguiendo el prompt genérico
-de docs/COMPONENTES_21ST.md §4.1, con estas particularidades:
+de docs/diseno/componentes-21st.md §4.1, con estas particularidades:
 
 - Instalá antes: pnpm --filter @ai-coo/web add date-fns react-day-picker \
   @radix-ui/react-popover @radix-ui/react-select
@@ -706,7 +710,7 @@ son Card, Badge y DropdownMenu de ReUI, que duplicarían las nuestras.
 
 En vez de eso:
 1. Leé packages/ui/src/components/metric-card.tsx, metric-stat.tsx y metric-band.tsx.
-2. Comparalos con el JSX del demo en docs/COMPONENTES_21ST.md §3.3.
+2. Comparalos con el JSX del demo en docs/diseno/componentes-21st.md §3.3.
 3. Lo único que ese block agrega sobre lo nuestro es el menú "⋯" por tarjeta
    (Settings / Alerta / Fijar / Compartir / Quitar).
 4. Portá ESE menú a MetricCard como prop opcional `actions?: ReactNode`,

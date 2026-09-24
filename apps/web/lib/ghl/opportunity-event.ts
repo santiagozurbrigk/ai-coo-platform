@@ -18,7 +18,7 @@
  *    Es la vía que no necesita app del Marketplace, y **su payload no está
  *    documentado**: lo arma quien configura el workflow. Por eso el normalizador
  *    busca los campos también bajo `data`, `customData` y `opportunity`.
- *    Anotado en docs/API_DOCS_PENDIENTES.md — hay que fijarlo con el primer
+ *    Anotado en `docs/integraciones/apis-sin-documentacion.md` — hay que fijarlo con el primer
  *    payload real.
  *
  * Un evento del que no se puede sacar el id de la oportunidad se devuelve como

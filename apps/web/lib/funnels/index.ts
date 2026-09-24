@@ -1,7 +1,7 @@
 /**
  * lib/funnels — motor de embudos.
  *
- * Ver docs/FUNNELS_ARCHITECTURE.md §10 para el plan de fases.
+ * Ver docs/specs/FUNNELS_ARCHITECTURE.md §10 para el plan de fases.
  *
  * `resolve.ts` NO se re-exporta acá: hace IO contra Supabase y sólo se importa
  * desde Server Components y Server Actions. Si entrara por este barrel, un

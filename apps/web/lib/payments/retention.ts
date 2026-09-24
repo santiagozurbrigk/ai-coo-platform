@@ -17,7 +17,7 @@
  * ⚠️ **Las definiciones son una interpretación, no una cita.** El documento
  * escribe la fórmula `LTV = AOV × purchases × retention` y no define qué cuenta
  * como "purchases" ni como "retention". Lo que se eligió acá, y por qué, está en
- * cada función. Va a `docs/PLAN_VERIFICACION.md` para contrastarlo contra el
+ * cada función. Va a `docs/operacion/verificacion-manual.md` para contrastarlo contra el
  * número que el cliente ya usa.
  */
 

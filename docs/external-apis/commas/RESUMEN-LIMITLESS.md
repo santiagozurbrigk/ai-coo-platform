@@ -1,7 +1,7 @@
 # Commas (ex Fanbasis) para Limitless — verificación del mapeo de la unidad I-2
 
 Responde, una por una, las preguntas que
-[`docs/API_DOCS_PENDIENTES.md` §2](../../API_DOCS_PENDIENTES.md) dejó abiertas sobre
+[`docs/integraciones/apis-sin-documentacion.md`](../../integraciones/apis-sin-documentacion.md) dejó abiertas sobre
 Fanbasis, y marca qué hay que **corregir en el código ya escrito**.
 
 **Capturado el 2026-08-30** de `commasdocs.com`.
@@ -50,10 +50,12 @@ const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex
 No hay timestamp en la firma, así que **no hay protección de replay del lado del
 proveedor** — la deduplicación por id de evento del lado de Limitless es la única defensa.
 
-> ✅ `verify-signature.ts` ya probaba `x-webhook-signature` entre los nombres
-> candidatos, así que la cabecera es la correcta. Lo que hay que confirmar es el resto:
-> **hex, sobre el body crudo, con el secreto sin transformar**, y que **no** se aplique
-> el esquema `{id}.{timestamp}.{body}` de Whop, que acá no corresponde.
+> ✅ Hoy el código lo hace así: `app/api/webhooks/fanbasis/route.ts` lee
+> `x-webhook-signature` (primera de una lista de cabeceras candidatas) y
+> `verifyHmacWebhook` (`lib/payments/verify-signature.ts`) calcula HMAC-SHA256 sobre el
+> body crudo con el secreto sin transformar, compara en tiempo constante contra hex (y
+> también base64, por tolerancia) y la ruta responde `401` si no coincide. **No** usa el
+> esquema `{id}.{timestamp}.{body}` de Whop. Falta confirmarlo con un evento real.
 
 ---
 
@@ -94,10 +96,9 @@ Esto es lo **opuesto** a Whop, que manda decimales en la unidad de la moneda. Lo
 proveedores de la unidad I-2 usan convenciones distintas, así que la regla no puede
 ser una heurística global.
 
-> ✅ `normalize.ts` divide por 100 las claves que terminan en `_cents`, y `amount_cents`
-> está en `KEYS.amount`. Para Commas **funciona**. Lo que conviene es dejar la regla
-> explícita por proveedor en vez de depender del sufijo, para que un campo nuevo sin
-> sufijo no se cuele como si fuera unidad.
+> ✅ `lib/payments/normalize.ts` ya fija la regla por proveedor, no por sufijo: la config
+> de Commas declara `amountUnit: "cents"` y `amountKeys: ["amount_cents", "amount",
+> "total_price", "unit_price"]`, y `pickAmount` divide por 100 cualquiera de esas claves.
 
 ---
 
@@ -146,9 +147,11 @@ Entonces:
   **`contracted_value = amount_cents × auto_expire_after_x_periods`**. Es un plan de
   cuotas con final conocido, y M29 sale exacto.
 - Si es `null` → la suscripción es indefinida y **no existe un valor contratado**.
-  No hay que estimarlo: queda `unmapped`, no cero.
+  No hay que estimarlo: queda `unmapped`, no cero. (Así lo hace `resolveContractValue` en
+  `lib/payments/normalize.ts`: el `subscription.created` sin períodos queda `unmapped`.)
 
-También hay `subscription.free_trial_days`, que hay que descontar del primer período.
+También hay `subscription.free_trial_days`, que habría que descontar del primer período
+(hoy `normalize.ts` no lo lee).
 
 Los tipos de sesión, que definen cómo se cobra:
 
@@ -162,7 +165,7 @@ Los tipos de sesión, que definen cómo se cobra:
 
 ## Qué queda por verificar contra una cuenta real
 
-Va al [`PLAN_VERIFICACION.md`](../../PLAN_VERIFICACION.md):
+Va al [`docs/operacion/verificacion-manual.md`](../../operacion/verificacion-manual.md):
 
 1. **Que la firma valide** con HMAC-SHA256 hex sobre el body crudo y el secreto sin
    transformar — es lo único que bloquea toda la ruta.
